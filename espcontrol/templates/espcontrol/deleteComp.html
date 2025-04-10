@@ -1,0 +1,11 @@
+{% extends "espcontrol/base.html" %}
+
+
+{% block content %}
+    <form method="POST" class="text-center mb-4">
+        {% csrf_token %}
+        <button type="submit" name="reset" class="btn btn-danger">
+            🔄 Réinitialiser le compteur
+        </button>
+    </form>
+{% endblock %}

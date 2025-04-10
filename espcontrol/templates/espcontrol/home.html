@@ -1,0 +1,89 @@
+{% extends 'espcontrol/base.html' %}
+
+{% block title %}Page d'Accueil{% endblock %}
+
+{% block content %}
+    <p>Vous êtes connecté en tant que {{ request.user.username }}</p>
+    <a href="{% url 'logout' %}">Déconnexion</a>
+    <div class="jumbotron text-center">
+        <h1 class="display-4">Bienvenue dans notre Application IoT</h1>
+        <p class="lead">Contrôlez et gérez vos appareils IoT de manière simple et intuitive.</p>
+        <hr class="my-4">
+        <p>Découvrez nos différentes fonctionnalités IoT ci-dessous :</p>
+        <div class="iot-title">
+            <h1>Tableau de Bord IOT</h1>
+            <p>Bienvenue sur votre plateforme de contrôle intelligent</p>
+        </div>
+    </div>
+
+<div class="container">
+    <div class="row g-4">
+
+        <!-- Contrôle des Appareils -->
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'controle_appareils' %}" class="text-decoration-none">
+                <div class="card shadow text-center p-4">
+                    <i class="fas fa-plug"></i>
+                    <h5 class="mt-3">Contrôle des Appareils</h5>
+                    <p>Allumez ou éteignez vos dispositifs à distance</p>
+                </div>
+            </a>
+        </div>
+                <!-- Contrôle des Appareils -->
+                <div class="col-md-6 col-lg-4">
+                    <a href="{% url 'dashboard' %}" class="text-decoration-none">
+                        <div class="card shadow text-center p-4">
+                            <i class="fas fa-plug"></i>
+                            <h5 class="mt-3">Compteur</h5>
+                            <p>Comptez vos objets à distance</p>
+                        </div>
+                    </a>
+                </div>
+
+        <!-- Système d'irrigation automatique -->
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'irrigation_auto' %}" class="text-decoration-none">
+                <div class="card shadow text-center p-4">
+                    <i class="fas fa-tint"></i>
+                    <h5 class="mt-3">Irrigation Automatique</h5>
+                    <p>Gérez votre jardin intelligemment avec l'humidité du sol</p>
+                </div>
+            </a>
+        </div>
+
+        <!-- Poubelle intelligente -->
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'poubelle_intelligente' %}" class="text-decoration-none">
+                <div class="card shadow text-center p-4">
+                    <i class="fas fa-trash-alt"></i>
+                    <h5 class="mt-3">Poubelle Intelligente</h5>
+                    <p>Suivi du niveau de remplissage et gestion efficace</p>
+                </div>
+            </a>
+        </div>
+
+        <!-- Système de surveillance -->
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'surveillance' %}" class="text-decoration-none">
+                <div class="card shadow text-center p-4">
+                    <i class="fas fa-video"></i>
+                    <h5 class="mt-3">Système de Surveillance</h5>
+                    <p>Surveillez les activités en temps réel</p>
+                </div>
+            </a>
+        </div>
+
+        <!-- Données capteur DHT11 -->
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'dht_data' %}" class="text-decoration-none">
+                <div class="card shadow text-center p-4">
+                    <i class="fas fa-thermometer-half"></i>
+                    <h5 class="mt-3">Température & Humidité</h5>
+                    <p>Consultez les relevés du capteur DHT11</p>
+                </div>
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

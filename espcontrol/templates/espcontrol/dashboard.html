@@ -1,0 +1,91 @@
+{% extends "espcontrol/base.html" %}
+
+{% block content %}
+
+<div class="container mt-5">
+    <div class="text-center mb-4">
+        <h1 class="display-5">📊 Dashboard de Comptage</h1>
+        <p class="text-muted">Données mises à jour automatiquement toutes les 5 secondes</p>
+    </div>
+
+
+                    <!-- Contrôle des Appareils -->
+                    <div class="col-md-6 col-lg-4">
+                        <a href="{% url 'initCompteur' %}" class="text-decoration-none">
+                            <div class="card shadow text-center p-4">
+                                <i class="fas fa-plug"></i>
+                                <h5 class="mt-3">Reunitialiser</h5>
+                            </div>
+                        </a>
+                    </div>
+
+
+
+    <div class="table-responsive shadow rounded">
+        <table class="table table-hover align-middle text-center" id="comptage-table">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Compteur</th>
+                    <th>Horodatage</th>
+                </tr>
+            </thead>
+            <tbody class="table-group-divider">
+                <!-- Lignes insérées dynamiquement -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="text-center mt-3" id="loading" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Chargement...</span>
+        </div>
+        <p class="text-muted mt-2">Mise à jour des données...</p>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+    function fetchComptages() {
+        $("#loading").show();
+        $.ajax({
+            url: '/api/comptage/',
+            method: 'GET',
+            success: function(data) {
+                const tbody = $('#comptage-table tbody');
+                tbody.empty();
+
+                if (data.length === 0) {
+                    tbody.append(`
+                        <tr>
+                            <td colspan="3" class="text-muted">Aucune donnée disponible</td>
+                        </tr>
+                    `);
+                } else {
+                    data.forEach(comptage => {
+                        tbody.append(`
+                            <tr>
+                                <td>${comptage.id}</td>
+                                <td><strong>${comptage.compteur}</strong></td>
+                                <td>${new Date(comptage.timestamp).toLocaleString()}</td>
+                            </tr>
+                        `);
+                    });
+                }
+
+                $("#loading").hide();
+            },
+            error: function() {
+                $("#loading").hide();
+                console.error("Erreur lors du chargement des données.");
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        fetchComptages();
+        setInterval(fetchComptages, 5000);
+    });
+</script>
+
+{% endblock %}

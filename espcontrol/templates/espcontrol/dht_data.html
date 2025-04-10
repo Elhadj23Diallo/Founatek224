@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Données DHT11</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f8f8;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        h1 {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px 0;
+            margin: 0;
+        }
+        .content {
+            margin: 20px;
+        }
+        table {
+            width: 60%;
+            margin: 0 auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .alert {
+            color: red;
+            font-weight: bold;
+        }
+        .refresh-button {
+            margin-top: 20px;
+        }
+        .refresh-button button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+        .refresh-button button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Données du Capteur DHT11</h1>
+
+    <div class="content">
+        {% if dht_data %}
+            <table>
+                <tr>
+                    <th>Date & Heure</th>
+                    <th>Température (°C)</th>
+                    <th>Humidité (%)</th>
+                </tr>
+                {% for data in dht_data %}
+                <tr>
+                    <td>{{ data.created_at }}</td>
+                    <td>{{ data.temperature|floatformat:1 }}</td>
+                    <td>{{ data.humidity|floatformat:1 }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p class="alert">Aucune donnée disponible.</p>
+        {% endif %}
+
+        <div class="refresh-button">
+            <form method="get">
+                <button type="submit">Actualiser</button>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

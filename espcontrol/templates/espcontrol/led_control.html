@@ -1,0 +1,54 @@
+
+{% extends 'espcontrol/base.html' %}
+
+{% block title %}Page d'Accueil{% endblock %}
+
+{% block content %}
+    <style>
+        body {
+        background: linear-gradient(135deg, #4e54c8, #8f94fb);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        color: #fff;
+        }
+
+        h1 {
+        font-size: 2.5rem;
+        margin-bottom: 40px;
+        }
+
+        .toggle-btn {
+        background-color: #fff;
+        color: #4e54c8;
+        border: none;
+        padding: 15px 30px;
+        font-size: 1.2rem;
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        .toggle-btn:hover {
+        background-color: #e6e6e6;
+        transform: translateY(-2px);
+        }
+    </style>
+
+<h1>Contrôle de la LED</h1>
+<form method="POST">
+  {% csrf_token %}
+  <button type="submit" class="toggle-btn">
+    {% if led_status %}
+      Éteindre la LED
+    {% else %}
+      Allumer la LED
+    {% endif %}
+  </button>
+</form>
+{% endblock %}

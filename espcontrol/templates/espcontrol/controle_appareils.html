@@ -1,0 +1,51 @@
+{% extends 'espcontrol/base.html' %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h2 class="text-center">Contrôle des Appareils</h2>
+        <p class="text-center">Allumez ou éteignez vos dispositifs à distance.</p>
+        
+        <!-- Exemple de boutons pour contrôler les appareils -->
+        <div class="row justify-content-center">
+            <div class="col-md-4">
+                <div class="card shadow p-4 text-center">
+                    <h4>Frigo</h4>
+                    <p>État actuel : <span id="status-device1">Éteint</span></p>
+                    <button class="btn btn-success" id="btn-on-device1">Allumer</button>
+                    <button class="btn btn-danger" id="btn-off-device1">Éteindre</button>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow p-4 text-center">
+                    <h4>Appareil 2</h4>
+                    <p>État actuel : <span id="status-device2">Éteint</span></p>
+                    <button class="btn btn-success" id="btn-on-device2">Allumer</button>
+                    <button class="btn btn-danger" id="btn-off-device2">Éteindre</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ajouter d'autres appareils ou des informations spécifiques à afficher -->
+    </div>
+
+    <script>
+        // Logique pour changer l'état des appareils
+        document.getElementById("btn-on-device1").onclick = function() {
+            document.getElementById("status-device1").textContent = "Allumé";
+            // Ici, tu pourrais envoyer une requête à une API ou changer l'état du matériel via Django
+        };
+
+        document.getElementById("btn-off-device1").onclick = function() {
+            document.getElementById("status-device1").textContent = "Éteint";
+            // Ici aussi, tu pourrais envoyer une requête pour éteindre l'appareil via l'API Django
+        };
+
+        document.getElementById("btn-on-device2").onclick = function() {
+            document.getElementById("status-device2").textContent = "Allumé";
+        };
+
+        document.getElementById("btn-off-device2").onclick = function() {
+            document.getElementById("status-device2").textContent = "Éteint";
+        };
+    </script>
+{% endblock %}
