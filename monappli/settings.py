@@ -44,13 +44,12 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    )
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ]
 }
+
 
 
 MIDDLEWARE = [
@@ -134,6 +133,17 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
+
+
+
+# settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # Pour Gmail, sinon utiliser l'option appropriée
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'jallohelhadjabdul@gmail.com'  # Remplace par ton email
+EMAIL_HOST_PASSWORD = 'ambsrslpdtiuiejj'  # Remplace par ton mot de passe ou utilise une application spécifique
+DEFAULT_FROM_EMAIL = 'jallohelhadjabdul@gmail.com'
 
 
 # Static files (CSS, JavaScript, Images)

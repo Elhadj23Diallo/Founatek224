@@ -1,0 +1,170 @@
+{% extends 'espcontrol/base.html' %}
+{% load static %}
+{% block content %}
+
+<style>
+    body {
+        font-family: 'Roboto', sans-serif;
+        background-color: #1e293b;
+        color: #f1f5f9;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: auto;
+        padding: 40px 30px;
+        background-color: #0f172a;
+        border-radius: 15px;
+        box-shadow: 0 0 30px rgba(0,0,0,0.4);
+        text-align: center;
+    }
+
+    h1 {
+        font-size: 32px;
+        margin-bottom: 20px;
+        color: #22c55e;
+        font-weight: bold;
+    }
+
+    p.slogan {
+        font-size: 18px;
+        color: #a3b1c2;
+        margin-top: 10px;
+        font-style: italic;
+    }
+
+    .control-section {
+        background-color: #1e293b;
+        padding: 30px;
+        border-radius: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .relais-name {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #22c55e;
+    }
+
+    .toggle-btn {
+        background-color: #22c55e;
+        border: none;
+        padding: 12px 30px;
+        font-size: 18px;
+        color: white;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .toggle-btn.off {
+        background-color: #ef4444;
+    }
+
+    .toggle-btn:hover {
+        opacity: 0.9;
+        background-color: #34d399;
+    }
+
+    .toggle-btn:active {
+        background-color: #16a34a;
+    }
+
+    .footer {
+        margin-top: 30px;
+        color: #a3b1c2;
+        font-size: 14px;
+    }
+
+    .footer a {
+        color: #22c55e;
+        text-decoration: none;
+        font-weight: bold;
+    }
+
+    .description {
+        font-size: 14px;
+        color: #a3b1c2;
+        margin-top: 10px;
+    }
+</style>
+
+<div class="container">
+    <h1>Contrôle des Appareils - Maison Intelligente</h1>
+    <p class="slogan">L'avenir de votre maison est à portée de main. Maîtrisez l'énergie, simplifiez votre quotidien.</p>
+
+    <div class="control-section" id="section-climatiseur">
+        <div class="relais-name">Climatiseur 🌬️</div>
+        <button 
+            class="toggle-btn" 
+            onclick="toggleRelais(1)" 
+            id="btn-climatiseur"
+        >
+            Allumer
+        </button>
+        <div class="description">Gardez votre espace frais et agréable pendant toute l'année.</div>
+    </div>
+
+    <div class="control-section" id="section-frigo">
+        <div class="relais-name">Frigo ❄️</div>
+        <button 
+            class="toggle-btn" 
+            onclick="toggleRelais(2)" 
+            id="btn-frigo"
+        >
+            Allumer
+        </button>
+        <div class="description">Gardez vos aliments frais et vos boissons au froid.</div>
+    </div>
+
+    <div class="control-section" id="section-ventilateur">
+        <div class="relais-name">Ventilateur 🌬️</div>
+        <button 
+            class="toggle-btn" 
+            onclick="toggleRelais(3)" 
+            id="btn-ventilateur"
+        >
+            Allumer
+        </button>
+        <div class="description">Apportez une brise agréable pour un confort maximal.</div>
+    </div>
+
+    <div class="footer">
+        <p>Optimisez votre quotidien avec la domotique. Découvrez-en plus sur notre <a href="https://www.example.com" target="_blank">site web</a>.</p>
+    </div>
+</div>
+
+<script>
+function toggleRelais(relaisNum) {
+    const btn = document.getElementById('btn-' + (relaisNum === 1 ? 'climatiseur' : relaisNum === 2 ? 'frigo' : 'ventilateur'));
+    const isOn = !btn.classList.contains('off');  // Si ce n'est pas "off", alors c'est ON
+
+    // Envoi de la requête GET pour changer l'état du relais
+    fetch(`/toggle/relais/${relaisNum}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            if (isOn) {
+                btn.classList.add('off');
+                btn.innerText = "Éteindre";  // Change le texte en "Allumer"
+            } else {
+                btn.classList.remove('off');
+                btn.innerText = "Allumer";  // Change le texte en "Éteindre"
+            }
+            alert(data.message);  // Affiche le message de succès
+        } else {
+            alert('Erreur lors du contrôle du relais');  // Affiche l'erreur
+        }
+    })
+    .catch(error => {
+        console.error('Erreur :', error);  // Affiche l'erreur dans la console
+    });
+}
+</script>
+
+{% endblock %}

@@ -16,4 +16,3 @@ admin.site.register(DHTData, DHTDataAdmin)
 
 admin.site.register(LED)
 admin.site.register(Comptage)
-
