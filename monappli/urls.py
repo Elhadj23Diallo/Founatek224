@@ -27,11 +27,11 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', include('espcontrol.urls')),
         # Authentification JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/logout/', TokenBlacklistView.as_view(), name='token_blacklist'),
-    path('', include('espcontrol.urls')),
 ]
 
 if settings.DEBUG:  # Assurer que cela n'est ajouté qu'en mode développement

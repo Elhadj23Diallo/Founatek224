@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-1au1y&pvu8#)0-gn**c1g7f(fu+rqsw_ru#9tj($8bz_y@*1nd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.167.11']
+ALLOWED_HOSTS = ['founatek224.pythonanywhere.com', 'www.founatek224.pythonanywhere.com']
+
 
 
 # Application definition
@@ -44,12 +45,12 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    )
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # Désactive l'authentification par JWT
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Permet l'accès sans authentification
+    ]
 }
 
 

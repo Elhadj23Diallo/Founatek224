@@ -3,7 +3,7 @@ from .import views
 
 
 urlpatterns = [
-    path('login/', views.login_page, name='login'),
+    path('', views.login_page, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('compteur/', views.CompteurDataAPIView.as_view(), name='compteur-data'),
     path('home/', views.home, name='accueil'),  # Route pour la page d'accueil
