@@ -100,11 +100,7 @@
 
     <div class="control-section" id="section-climatiseur">
         <div class="relais-name">Climatiseur 🌬️</div>
-        <button
-            class="toggle-btn"
-            onclick="toggleRelais(1)"
-            id="btn-climatiseur"
-        >
+        <button class="toggle-btn" onclick="toggleRelais(1)" id="btn-climatiseur">
             Allumer
         </button>
         <div class="description">Gardez votre espace frais et agréable pendant toute l'année.</div>
@@ -112,11 +108,7 @@
 
     <div class="control-section" id="section-frigo">
         <div class="relais-name">Frigo ❄️</div>
-        <button
-            class="toggle-btn"
-            onclick="toggleRelais(2)"
-            id="btn-frigo"
-        >
+        <button class="toggle-btn" onclick="toggleRelais(2)" id="btn-frigo">
             Allumer
         </button>
         <div class="description">Gardez vos aliments frais et vos boissons au froid.</div>
@@ -124,11 +116,7 @@
 
     <div class="control-section" id="section-ventilateur">
         <div class="relais-name">Ventilateur 🌬️</div>
-        <button
-            class="toggle-btn"
-            onclick="toggleRelais(3)"
-            id="btn-ventilateur"
-        >
+        <button class="toggle-btn" onclick="toggleRelais(3)" id="btn-ventilateur">
             Allumer
         </button>
         <div class="description">Apportez une brise agréable pour un confort maximal.</div>
@@ -140,41 +128,39 @@
 </div>
 
 <script>
-function toggleRelais(relaisNum) {
-    const btn = document.getElementById('btn-' + (relaisNum === 1 ? 'climatiseur' : relaisNum === 2 ? 'frigo' : 'ventilateur'));
-    const isOn = !btn.classList.contains('off');  // Si ce n'est pas "off", alors c'est ON
+    function toggleRelais(relaisNum) {
+        const btn = document.getElementById('btn-' + (relaisNum === 1 ? 'climatiseur' : relaisNum === 2 ? 'frigo' : 'ventilateur'));
+        const isOn = !btn.classList.contains('off');  // Si ce n'est pas "off", alors c'est ON
 
-    console.log(`Tentative de contrôle du relais ${relaisNum}`);  // Log l'état du relais
+        console.log(`Tentative de contrôle du relais ${relaisNum}`);
 
-    // Envoi de la requête GET pour changer l'état du relais
-    fetch(`https://founatek224.pythonanywhere.com/toggle/relais/${relaisNum}/`)
-    .then(response => {
-        console.log(`Réponse du serveur pour relais ${relaisNum}: ${response.status}`);
-        return response.json();
-    })
-    .then(data => {
-        console.log(`Données reçues : ${JSON.stringify(data)}`);
+        // Envoi de la requête GET pour changer l'état du relais
+        fetch(`/toggle/relais/${relaisNum}/`)
+        .then(response => {
+            console.log(`Réponse du serveur pour relais ${relaisNum}: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log(`Données reçues : ${JSON.stringify(data)}`);
 
-        if (data.status === 'success') {
-            if (isOn) {
-                btn.classList.add('off');
-                btn.innerText = "Éteindre";  // Change le texte en "Allumer"
+            if (data.status === 'success') {
+                if (isOn) {
+                    btn.classList.add('off');
+                    btn.innerText = "Éteindre";  // Change le texte en "Éteindre"
+                } else {
+                    btn.classList.remove('off');
+                    btn.innerText = "Allumer";  // Change le texte en "Allumer"
+                }
+                alert(data.message);  // Affiche le message de succès
             } else {
-                btn.classList.remove('off');
-                btn.innerText = "Allumer";  // Change le texte en "Éteindre"
+                alert('Erreur lors du contrôle du relais');
             }
-            alert(data.message);  // Affiche le message de succès
-        } else {
-            alert('Erreur lors du contrôle du relais');  // Affiche l'erreur
-        }
-    })
-    .catch(error => {
-        console.error('Erreur de réseau :', error);  // Affiche l'erreur dans la console
-        alert('Une erreur s\'est produite lors du contrôle du relais.');
-    });
-}
+        })
+        .catch(error => {
+            console.error('Erreur de réseau :', error);
+            alert('Une erreur s\'est produite lors du contrôle du relais.');
+        });
+    }
 </script>
-
-
 
 {% endblock %}

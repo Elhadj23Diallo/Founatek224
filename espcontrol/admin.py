@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import DHTData, UploadedImage, LED, Comptage, Relais
+
 @admin.register(UploadedImage)
 class UploadedImageAdmin(admin.ModelAdmin):
     list_display = ('id', 'created_at', 'image')
@@ -13,7 +14,6 @@ class DHTDataAdmin(admin.ModelAdmin):
 # Enregistrer le modèle dans l'admin
 admin.site.register(DHTData, DHTDataAdmin)
 
-
 admin.site.register(LED)
 admin.site.register(Comptage)
-admin.site.register(Relais)
+admin.site.register(Relais)  # Gardé cette ligne si tu veux que Relais soit dans l'admin

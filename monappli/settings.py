@@ -11,23 +11,29 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Charger les variables d'environnement
+load_dotenv()
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# Exemple d'utilisation
+API_SECRET_KEY = os.getenv('API_SECRET_KEY')
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-1au1y&pvu8#)0-gn**c1g7f(fu+rqsw_ru#9tj($8bz_y@*1nd'
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['founatek224.pythonanywhere.com', 'www.founatek224.pythonanywhere.com']
-
-
+ALLOWED_HOSTS = ['founatek224.pythonanywhere.com', 'www.founatek224.pythonanywhere.com', '127.0.0.1', 'localhost', '192.168.1.24']
 
 # Application definition
 
@@ -45,14 +51,11 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        # Désactive l'authentification par JWT
-    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # Permet l'accès sans authentification
+        'rest_framework.permissions.AllowAny',
     ]
 }
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -63,6 +66,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'middleware.api_key_middleware.APIKeyMiddleware',
 ]
 
 # Autoriser toutes les origines (pour tester) :
@@ -85,15 +89,11 @@ TEMPLATES = [
     },
 ]
 
-import os
-
 # Définir les URL et répertoires pour les fichiers médias
 MEDIA_URL = '/media/'  # URL de base pour accéder aux fichiers médias
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Répertoire physique où les fichiers seront stockés
 
-
 WSGI_APPLICATION = 'monappli.wsgi.application'
-
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -104,7 +104,6 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -124,7 +123,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -136,6 +134,14 @@ USE_I18N = True
 
 USE_TZ = True
 
+# settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # Pour Gmail, sinon utiliser l'option appropriée
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'jallohelhadjabdul@gmail.com'  # Remplace par ton email
+EMAIL_HOST_PASSWORD = 'ambsrslpdtiuiejj'  # Remplace par ton mot de passe ou utilise une application spécifique
+DEFAULT_FROM_EMAIL = 'jallohelhadjabdul@gmail.com'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
