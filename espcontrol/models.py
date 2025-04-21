@@ -87,3 +87,14 @@ class Comptage(models.Model):
 
     def __str__(self):
         return f"Comptage: {self.compteur} objets - {self.timestamp}"
+
+#models pour le capteur de gaz
+from django.db import models
+
+class GasData(models.Model):
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ppm = models.FloatField()
+    gaz_type = models.CharField(max_length=20, default='inconnu')  # ex: CO2, NH3, Benzène
+
+    def __str__(self):
+        return f"{self.gaz_type} : {self.ppm} ppm @ {self.timestamp}"

@@ -1,52 +1,43 @@
+#Import
 from django.shortcuts import render, redirect, get_object_or_404
-
 from django.http import JsonResponse
 from django.contrib.auth import logout
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
 from django.conf import settings
 from django.core.mail import send_mail
-from django.utils import timezone
-
-from .models import LED, DHTData, UploadedImage, Comptage, SoilData
-from .serializers import LEDSerializer, ComptageSerializer
-
-# Pour gestion d'image
 from django.core.files.base import ContentFile
+from django.contrib.auth.decorators import login_required
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .utils import api_permission_required
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view
+from rest_framework import generics
+
+from .models import LED, DHTData, UploadedImage, Comptage, SoilData, GasData
+from .serializers import LEDSerializer, ComptageSerializer, GasDataSerializer
+
 import base64
 from io import BytesIO
 from PIL import Image
 import requests
 
 
-
+#🏠 Pages de base
+@login_required
 def home(request):
     return render(request, 'espcontrol/home.html')
-
-
-class CompteurDataAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        # Exemple de retour de données protégées
-        return Response({"message": "Voici les données du capteur."})
-
 
 def login_page(request):
     return render(request, 'espcontrol/login.html')
 
-
+@login_required
 def logout_view(request):
     logout(request)
     return redirect('login')
 
-#Vue pour le comptage d'objets
-# APIView pour GET et POST
+#📊 Dashboard & Comptage
 class ComptageAPIView(APIView):
-
     def get(self, request):
         comptages = Comptage.objects.all().order_by('-timestamp')[:10]
         serializer = ComptageSerializer(comptages, many=True)
@@ -58,32 +49,108 @@ class ComptageAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 
-# Dashboard
+
 def dashboard(request):
     comptages = Comptage.objects.all().order_by('-timestamp')[:5]
     return render(request, 'espcontrol/dashboard.html', {'comptages': comptages})
 
+
 def initCompteur(request):
     if request.method == 'POST' and 'reset' in request.POST:
-        # 1. Réinitialiser la BDD
         Comptage.objects.all().delete()
-        
-        # 2. Envoyer la commande à l'ESP pour qu'il remette son compteur à zéro
         try:
-            esp_ip = 'http://192.168.167.93/reset'  # 🔁 Change cette IP si besoin
-            requests.get(esp_ip, timeout=3)
+            requests.get('http://192.168.167.93/reset', timeout=3)
         except requests.exceptions.RequestException as e:
-            print("Erreur lors de la communication avec l'ESP:", e)
-
+            print("Erreur ESP:", e)
         return redirect('dashboard')
 
     comptages = Comptage.objects.all().order_by('-timestamp')[:5]
     return render(request, 'espcontrol/deleteComp.html', {'comptage': comptages})
 
-# surveillance/views.py
 
+#🌡️ Température, Humidité, LED & Alerte Mail
+@api_permission_required
+def led_control(request):
+    led, _ = LED.objects.get_or_create(pk=1)
+
+    if request.method == 'POST':
+        led.etat = not led.etat
+        led.save()
+        return redirect('dht-data/')
+
+    temperature = request.GET.get('temperature')
+    humidity = request.GET.get('humidity')
+    print(f"Temperature: {temperature}, Humidity: {humidity}")  # Debug ici
+
+    if temperature and humidity:
+        try:
+            DHTData.objects.create(
+                temperature=float(temperature),
+                humidity=float(humidity)
+            )
+
+            if float(temperature) > 18:
+                send_mail(
+                    'Alerte : Température élevée',
+                    f'Température actuelle : {temperature} °C. Pensez à allumer la clim.',
+                    settings.EMAIL_HOST_USER,
+                    ['isaacdiallo30@gmail.com'],
+                    fail_silently=False,
+                )
+
+            return JsonResponse({'temperature': temperature, 'humidity': humidity})
+        except ValueError:
+            return JsonResponse({'error': 'Valeurs invalides'}, status=400)
+    
+    dht_data = DHTData.objects.all().order_by('-created_at')[:10]
+    return render(request, 'espcontrol/led_control.html', {
+        'dht_data': dht_data,
+        'led_status': led.etat
+    })
+
+#💡 LED API
+@api_permission_required
+@api_view(['GET'])
+def led_status(request):
+    led = LED.objects.first()
+    serializer = LEDSerializer(led)
+    return Response(serializer.data)
+
+#🌿 Irrigation & Autres interfaces
+@api_permission_required
+def irrigation_auto(request):
+    return render(request, 'espcontrol/irrigation_auto.html')
+
+@api_permission_required
+def poubelle_intelligente(request):
+    return render(request, 'espcontrol/poubelle_intelligente.html')
+
+@api_permission_required
+def control_relais(request):
+    return render(request, 'espcontrol/control_relais.html')
+
+
+#🔌 Contrôle Relais via ESP8266
+
+ESP8266_IP = "http://192.168.167.93"
+
+@api_permission_required
+def toggle_relais(request, relais_num):
+    try:
+        url = f"{ESP8266_IP}/relais/{relais_num}/toggle"
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            return JsonResponse({'status': 'success', 'message': f'Relais {relais_num} contrôlé'})
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Erreur ESP'}, status=500)
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+#📸 Système de surveillance – upload & affichage image
+@api_permission_required
 class ImageUploadView(APIView):
     def post(self, request, *args, **kwargs):
         image_data = request.data.get('image', None)
@@ -91,7 +158,6 @@ class ImageUploadView(APIView):
             return Response({"error": "No image provided"}, status=400)
 
         try:
-            # Décodage de l'image base64
             img_data = base64.b64decode(image_data)
             img = Image.open(BytesIO(img_data))
             img_io = BytesIO()
@@ -103,188 +169,64 @@ class ImageUploadView(APIView):
             )
 
             return Response({
-                "message": "Image reçue et enregistrée avec succès",
+                "message": "Image enregistrée avec succès",
                 "image_id": uploaded_image.id
             }, status=200)
 
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
+@api_permission_required
 def systeme_surveillance(request):
-    images = UploadedImage.objects.all()  # Récupère toutes les images stockées.
+    images = UploadedImage.objects.all()
     return render(request, 'espcontrol/surveillance.html', {'images': images})
 
+@api_permission_required
 def get_latest_image(request):
-    # Récupérer la dernière image
     image = UploadedImage.objects.all().order_by('-created_at').first()
     if image:
-        image_url = image.image.url
-        return JsonResponse({'image_url': image_url})
-    else:
-        return JsonResponse({'image_url': None})
+        return JsonResponse({'image_url': image.image.url})
+    return JsonResponse({'image_url': None})
 
 
+#Vue pour le capteur de gaz
+from rest_framework import generics, status
+from rest_framework.response import Response
+from .models import GasData
+from .serializers import GasDataSerializer
 
-@api_view(['GET'])
-def led_status(request):
-    led = LED.objects.first()
-    serializer = LEDSerializer(led)
-    return Response(serializer.data)
+API_SECRET_KEY = "@Founatek_2025_SECURITY_KEY!"  # clé à vérifier
 
+class GasDataListCreateView(generics.ListCreateAPIView):
+    queryset = GasData.objects.all().order_by('-timestamp')
+    serializer_class = GasDataSerializer
 
+    def create(self, request, *args, **kwargs):
+        # Récupère la clé secrète dans les données
+        secret_key = request.data.get("secret_key")
 
-##Vue pour afficher l'etat de la LED
+        if secret_key != API_SECRET_KEY:
+            return Response({"error": "Clé API invalide ou manquante"}, status=status.HTTP_403_FORBIDDEN)
 
-""" def led_control(request):
-    led, created = LED.objects.get_or_create(pk=1)  # s'assure qu'une LED existe
+        # Supprime la clé avant d’enregistrer les données
+        mutable_data = request.data.copy()
+        mutable_data.pop("secret_key", None)
 
-    if request.method == 'POST':
-        led.etat = not led.etat  # inverse l'état actuel
-        led.save()
+        serializer = self.get_serializer(data=mutable_data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
 
-    return render(request, 'espcontrol/irrigation.html', {'led_status': led.etat}) """
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+#vue pour afficher les données du capteur de gaz
 
-## Vue pour recuperer les données de température et d'hymidité
+def gas_data_view(request):
+    gas_data = GasData.objects.all().order_by('-timestamp')  # par exemple
+    return render(request, 'espcontrol/gas_data.html', {'gas_data': gas_data})
 
-from django.http import JsonResponse
-from django.shortcuts import render, redirect
-from .models import DHTData, LED
+#🌱 Données Capteur d’Humidité du Sol (à compléter)
 
-""" def led_control(request):
-    # Récupérer l'état de la LED
-    led, created = LED.objects.get_or_create(pk=1)  # S'assure qu'une LED existe
-
-    # Si une requête POST est reçue, on inverse l'état de la LED
-    if request.method == 'POST':
-        led.etat = not led.etat  # Inverse l'état actuel
-        led.save()
-        return redirect('dht-data/')  # Rediriger vers la même page après la mise à jour
-    
-    # Récupérer les données du capteur via les paramètres GET
-    temperature = request.GET.get('temperature')
-    humidity = request.GET.get('humidity')
-
-    # Si des données de température et d'humidité sont présentes
-    if temperature and humidity:
-        try:
-            # Enregistrer les nouvelles données dans la base
-            DHTData.objects.create(
-                temperature=float(temperature),
-                humidity=float(humidity)
-            )
-            print(f"Température: {temperature} °C, Humidité: {humidity} %")
-
-            # Retourner les données au format JSON
-            return JsonResponse({'temperature': temperature, 'humidity': humidity})
-
-        except ValueError:
-            # Si les valeurs ne sont pas valides (ex: conversion échouée), retourner une erreur
-            return JsonResponse({'error': 'Valeurs invalides'}, status=400)
-    
-    else:
-        # Récupérer les 10 dernières données (du plus récent au plus ancien)
-        dht_data = DHTData.objects.all().order_by('-created_at')[:10]
-
-        # Convertir le QuerySet en liste (facultatif mais utile)
-        dht_data = list(dht_data)
-
-        # Renvoyer les données à la vue sous forme de contexte
-        return render(request, 'espcontrol/led_control.html', {
-            'dht_data': dht_data,
-            'led_status': led.etat  # Passer l'état de la LED à la vue
-        })
- """
-
-def led_control(request):
-    # Récupérer l'état de la LED
-    led, created = LED.objects.get_or_create(pk=1)  # S'assure qu'une LED existe
-
-    # Si une requête POST est reçue, on inverse l'état de la LED
-    if request.method == 'POST':
-        led.etat = not led.etat  # Inverse l'état actuel
-        led.save()
-        return redirect('dht-data/')  # Rediriger vers la même page après la mise à jour
-    
-    # Récupérer les données du capteur via les paramètres GET
-    temperature = request.GET.get('temperature')
-    humidity = request.GET.get('humidity')
-
-    # Si des données de température et d'humidité sont présentes
-    if temperature and humidity:
-        try:
-            # Enregistrer les nouvelles données dans la base
-            DHTData.objects.create(
-                temperature=float(temperature),
-                humidity=float(humidity)
-            )
-            print(f"Température: {temperature} °C, Humidité: {humidity} %")
-
-            # Envoi de mail si la température dépasse un certain seuil
-            if float(temperature) > 18:  # Seuil de température (30°C par exemple)
-                send_mail(
-                    'Alerte : Température élevée',
-                    f'La température actuelle est de {temperature} °C, ce qui est au-dessus du seuil de 30°C. Pensez à alumer la clim.',
-                    settings.EMAIL_HOST_USER,  # Expéditeur (Doit être configuré dans settings.py)
-                    ['isaacdiallo30@gmail.com'],  # Liste des destinataires
-                    fail_silently=False,
-                )
-
-            # Retourner les données au format JSON
-            return JsonResponse({'temperature': temperature, 'humidity': humidity})
-
-        except ValueError:
-            # Si les valeurs ne sont pas valides (ex: conversion échouée), retourner une erreur
-            return JsonResponse({'error': 'Valeurs invalides'}, status=400)
-    
-    else:
-        # Récupérer les 10 dernières données (du plus récent au plus ancien)
-        dht_data = DHTData.objects.all().order_by('-created_at')[:10]
-
-        # Convertir le QuerySet en liste (facultatif mais utile)
-        dht_data = list(dht_data)
-
-        # Renvoyer les données à la vue sous forme de contexte
-        return render(request, 'espcontrol/led_control.html', {
-            'dht_data': dht_data,
-            'led_status': led.etat  # Passer l'état de la LED à la vue
-        })
-
-# Vue pour le système d'irrigation automatique
-def irrigation_auto(request):
-    return render(request, 'espcontrol/irrigation_auto.html')
-
-# Vue pour la poubelle intelligente
-def poubelle_intelligente(request):
-    return render(request, 'espcontrol/poubelle_intelligente.html')
-
-
-
-
-ESP8266_IP = "http://192.168.167.93"  # Remplace par l'IP réelle de ton ESP8266
-
-def toggle_relais(request, relais_num):
-    try:
-        # Construire l'URL pour appeler l'ESP8266
-        url = f"{ESP8266_IP}/relais/{relais_num}/toggle"
-        response = requests.get(url)
-
-        # Vérifie si la requête a réussi
-        if response.status_code == 200:
-            return JsonResponse({'status': 'success', 'message': f'Relais {relais_num} contrôlé avec succès'})
-        else:
-            return JsonResponse({'status': 'error', 'message': f'Erreur lors du contrôle du relais {relais_num}'}, status=500)
-    except requests.exceptions.RequestException as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-
-    
-
-def control_relais(request):
-    return render(request, 'espcontrol/control_relais.html')
-
-#capteur de température et d'humidité du sol
-# Fonction pour traiter les données du capteur d'humidité du sol
+@api_permission_required
 def soil_data(request):
     # Lire l'humidité envoyée par le capteur
     humidity = request.GET.get('humidity')
@@ -307,21 +249,55 @@ def soil_data(request):
         if humidity < 30:  # Seuil d'humidité critique
             send_mail(
                 'Alerte : Humidité du sol faible',
-                f'L\'humidité actuelle du sol est de {humidity}%, ce qui est en dessous du seuil critique de 30%. Pensez à arroser.',
+                f'L\'humidité actuelle du sol est de {humidity}%, ce qui est en dessous du seuil critique de 30%. Pensez à arroser vos plantes.',
                 settings.EMAIL_HOST_USER,  # Expéditeur (Doit être configuré dans settings.py)
                 ['isaacdiallo30@gmail.com'],  # Liste des destinataires
                 fail_silently=False,
             )
-
+        print(f"New DHTData created with Temperature: Humidity: {humidity}")
         # Retourner une réponse JSON avec le statut de succès
         return JsonResponse({'status': 'success', 'humidity': humidity})
     else:
-        return JsonResponse({'status': 'error', 'message': 'Missing humidity data'}, status=400)    
+        return JsonResponse({'status': 'error', 'message': 'Missing humidity data'}, status=400)
+
+#🔒 API sécurisée d’exemple
+@api_permission_required
+class CompteurDataAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({"message": "Voici les données du capteur."})
 
 
+@api_permission_required
 def display_soil_data(request):
     # Récupérer toutes les données d'humidité
     data = SoilData.objects.all().order_by('-created_at')  # Trier par date décroissante
 
     # Passer les données au template
     return render(request, 'espcontrol/soil_data.html', {'data': data})
+
+
+
+class CompteurDataAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Exemple de retour de données protégées
+        return Response({"message": "Voici les données du capteur."})
+    
+@api_permission_required 
+class ComptageAPIView(APIView):
+
+    def get(self, request):
+        comptages = Comptage.objects.all().order_by('-timestamp')[:10]
+        serializer = ComptageSerializer(comptages, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ComptageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    

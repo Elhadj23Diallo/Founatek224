@@ -140,31 +140,39 @@
 </div>
 
 <script>
-function toggleRelais(relaisNum) {
-    const btn = document.getElementById('btn-' + (relaisNum === 1 ? 'climatiseur' : relaisNum === 2 ? 'frigo' : 'ventilateur'));
-    const isOn = !btn.classList.contains('off');  // Si ce n'est pas "off", alors c'est ON
-
-    // Envoi de la requête GET pour changer l'état du relais
-    fetch(`/toggle/relais/${relaisNum}/`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            if (isOn) {
-                btn.classList.add('off');
-                btn.innerText = "Éteindre";  // Change le texte en "Allumer"
+    function toggleRelais(relaisNum) {
+        const btn = document.getElementById('btn-' + (relaisNum === 1 ? 'climatiseur' : relaisNum === 2 ? 'frigo' : 'ventilateur'));
+        const isOn = !btn.classList.contains('off');  // Si ce n'est pas "off", alors c'est ON
+    
+        console.log(`Tentative de contrôle du relais ${relaisNum}`);  // Log l'état du relais
+    
+        // Envoi de la requête GET pour changer l'état du relais
+        fetch(`/toggle/relais/${relaisNum}/`)
+        .then(response => {
+            console.log(`Réponse du serveur pour relais ${relaisNum}: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log(`Données reçues : ${JSON.stringify(data)}`);
+    
+            if (data.status === 'success') {
+                if (isOn) {
+                    btn.classList.add('off');
+                    btn.innerText = "Éteindre";  // Change le texte en "Allumer"
+                } else {
+                    btn.classList.remove('off');
+                    btn.innerText = "Allumer";  // Change le texte en "Éteindre"
+                }
+                alert(data.message);  // Affiche le message de succès
             } else {
-                btn.classList.remove('off');
-                btn.innerText = "Allumer";  // Change le texte en "Éteindre"
+                alert('Erreur lors du contrôle du relais');  // Affiche l'erreur
             }
-            alert(data.message);  // Affiche le message de succès
-        } else {
-            alert('Erreur lors du contrôle du relais');  // Affiche l'erreur
-        }
-    })
-    .catch(error => {
-        console.error('Erreur :', error);  // Affiche l'erreur dans la console
-    });
-}
-</script>
-
+        })
+        .catch(error => {
+            console.error('Erreur de réseau :', error);  // Affiche l'erreur dans la console
+            alert('Une erreur s\'est produite lors du contrôle du relais.');
+        });
+    }
+    </script>
+    
 {% endblock %}
