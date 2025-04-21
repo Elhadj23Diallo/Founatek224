@@ -1,54 +1,202 @@
-
-{% extends 'espcontrol/base.html' %}
-
-{% block title %}Page d'Accueil{% endblock %}
+{% extends "espcontrol/base.html" %}
 
 {% block content %}
-    <style>
-        body {
-        background: linear-gradient(135deg, #4e54c8, #8f94fb);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        background-color: #1e293b;
+        color: #f1f5f9;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        max-width: 600px;
+        margin: auto;
+        padding: 30px 20px;
+        background-color: #0f172a;
+        border-radius: 20px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        text-align: center;
+    }
+
+    .logo {
+        font-size: 50px;
+        margin-bottom: 10px;
+    }
+
+    h1 {
+        font-size: 28px;
+        margin-bottom: 30px;
+    }
+
+    .control-section {
+        background-color: #1e293b;
+        padding: 20px;
+        border-radius: 20px;
+        margin-bottom: 30px;
+    }
+
+    .toggle-btn {
+        background-color: #22c55e;
+        border: none;
+        padding: 12px 25px;
+        font-size: 16px;
+        color: white;
+        border-radius: 12px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+
+    .toggle-btn:hover {
+        background-color: #16a34a;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        color: #e2e8f0;
+    }
+
+    th, td {
+        padding: 12px;
+        border-bottom: 1px solid #334155;
+    }
+
+    th {
+        background-color: #1e293b;
+        font-weight: 600;
+    }
+
+    .refresh-button {
+        margin-top: 30px;
+    }
+
+    .refresh-button button {
+        background-color: #22c55e;
+        color: white;
+        padding: 12px 25px;
+        border: none;
+        font-size: 16px;
+        border-radius: 12px;
+        cursor: pointer;
+    }
+
+    .refresh-button button:hover {
+        background-color: #16a34a;
+    }
+
+    .icon-title {
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 100vh;
-        margin: 0;
-        color: #fff;
-        }
+        gap: 10px;
+        margin-bottom: 15px;
+    }
 
-        h1 {
-        font-size: 2.5rem;
-        margin-bottom: 40px;
-        }
+    .emoji {
+        font-size: 24px;
+    }
 
-        .toggle-btn {
-        background-color: #fff;
-        color: #4e54c8;
-        border: none;
-        padding: 15px 30px;
-        font-size: 1.2rem;
-        border-radius: 30px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-        }
+    .card {
+        background-color: #0f172a;
+        border-radius: 20px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        padding: 20px;
+        color: #f1f5f9;
+        transition: transform 0.3s ease;
+    }
 
-        .toggle-btn:hover {
-        background-color: #e6e6e6;
-        transform: translateY(-2px);
-        }
-    </style>
+    .card:hover {
+        transform: scale(1.05);
+    }
 
-<h1>Contrôle de la LED</h1>
-<form method="POST">
-  {% csrf_token %}
-  <button type="submit" class="toggle-btn">
-    {% if led_status %}
-      Éteindre la LED
-    {% else %}
-      Allumer la LED
-    {% endif %}
-  </button>
-</form>
+    .card i {
+        font-size: 40px;
+        color: #22c55e;
+    }
+
+    .card h5 {
+        margin-top: 15px;
+        font-size: 18px;
+    }
+
+    .card p {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #a1a1aa;
+    }
+</style>
+
+<div class="container">
+
+    <div class="refresh-button">
+        <form method="get">
+            <button type="submit">Actualiser</button>
+        </form>
+    </div>
+    <div class="logo">📡</div>
+    <h1>Système IoT</h1>
+
+    <div class="control-section">
+        <div class="icon-title">
+            <span class="emoji">🌸</span>
+            <h2>Contrôle de l’Arrosage</h2>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <button type="submit" class="toggle-btn">
+                {% if led_status %}
+                    Désactiver l’arrosage
+                {% else %}
+                    Activer l’arrosage
+                {% endif %}
+            </button>
+        </form>
+    </div>
+
+    <div class="icon-title">
+        <span class="emoji">💧</span>
+        <h2>Dernières Données de Température et d’Humidité</h2>
+        <span class="emoji">💧</span>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Température (°C)</th>
+                <th>Humidité (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for data in dht_data %}
+            <tr>
+                <td>{{ data.created_at }}</td>
+                <td>{{ data.temperature }}</td>
+                <td>{{ data.humidity }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="icon-title">
+        <span class="emoji">🌱</span>
+        <h2>Dernières Données d'Humidité du Sol</h2>
+        <span class="emoji">🌱</span>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'soil_data' %}" class="text-decoration-none">
+            <div class="card shadow text-center p-4">
+                <i class="fas fa-plug"></i>
+                <h5 class="mt-3">Dernières données de l'humidité du sol</h5>
+                <p>Cliquez-ici</p>
+            </div>
+        </a>
+    </div>
+
+</div>
+
 {% endblock %}

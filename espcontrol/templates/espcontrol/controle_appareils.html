@@ -1,51 +1,123 @@
 {% extends 'espcontrol/base.html' %}
-
+{% load static %}
 {% block content %}
-    <div class="container mt-5">
-        <h2 class="text-center">Contrôle des Appareils</h2>
-        <p class="text-center">Allumez ou éteignez vos dispositifs à distance.</p>
-        
-        <!-- Exemple de boutons pour contrôler les appareils -->
-        <div class="row justify-content-center">
-            <div class="col-md-4">
-                <div class="card shadow p-4 text-center">
-                    <h4>Frigo</h4>
-                    <p>État actuel : <span id="status-device1">Éteint</span></p>
-                    <button class="btn btn-success" id="btn-on-device1">Allumer</button>
-                    <button class="btn btn-danger" id="btn-off-device1">Éteindre</button>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card shadow p-4 text-center">
-                    <h4>Appareil 2</h4>
-                    <p>État actuel : <span id="status-device2">Éteint</span></p>
-                    <button class="btn btn-success" id="btn-on-device2">Allumer</button>
-                    <button class="btn btn-danger" id="btn-off-device2">Éteindre</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Ajouter d'autres appareils ou des informations spécifiques à afficher -->
+
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        background-color: #1e293b;
+        color: #f1f5f9;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        max-width: 800px;
+        margin: auto;
+        padding: 30px 20px;
+        background-color: #0f172a;
+        border-radius: 20px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        text-align: center;
+    }
+
+    h1 {
+        font-size: 28px;
+        margin-bottom: 30px;
+    }
+
+    .control-section {
+        background-color: #1e293b;
+        padding: 20px;
+        border-radius: 20px;
+        margin-bottom: 20px;
+    }
+
+    .appareil-name {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+
+    .toggle-btn {
+        background-color: #22c55e;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        color: white;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .toggle-btn.off {
+        background-color: #ef4444;
+    }
+
+    .toggle-btn:hover {
+        opacity: 0.9;
+    }
+</style>
+
+<div class="container">
+    <h1>Contrôle des Appareils</h1>
+
+    {% for appareil in appareils %}
+    <div class="control-section" id="section-{{ appareil.id }}">
+        <div class="appareil-name">{{ appareil.nom }} - {{ appareil.emplacement }}</div>
+        <button 
+            class="toggle-btn {% if not appareil.etat %}off{% endif %}" 
+            onclick="toggleAppareil({{ appareil.id }}, '{{ appareil.nom }}')"
+            id="btn-{{ appareil.id }}"
+        >
+            {% if appareil.etat %} Éteindre {% else %} Allumer {% endif %}
+        </button>
     </div>
+    {% endfor %}
+</div>
 
-    <script>
-        // Logique pour changer l'état des appareils
-        document.getElementById("btn-on-device1").onclick = function() {
-            document.getElementById("status-device1").textContent = "Allumé";
-            // Ici, tu pourrais envoyer une requête à une API ou changer l'état du matériel via Django
-        };
+<script>
+function toggleAppareil(id, appareilNom) {
+    const btn = document.getElementById('btn-' + id);
+    const isOn = !btn.classList.contains('off');  // si pas "off", c'est ON
 
-        document.getElementById("btn-off-device1").onclick = function() {
-            document.getElementById("status-device1").textContent = "Éteint";
-            // Ici aussi, tu pourrais envoyer une requête pour éteindre l'appareil via l'API Django
-        };
+    // Envoi de la requête POST pour changer l'état de l'appareil
+    fetch(`/appareils/${appareilNom}/toggle_appareil/`, {  // Utilise 'toggle_appareil' ici
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ etat: !isOn ? true : false })  // Envoie true ou false comme booléen, pas comme chaîne
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data && data.etat === true) {  // Si l'état de l'appareil a été mis à jour avec succès
+            btn.classList.remove('off');
+            btn.innerText = "Éteindre";
+        } else {
+            btn.classList.add('off');
+            btn.innerText = "Allumer";
+        }
+    })
+    .catch(error => {
+        console.error("Erreur lors de l'envoi de la requête :", error);
+    });
+}
 
-        document.getElementById("btn-on-device2").onclick = function() {
-            document.getElementById("status-device2").textContent = "Allumé";
-        };
+// Pour récupérer le CSRF token dans le cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 
-        document.getElementById("btn-off-device2").onclick = function() {
-            document.getElementById("status-device2").textContent = "Éteint";
-        };
-    </script>
 {% endblock %}
