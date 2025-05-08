@@ -1,0 +1,126 @@
+{% extends "espcontrol/base.html" %}
+
+{% block content %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        background-color: #1e293b;
+        color: #f1f5f9;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        max-width: 600px;
+        margin: auto;
+        padding: 30px 20px;
+        background-color: #0f172a;
+        border-radius: 20px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        text-align: center;
+    }
+
+    .logo {
+        font-size: 50px;
+        margin-bottom: 10px;
+    }
+
+    h1 {
+        font-size: 28px;
+        margin-bottom: 30px;
+    }
+
+    .control-section {
+        background-color: #1e293b;
+        padding: 20px;
+        border-radius: 20px;
+        margin-bottom: 30px;
+    }
+
+    .toggle-btn {
+        background-color: #22c55e;
+        border: none;
+        padding: 12px 25px;
+        font-size: 16px;
+        color: white;
+        border-radius: 12px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+
+    .toggle-btn:hover {
+        background-color: #16a34a;
+    }
+
+    .refresh-button {
+        margin-top: 30px;
+    }
+
+    .refresh-button button {
+        background-color: #22c55e;
+        color: white;
+        padding: 12px 25px;
+        border: none;
+        font-size: 16px;
+        border-radius: 12px;
+        cursor: pointer;
+    }
+
+    .refresh-button button:hover {
+        background-color: #16a34a;
+    }
+
+    .icon-title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .emoji {
+        font-size: 24px;
+    }
+
+    .relay-btn {
+        background-color: #22c55e;
+        border: none;
+        padding: 12px 25px;
+        font-size: 16px;
+        color: white;
+        border-radius: 12px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+
+    .relay-btn:hover {
+        background-color: #16a34a;
+    }
+</style>
+
+<div class="container">
+    <div class="logo">📡</div>
+    <h1>Contrôle du Relais {{ relais.num }}</h1>
+
+    <div class="control-section">
+        <div class="icon-title">
+            <span class="emoji">🔌</span>
+            <h2>Relais {{ relais.num }}</h2>
+        </div>
+        <p>État : {% if relais.etat %}Allumé{% else %}Éteint{% endif %}</p>
+        <form method="POST">
+            {% csrf_token %}
+            <button class="relay-btn" type="submit">
+                {% if relais.etat %}Éteindre le relais {{ relais.num }}{% else %}Allumer le relais {{ relais.num }}{% endif %}
+            </button>
+        </form>
+    </div>
+
+    <div class="refresh-button">
+        <form method="get">
+            <button type="submit">Actualiser</button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

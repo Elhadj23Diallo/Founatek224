@@ -75,7 +75,7 @@ def led_control(request):
     if request.method == 'POST':
         led.etat = not led.etat
         led.save()
-        return redirect('dht-data')
+        return redirect('dht-data/')
 
     temperature = request.GET.get('temperature')
     humidity = request.GET.get('humidity')
@@ -298,4 +298,5 @@ class ComptageAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     

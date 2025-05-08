@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import LED
+from .models import LED, Relais, Comptage
 
 class LEDSerializer(serializers.ModelSerializer):
     class Meta:
@@ -7,7 +7,12 @@ class LEDSerializer(serializers.ModelSerializer):
         fields = ['etat']
 
 
-from .models import Comptage
+class RelaisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Relais
+        fields = ['num', 'etat']  # Nous incluons le numéro et l'état du relais
+
+
 
 class ComptageSerializer(serializers.ModelSerializer):
     class Meta:
