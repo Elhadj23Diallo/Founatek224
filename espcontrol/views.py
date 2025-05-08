@@ -22,19 +22,17 @@ from io import BytesIO
 from PIL import Image
 import requests
 
+from .utils import api_permission_required
+
 
 #🏠 Pages de base
 @login_required
 def home(request):
-    return render(request, 'espcontrol/home.html')
+    user = request.user
+    is_abonne = user.groups.filter(name='Abonné').exists() 
+    return render(request, 'espcontrol/home.html', {'is_abonne': is_abonne})
 
-def login_page(request):
-    return render(request, 'espcontrol/login.html')
-
-@login_required
-def logout_view(request):
-    logout(request)
-    return redirect('login')
+from django.contrib import messages
 
 #📊 Dashboard & Comptage
 class ComptageAPIView(APIView):
@@ -77,7 +75,7 @@ def led_control(request):
     if request.method == 'POST':
         led.etat = not led.etat
         led.save()
-        return redirect('dht-data/')
+        return redirect('dht-data')
 
     temperature = request.GET.get('temperature')
     humidity = request.GET.get('humidity')

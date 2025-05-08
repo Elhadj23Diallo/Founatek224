@@ -1,0 +1,120 @@
+{% extends "iot/base.html" %}
+
+{% block content %}
+<!-- En-tête -->
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-primary">📘 Liste des Chapitres</h1>
+        <p class="text-muted fs-5">Découvrez tous les chapitres liés à nos cours IOT.</p>
+    </div>
+
+    <div class="row">
+        <!-- Sommaire à gauche -->
+        <div class="col-md-3">
+            <div class="mb-5">
+                <h3 class="text-primary mb-3">📑 Sommaire</h3>
+                <ul class="list-group summary-list">
+                    {% for chapitre in chapitres.paginator.object_list %}
+                    <li class="list-group-item bg-transparent border-0 px-0">
+                        <a href="#chapitre-{{ chapitre.id }}">
+                            <i class="bi bi-book text-primary"></i>
+                            Chapitre {{ forloop.counter }} : {{ chapitre.titre }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Contenu des chapitres à droite -->
+        <div class="col-md-9">
+            {% for chapitre in chapitres %}
+            <div id="chapitre-{{ chapitre.id }}" class="card mb-5">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="card-title">{{ chapitre.titre }}</h2>
+                    <p class="card-text">Ajouté le {{ chapitre.date_ajout|date:"d F Y à H:i" }}</p>
+                </div>
+
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <!-- Image -->
+                        {% if chapitre.image %}
+                        <div class="col-12 col-md-6">
+                            <img src="{{ chapitre.image.url }}" alt="Image du chapitre {{ chapitre.titre }}" class="img-fluid d-block w-100" data-bs-toggle="modal" data-bs-target="#imageModal{{ chapitre.id }}">
+                        </div>
+                        {% endif %}
+
+                        <!-- Vidéo -->
+                        {% if chapitre.video %}
+                        <div class="col-12 col-md-6">
+                            <video class="img-fluid d-block" controls style="max-height: 300px;">
+                                <source src="{{ chapitre.video.url }}" type="video/mp4">
+                                Votre navigateur ne prend pas en charge la balise vidéo.
+                            </video>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="chapter-content">
+                        {{ chapitre.contenu|linebreaks }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modale pour l'image agrandie -->
+            {% if chapitre.image %}
+            <div class="modal fade" id="imageModal{{ chapitre.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ chapitre.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <img src="{{ chapitre.image.url }}" alt="Image du chapitre {{ chapitre.titre }}" class="img-fluid">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if chapitres|length == 0 %}
+    <div class="alert alert-info text-center">
+        Aucun chapitre disponible pour le moment. Restez connecté !
+    </div>
+    {% endif %}
+
+    <!-- Pagination -->
+    <nav class="mt-4 d-flex justify-content-center">
+        <ul class="pagination">
+            {% if chapitres.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ chapitres.previous_page_number }}">&laquo; Précédent</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">&laquo; Précédent</span>
+            </li>
+            {% endif %}
+
+            {% for num in chapitres.paginator.page_range %}
+            <li class="page-item {% if chapitres.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if chapitres.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ chapitres.next_page_number }}">Suivant &raquo;</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Suivant &raquo;</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endblock content %}

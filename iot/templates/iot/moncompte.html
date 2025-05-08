@@ -1,0 +1,23 @@
+<!-- moncompte.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Mon Compte</title>
+</head>
+<body>
+    {% if user.is_authenticated %}
+        {% if is_abonne %}
+            <h2>Bienvenue {{ user.username }}</h2>
+            <p>Email : {{ user.email }}</p>
+            <p>Token : {{ token }}</p>
+        {% else %}
+            <h2>Bienvenue {{ user.username }}</h2>
+            <p>Email : {{ user.email }}</p>
+            <p>Token : {{ token }}</p>
+        {% endif %}
+    {% else %}
+        <p>Vous devez être connecté pour voir vos informations.</p>
+    {% endif %}
+</body>
+</html>

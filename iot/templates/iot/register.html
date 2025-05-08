@@ -1,0 +1,88 @@
+{% extends "espcontrol/base.html" %}
+
+{% block content %}
+<style>
+    body {
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); /* dégradé bleu/gris */
+        color: #000000;  /* Texte noir */
+        font-family: 'Segoe UI', sans-serif;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+    }
+
+    .login-container {
+        max-width: 400px;
+        margin: 100px auto;
+        padding: 40px;
+        background-color: rgba(15, 23, 42, 0.85); /* verre fumé */
+        border-radius: 15px;
+        box-shadow: 0 0 20px rgba(0, 150, 255, 0.5);
+        backdrop-filter: blur(10px);
+    }
+
+    .login-container h2 {
+        text-align: center;
+        margin-bottom: 25px;
+        font-size: 24px;
+        color: #38bdf8; /* Titre en bleu */
+    }
+
+    .input-field {
+        width: 100%;
+        padding: 12px 15px;
+        margin: 10px 0;
+        border: none;
+        border-radius: 8px;
+        background-color: #0f172a;
+        color: #000000;  /* Texte en noir */
+    }
+
+    .input-field:focus {
+        outline: none;
+        border: 2px solid #38bdf8;
+        background-color: #1e293b;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #38bdf8;
+        border: none;
+        border-radius: 8px;
+        color: #0f172a;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .submit-btn:hover {
+        background-color: #0ea5e9;
+    }
+
+    .status-message {
+        text-align: center;
+        margin-top: 15px;
+        font-size: 14px;
+        color: #000000;  /* Texte en noir */
+    }
+
+    .errorlist {
+        color: red;
+        list-style: none;
+        padding: 0;
+    }
+</style>
+
+<div class="login-container">
+    <h2>Inscription sur l'application IoT</h2>
+    <form method="post" action="{% url 'register' %}" class="login-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="submit-btn">S'inscrire</button>
+        <p class="status-message">Vous avez déjà un compte ? 
+            <a href="{% url 'login' %}" class="text-decoration-none">Connectez-vous ici</a>
+        </p>
+    </form>
+</div>
+{% endblock %}

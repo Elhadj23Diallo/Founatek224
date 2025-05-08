@@ -1,60 +1,99 @@
 {% extends "espcontrol/base.html" %}
 
 {% block content %}
+<style>
+    body {
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        color: #000000;
+        font-family: 'Segoe UI', sans-serif;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+    }
 
-<center><h2>Bienvenu sur notre l'application IoT</h2></center>
+    .login-container {
+        max-width: 400px;
+        margin: 100px auto;
+        padding: 40px;
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 0 20px rgba(0, 150, 255, 0.5);
+        backdrop-filter: blur(10px);
+        color: #000;
+    }
 
-<!-- Formulaire de connexion avec classes pour styliser -->
-<form id="login-form" class="login-form">
-    <label for="username">Nom d'utilisateur :</label>
-    <input type="text" id="username" name="username" required class="input-field"><br><br>
+    .login-container h2 {
+        text-align: center;
+        margin-bottom: 25px;
+        font-size: 24px;
+        color: #0ea5e9;
+    }
 
-    <label for="password">Mot de passe :</label>
-    <input type="password" id="password" name="password" required class="input-field"><br><br>
+    input[type="text"],
+    input[type="password"] {
+        width: 100%;
+        padding: 12px 15px;
+        margin: 10px 0;
+        border: none;
+        border-radius: 8px;
+        background-color: #e2e8f0;
+        color: #000;
+    }
 
-    <button type="submit" class="submit-btn">Se connecter</button>
-</form>
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+        outline: none;
+        border: 2px solid #38bdf8;
+        background-color: #f8fafc;
+    }
 
-<p id="status" class="status-message"></p>
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #38bdf8;
+        border: none;
+        border-radius: 8px;
+        color: #0f172a;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        margin-top: 10px;
+    }
 
-<script>
-    const form = document.getElementById('login-form');
-    const status = document.getElementById('status');
+    .submit-btn:hover {
+        background-color: #0ea5e9;
+    }
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    .status-message {
+        text-align: center;
+        margin-top: 15px;
+        font-size: 14px;
+    }
 
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+    .register-link {
+        text-align: center;
+        margin-top: 20px;
+    }
 
-        try {
-            const response = await fetch('/api/token/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
+    .register-link a {
+        color: #0ea5e9;
+        text-decoration: none;
+    }
 
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem('access_token', data.access);
-                localStorage.setItem('refresh_token', data.refresh);
-                status.style.color = 'green';
-                status.innerText = 'Connexion réussie ✅';
+    .register-link a:hover {
+        text-decoration: underline;
+    }
+</style>
 
-                // ✅ Redirection vers la page d'accueil après 1 seconde
-                setTimeout(() => {
-                    window.location.href = "/home/";
-                }, 1000);
-            } else {
-                status.innerText = "Nom d'utilisateur ou mot de passe incorrect.";
-                status.style.color = 'red';
-            }
-        } catch (error) {
-            status.innerText = "Erreur lors de la connexion.";
-            status.style.color = 'red';
-            console.error(error);
-        }
-    });
-</script>
-
+<div class="login-container">
+    <h2>Connexion à l'application IoT</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="submit-btn">Se connecter</button>
+    </form>
+    <div class="register-link">
+        <p>Vous n'avez pas encore de compte ? <a href="{% url 'register' %}">S'inscrire ici</a></p>
+    </div>
+</div>
 {% endblock %}

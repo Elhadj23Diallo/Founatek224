@@ -32,6 +32,9 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/logout/', TokenBlacklistView.as_view(), name='token_blacklist'),
     path('', include('espcontrol.urls')),
+    path('', include('iot.urls')),
+    path('', include('acount.urls')),  # si ton app s'appelle users
+    path('', include('eduplay.urls', namespace='eduplay')),
 ]
 
 if settings.DEBUG:  # Assurer que cela n'est ajouté qu'en mode développement

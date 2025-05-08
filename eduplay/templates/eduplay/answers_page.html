@@ -1,0 +1,78 @@
+{% extends "eduplay/base.html" %}
+
+{% block content %}
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f7f9fc;
+    }
+
+    .answers-container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 30px;
+        background-color: #ffffff;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+        border-radius: 12px;
+    }
+
+    .answers-title {
+        text-align: center;
+        color: #34495e;
+        font-size: 32px;
+        margin-bottom: 25px;
+    }
+
+    .question-block {
+        margin-bottom: 30px;
+        padding: 20px;
+        border-left: 6px solid #3498db;
+        background-color: #ecf6fc;
+        border-radius: 6px;
+    }
+
+    .question-block h3 {
+        margin-bottom: 12px;
+        color: #2c3e50;
+    }
+
+    .answer-list {
+        list-style-type: none;
+        padding-left: 0;
+    }
+
+    .answer-list li {
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        background-color: #f4f4f4;
+        font-size: 16px;
+        color: #333;
+    }
+
+    .answer-list li strong {
+        color: green;
+        margin-left: 10px;
+    }
+</style>
+
+<div class="answers-container">
+    <h1 class="answers-title">Réponses du Quiz</h1>
+
+    {% for question in questions %}
+        <div class="question-block">
+            <h3>{{ question.question_text }}</h3>
+            <ul class="answer-list">
+                {% for answer in question.answers.all %}
+                    <li>
+                        {{ answer.answer_text }}
+                        {% if answer.is_correct %}
+                            <strong>(Bonne réponse)</strong>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

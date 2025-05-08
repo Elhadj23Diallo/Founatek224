@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>{% block title %}Dashboard IOT{% endblock %}</title>
+
+    <!-- Bootstrap + Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Style personnalisé -->
+    <style>
+        :root {
+            --main-green: #198754;
+            --light-gray: #f8f9fa;
+            --dark-text: #212529;
+            --accent-blue: #0d6efd;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark-text);
+            margin: 0;
+        }
+
+        /* Barre de navigation à gauche */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 250px;
+            background-color: var(--main-green);
+            padding-top: 20px;
+            box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+
+        .sidebar .nav-link {
+            color: white !important;
+            font-weight: 500;
+            font-size: 1rem;
+            padding: 8px 15px; /* Réduire l'espacement */
+            transition: background-color 0.3s ease;
+        }
+
+        .sidebar .nav-link:hover {
+            color: #d9f2e6 !important;
+            background-color: rgba(0, 0, 0, 0.1); /* Ajout d'un effet au survol */
+        }
+
+        .sidebar-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.3rem;
+            color: white;
+        }
+
+        .sidebar .nav-item {
+            margin: 1px 0; /* Réduire l'espacement entre les éléments */
+        }
+
+        /* Contenu principal */
+        .content {
+            margin-left: 270px; /* Laisse de l'espace pour la barre latérale */
+            padding: 20px;
+        }
+
+        .iot-title {
+            background: linear-gradient(90deg, #198754, #28a745);
+            padding: 60px 0;
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        footer {
+            background-color: #222;
+            color: #ccc;
+            padding: 20px 0;
+        }
+
+        footer small {
+            color: #aaa;
+        }
+
+        /* Media queries pour les petits écrans */
+        @media (max-width: 768px) {
+            /* Barre de navigation sur les petits écrans */
+            .sidebar {
+                width: 200px; /* Réduire la largeur de la sidebar */
+            }
+
+            .content {
+                margin-left: 210px; /* Ajuster la marge de contenu */
+            }
+
+            .sidebar .nav-link {
+                font-size: 0.9rem; /* Réduire la taille de police des liens */
+                padding: 6px 10px; /* Réduire l'espacement des liens */
+            }
+
+            .iot-title {
+                padding: 30px 0; /* Réduire le padding sur les petits écrans */
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* Adaptation pour les très petits écrans */
+            .sidebar {
+                width: 100%; /* Sidebar prend toute la largeur */
+                height: auto;
+                position: relative;
+            }
+
+            .content {
+                margin-left: 0; /* Plus de marge à gauche */
+            }
+
+            .sidebar-header h2 {
+                font-size: 1.1rem; /* Réduire la taille du titre de la sidebar */
+            }
+
+            .iot-title {
+                padding: 20px 0; /* Réduire encore le padding */
+            }
+
+            footer {
+                padding: 10px 0; /* Réduire le padding du footer */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Barre de navigation latérale -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>FOUNATEK IOT</h2>
+            <p class="text-white">👤 Connecté en tant que <strong>{{ request.user.username }}</strong></p>
+            <a href="{% url 'moncompte' %}" class="nav-link"><i class="fas fa-user text-decoration-none"></i>identifiants</a>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item"><a href="{% url 'chapitre_list' %}" class="nav-link"><i class="fas fa-book-open me-2"></i>Cours</a></li>
+            <li class="nav-item"><a href="{% url 'creer_chapitre' %}" class="nav-link"><i class="fas fa-plus-circle me-2"></i>Créer Chapitre</a></li>
+        
+            <li class="nav-item"><a href="{% url 'projects_list' %}" class="nav-link"><i class="fas fa-microchip me-2"></i>Projets</a></li>
+            <li class="nav-item"><a href="{% url 'creer_projet' %}" class="nav-link"><i class="fas fa-folder-plus me-2"></i>Créer Projet</a></li>
+        
+            <li class="nav-item"><a href="{% url 'home' %}" class="nav-link"><i class="fas fa-home me-2"></i>FOUNATEK IOT</a></li>
+            
+            {% if is_abonne %}
+                <li class="nav-item"><a href="{% url 'projects_list' %}" class="nav-link"><i class="fas fa-lightbulb me-2"></i>Projets</a></li>
+            {% endif %}
+            
+            <!-- Quiz links -->
+            <li><a href="#" class="nav-link quiz-link" data-url="{% url 'eduplay:quiz_electronique' %}"><i class="fas fa-plug me-2"></i>Quiz Électronique</a></li>
+            <li><a href="#" class="nav-link quiz-link" data-url="{% url 'eduplay:quiz_arduino' %}"><i class="fab fa-arduino me-2"></i>Quiz Arduino</a></li>
+            <li><a href="#" class="nav-link quiz-link" data-url="{% url 'eduplay:quiz_iot' %}"><i class="fas fa-wifi me-2"></i>Quiz IoT</a></li>
+            <li><a href="#" class="nav-link quiz-link" data-url="{% url 'eduplay:quiz' %}"><i class="fas fa-graduation-cap me-2"></i>Quiz Culture générale</a></li>
+        
+            <!-- Score links -->
+            <li><a href="{% url 'eduplay:score_electronique' %}" class="nav-link"><i class="fas fa-chart-line me-2"></i>Scores Électronique</a></li>
+            <li><a href="{% url 'eduplay:score_arduino' %}" class="nav-link"><i class="fas fa-microchip me-2"></i>Scores Arduino</a></li>
+            <li><a href="{% url 'eduplay:score_iot' %}" class="nav-link"><i class="fas fa-network-wired me-2"></i>Scores IoT</a></li>
+            <li class="nav-item"><a href="https://elhadj23diallo.github.io/site_elhadj_portfolio/" class="nav-link"><i class="fas fa-envelope me-2"></i>Contact</a></li>
+        </ul>
+        
+        
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="content">
+        <div class="iot-title">
+            <h1>{% block page_title %}Bienvenue sur le Dashboard IOT{% endblock %}</h1>
+        </div>
+
+        <div class="container mb-5">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center">
+        <small>&copy; 2025 - FOUNATEK IOT. Tous droits réservés.</small>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Confirmation pour les quiz
+        document.addEventListener("DOMContentLoaded", function () {
+            const quizLinks = document.querySelectorAll(".quiz-link");
+
+            quizLinks.forEach(link => {
+                link.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    const url = this.getAttribute("data-url");
+
+                    const confirmation = confirm(
+                        "⚠️ Ce quiz contient un temps à rebours de 10 minutes. Cela signifie que vous aurez 10 minutes pour terminer le quiz. Une fois ce temps écoulé, le quiz s'arrêtera automatiquement. Si vous êtes prêt(e), cliquez sur OK pour démarrer."
+                    );
+
+                    if (confirmation) {
+                        window.location.href = url;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

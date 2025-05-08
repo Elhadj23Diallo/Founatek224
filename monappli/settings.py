@@ -36,7 +36,8 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.1.24']
+ALLOWED_HOSTS = ['192.168.43.11', 'localhost', '127.0.0.1']
+
 
 
 # Application definition
@@ -50,18 +51,29 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework.authtoken',
     'espcontrol',
+    'iot',
+    'acount',
+    'eduplay',
     'corsheaders',
 ]
 
+#REST_FRAMEWORK = {
+    #'DEFAULT_AUTHENTICATION_CLASSES': [],
+    #'DEFAULT_PERMISSION_CLASSES': [
+    #    'rest_framework.permissions.AllowAny',
+    #]
+#}
+
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ]
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
-
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -95,10 +107,6 @@ TEMPLATES = [
     },
 ]
 
-
-# Définir les URL et répertoires pour les fichiers médias
-MEDIA_URL = '/media/'  # URL de base pour accéder aux fichiers médias
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Répertoire physique où les fichiers seront stockés
 
 
 WSGI_APPLICATION = 'monappli.wsgi.application'
@@ -146,6 +154,10 @@ USE_I18N = True
 USE_TZ = True
 
 
+LOGIN_REDIRECT_URL = '/home/'  # ou toute autre URL après connexion
+LOGOUT_REDIRECT_URL = '/login/'  # pour revenir à la page de login après déconnexion
+
+
 
 # settings.py
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -160,7 +172,10 @@ DEFAULT_FROM_EMAIL = 'jallohelhadjabdul@gmail.com'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+# Définir les URL et répertoires pour les fichiers médias
+MEDIA_URL = '/media/'  # URL de base pour accéder aux fichiers médias
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Répertoire physique où les fichiers seront stockés
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
