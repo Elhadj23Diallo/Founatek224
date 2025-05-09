@@ -1,23 +1,103 @@
-<!-- moncompte.html -->
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Mon Compte</title>
-</head>
-<body>
-    {% if user.is_authenticated %}
-        {% if is_abonne %}
-            <h2>Bienvenue {{ user.username }}</h2>
-            <p>Email : {{ user.email }}</p>
-            <p>Token : {{ token }}</p>
-        {% else %}
-            <h2>Bienvenue {{ user.username }}</h2>
-            <p>Email : {{ user.email }}</p>
-            <p>Token : {{ token }}</p>
-        {% endif %}
-    {% else %}
-        <p>Vous devez être connecté pour voir vos informations.</p>
-    {% endif %}
-</body>
-</html>
+{% extends "iot/base.html" %}
+
+
+{% block content %}
+        <title>Mon Compte | API IoT</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', sans-serif;
+                background: #f5f7fa;
+                color: #333;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                width: 80%;
+                max-width: 900px;
+                margin: 40px auto;
+                background: white;
+                border-radius: 10px;
+                padding: 30px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            h2 {
+                color: #2c3e50;
+            }
+            .token {
+                background: #ecf0f1;
+                padding: 10px;
+                border-radius: 5px;
+                font-family: monospace;
+                font-size: 14px;
+            }
+            ul.api-list {
+                list-style: none;
+                padding: 0;
+            }
+            ul.api-list li {
+                margin-bottom: 15px;
+                background: #f0f9ff;
+                padding: 10px;
+                border-left: 5px solid #3498db;
+                border-radius: 5px;
+            }
+            ul.api-list code {
+                background: #fff;
+                padding: 3px 6px;
+                border-radius: 3px;
+                display: block;
+                margin-top: 5px;
+                font-family: monospace;
+            }
+            .instructions {
+                background: #fef8e7;
+                border-left: 5px solid #f1c40f;
+                padding: 15px;
+                margin-top: 30px;
+                border-radius: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            {% if user.is_authenticated %}
+                <h2>Bienvenue {{ user.username }}</h2>
+                <p><strong>Email :</strong> {{ user.email }}</p>
+                <p><strong>Votre Token API :</strong></p>
+                <div class="token">{{ token }}</div>
+
+                <h3>Vos URLs API personnalisées</h3>
+                <p>Voici les URLs à utiliser pour envoyer des données depuis votre module WiFi :</p>
+                <ul class="api-list">
+                    {% for nom, url in api_urls.items %}
+                        <li>
+                            <strong>{{ nom }}</strong>
+                            <code>{{ url }}</code>
+                        </li>
+                    {% endfor %}
+                </ul>
+
+                <div class="instructions">
+                    <h4>🛠️ Comment utiliser ces URLs avec votre module WiFi (ESP8266, ESP32...)</h4>
+                    <p>
+                        Dans votre code (par exemple avec Arduino), vous devez faire une requête HTTP POST ou GET vers l’URL fournie. Le <strong>token est déjà inclus</strong> dans l’URL, donc vous n’avez rien à ajouter.
+                    </p>
+                    <p>
+                        Exemple en Arduino (ESP8266) :
+                    </p>
+                    <pre>
+                        HTTPClient http;
+                        http.begin("http://192.168.43.11:8000/api/compteur/?token={{ token }}");  // Remplacez avec l'URL de votre besoin
+                        http.addHeader("Content-Type", "application/json");
+                        int httpResponseCode = http.POST("{\"valeur\":123}");
+                    </pre>
+                    <p>
+                        Vous pouvez utiliser ces URLs dans tous vos projets pour envoyer les données de température, capteurs, relais, etc. L’API identifiera automatiquement votre compte grâce au token.
+                    </p>
+                </div>
+            {% else %}
+                <p>Vous devez être connecté pour voir vos informations.</p>
+            {% endif %}
+        </div>
+
+{% endblock %}

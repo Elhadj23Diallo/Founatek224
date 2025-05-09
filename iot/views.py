@@ -76,25 +76,52 @@ from django.shortcuts import render
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import Group
 
+from django.shortcuts import render
+from rest_framework.authtoken.models import Token
+
 def moncompte(request):
     if request.user.is_authenticated:
         user = request.user
-        token = Token.objects.get(user=user)  # Récupérer le token de l'utilisateur
+        token = Token.objects.get(user=user)  # Récupérer le token
 
-        # Vérifier si l'utilisateur appartient aux groupes 'abonne' ou 'Administrateur'
+        # Vérifier les groupes
         is_abonne = user.groups.filter(name='abonne').exists()
         is_admin = user.groups.filter(name='Administrateur').exists()
 
-        # Ajouter ces informations dans le contexte
+        # URL de base — à adapter si tu es en ligne
+        base_url = "http://192.168.43.11:8000"
+
+        # Définir les endpoints API que tu veux afficher
+        api_endpoints = {
+            "Compteur": "/api/compteur/",
+            "Température et Humidité (DHT11)": "/api/dht-data/",
+            "Irrigation Automatique": "/irrigation/",
+            "Poubelle Intelligente": "/poubelle/",
+            "Système de Surveillance": "/surveillance/",
+            "Upload Image": "/api/upload/",
+            "Init Compteur": "/api/initCompteur/",
+            "Contrôle Relais": "/api/control_relais/",
+            "Humidité du sol": "/soil-data/",
+            "Gaz": "/api/gas/",
+        }
+
+        # Générer les URLs avec token intégré
+        api_urls = {
+            name: f"{base_url}{endpoint}?token={token.key}" for name, endpoint in api_endpoints.items()
+        }
+
         context = {
             'user': user,
             'token': token.key,
-            'is_abonne': is_abonne or is_admin,  # True si l'utilisateur est 'abonne' ou 'Administrateur'
+            'is_abonne': is_abonne or is_admin,
+            'api_urls': api_urls,
         }
 
         return render(request, 'iot/moncompte.html', context)
+
     else:
         return render(request, 'iot/moncompte.html', {'message': 'Vous devez être connecté pour voir vos informations.'})
+
 
 
 
