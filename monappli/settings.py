@@ -13,15 +13,17 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 
 import os
+from dotenv import load_dotenv
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Charge les variables du fichier .env dans l'environnement (sinon os.getenv ne les voit jamais)
+load_dotenv(BASE_DIR / '.env')
 
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
 PAYPAL_SECRET = os.getenv("PAYPAL_SECRET", "")
 PAYPAL_API_BASE = "https://api-m.sandbox.paypal.com"  # Mode test
-
-
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -29,8 +31,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-1au1y&pvu8#)0-gn**c1g7f(fu+rqsw_ru#9tj($8bz_y@*1nd')
-
-import os
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
