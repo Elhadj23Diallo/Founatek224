@@ -1117,16 +1117,38 @@ PLAN_PRICES = {"free": 0, "basic": 0.1, "pro": 15}
 @permission_classes([IsAuthenticated])
 def mobile_monetisation_dashboard(request):
     try:
-        from monetisation.models import Wallet, Subscription, Transaction
+        from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
+        from monetisation.utils import PLAN_LIMITS, check_api_quota, check_device_quota
         wallet = Wallet.objects.filter(user=request.user).first()
         sub = Subscription.objects.filter(user=request.user).first()
         txns = Transaction.objects.filter(user=request.user).order_by("-timestamp")[:20]
+        payments = PaymentRequest.objects.filter(user=request.user).order_by("-created_at")[:10]
+
+        plan = sub.plan if sub else "free"
+        limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+        _, api_calls_used, max_calls = check_api_quota(request.user)
+        _, device_count, max_devices = check_device_quota(request.user)
+
         return Response({
             "balance": wallet.balance if wallet else 0,
             "subscription": {
-                "plan": sub.plan if sub else "free",
+                "plan": plan,
                 "start_date": sub.start_date.isoformat() if sub else None,
                 "end_date": sub.end_date.isoformat() if sub and sub.end_date else None,
+            },
+            "usage": {
+                "api_calls": api_calls_used,
+                "max_calls": max_calls,
+                "device_count": device_count,
+                "max_devices": max_devices,
+                "history_days": limits["history_days"],
+                "alerts": limits["alerts"],
+                "marketplace": limits["marketplace"],
+                "pdf_reports": limits["pdf_reports"],
+            },
+            "plans": {
+                key: {**vals, "price": PLAN_PRICES.get(key, 0)}
+                for key, vals in PLAN_LIMITS.items()
             },
             "transactions": [{
                 "id": t.id,
@@ -1135,6 +1157,13 @@ def mobile_monetisation_dashboard(request):
                 "description": t.description,
                 "timestamp": t.timestamp.isoformat(),
             } for t in txns],
+            "payments": [{
+                "id": p.id,
+                "provider": p.provider,
+                "amount": p.amount,
+                "status": p.status,
+                "created_at": p.created_at.isoformat(),
+            } for p in payments],
         })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
