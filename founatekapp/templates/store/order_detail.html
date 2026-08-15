@@ -1,0 +1,114 @@
+{% extends 'store/base.html' %}
+{% block title %}Commande #{{ order.pk }} â€” FOUNATEK SHOP{% endblock %}
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <h2 class="mb-0"><i class="bi bi-bag-check me-2"></i>Commande #{{ order.pk }}</h2>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'founatekapp:order_receipt' order.pk %}" class="btn btn-success">
+      <i class="bi bi-file-earmark-pdf me-1"></i><span class="d-none d-sm-inline">Télécharger le </span>reçu PDF
+    </a>
+    <a href="{% url 'founatekapp:order_list' %}" class="btn btn-outline-dark">
+      <i class="bi bi-arrow-left me-1"></i>Retour
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="mb-3">Articles commandés</h5>
+
+        {# Desktop #}
+        <div class="d-none d-sm-block">
+          <table class="table">
+            <thead><tr><th>Produit</th><th>Prix unitaire</th><th>Qté</th><th>Sous-total</th></tr></thead>
+            <tbody>
+              {% for item in order.items.all %}
+              <tr>
+                <td>{{ item.product.name }}</td>
+                <td class="text-nowrap">{{ item.unit_price }} GNF</td>
+                <td>{{ item.quantity }}</td>
+                <td class="fw-bold text-nowrap">{{ item.subtotal }} GNF</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+            {% if order.discount %}
+              <tr>
+                <td colspan="3" class="text-muted">Sous-total</td>
+                <td class="text-muted">{{ order.subtotal }} GNF</td>
+              </tr>
+              <tr class="table-danger">
+                <td colspan="3"><i class="bi bi-tag-fill me-1"></i>Réduction points fidélité</td>
+                <td class="fw-bold">-{{ order.discount }} GNF</td>
+              </tr>
+            {% endif %}
+              <tr class="table-dark">
+                <td colspan="3" class="fw-bold">Total payé</td>
+                <td class="fw-bold text-warning">{{ order.total }} GNF</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {# Mobile #}
+        <div class="d-sm-none">
+          {% for item in order.items.all %}
+          <div class="d-flex justify-content-between border-bottom py-2">
+            <div>
+              <div class="fw-semibold">{{ item.product.name }}</div>
+              <small class="text-muted">{{ item.unit_price }} GNF Ã— {{ item.quantity }}</small>
+            </div>
+            <div class="fw-bold text-success text-nowrap ms-2">{{ item.subtotal }} GNF</div>
+          </div>
+          {% endfor %}
+          {% if order.discount %}
+          <div class="d-flex justify-content-between text-muted small mt-2">
+            <span>Sous-total</span><span>{{ order.subtotal }} GNF</span>
+          </div>
+          <div class="d-flex justify-content-between text-danger small fw-semibold">
+            <span><i class="bi bi-tag-fill me-1"></i>Réduction points</span>
+            <span>-{{ order.discount }} GNF</span>
+          </div>
+          {% endif %}
+          <div class="d-flex justify-content-between fw-bold fs-5 mt-2 pt-1 border-top">
+            <span>Total payé</span>
+            <span class="text-warning">{{ order.total }} GNF</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5>Informations</h5>
+        <p class="mb-2"><strong>Date :</strong> {{ order.created_at|date:"d/m/Y Ã  H:i" }}</p>
+        <p class="mb-2"><strong>Statut :</strong>
+          <span class="badge {% if order.status == 'pending' %}bg-warning text-dark{% elif order.status == 'confirmed' %}bg-info{% elif order.status == 'shipped' %}bg-primary{% elif order.status == 'delivered' %}bg-success{% else %}bg-danger{% endif %}">
+            {{ order.get_status_display }}
+          </span>
+        </p>
+        {% if order.phone %}
+        <p class="mb-2"><strong>Téléphone :</strong> {{ order.phone }}</p>
+        {% endif %}
+        {% if order.contact_email %}
+        <p class="mb-2"><strong>Email :</strong> {{ order.contact_email }}</p>
+        {% endif %}
+        {% if order.shipping_address %}
+        <p class="mb-2"><strong>Adresse :</strong><br>{{ order.shipping_address }}</p>
+        {% endif %}
+        {% if order.note %}
+        <p class="mb-2"><strong>Note :</strong> {{ order.note }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

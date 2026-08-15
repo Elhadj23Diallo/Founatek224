@@ -1,0 +1,15 @@
+{
+  "name": "FOUNATEK NEXUS — Air Conakry IQ Pro",
+  "short_name": "Air Conakry",
+  "description": "Surveillance qualité de l'air en temps réel — Conakry, Guinée",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "lang": "fr",
+  "icons": [
+    { "src": "/static/icons/favicon-96x96.png", "sizes": "96x96", "type": "image/png" },
+    { "src": "/static/icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

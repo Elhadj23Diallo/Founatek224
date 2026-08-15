@@ -1,427 +1,846 @@
+# ============================================================
+#  FOUNATEK NEXUS — Chatbot IA Complet
+#  Fichier : espcontrol/chatbot_model.py
+# ============================================================
+
+import os
 import random
 import re
 import logging
-import json
+import requests
 from django.contrib.admin.models import LogEntry, ADDITION, CHANGE, DELETION
-from django.utils.timezone import localtime
-# Assurez-vous que les imports relatifs fonctionnent dans votre structure
+from django.utils.timezone import localtime, now
+from datetime import timedelta
+
 from .utils import normalize, fuzzy_in, extract_rgb
-# On importe les modèles nécessaires
 from .models import (
     Relais, LED, DHTData, SoilData, SensorData, LEDColor,
     UploadedImage, Video, Comptage, NtcSensorData,
-    Comment, Door, Badge, AccessRule, AccessLog
+    Comment, Door, Badge, AccessRule, AccessLog,
+    Device, AppareilData, AgentAlert, ActionLog,
+    SensorRule, ChatMemory,
 )
-import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-# === Config Gemini Pro ===
-# ⚠️ ATTENTION : CLÉ API EN CLAIR.
-GEMINI_API_KEY = "AIzaSyCNNinYlYn2dJPOgv5s79MYufVC0yw8sY8"
-try:
-    genai.configure(api_key=GEMINI_API_KEY)
-except Exception as e:
-    logger.error(f"Erreur configuration Gemini: {e}")
+# ============================================================
+#  GROQ API
+# ============================================================
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL   = "llama-3.3-70b-versatile"
 
+def call_groq(system_prompt, user_message, max_tokens=200):
+    try:
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        body = {
+            "model": GROQ_MODEL,
+            "max_tokens": max_tokens,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_message}
+            ]
+        }
+        resp = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=8)
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logger.error(f"Erreur Groq API : {e}")
+        return ""
+
+
+# ============================================================
+#  CHATBOT FOUNATEK NEXUS
+# ============================================================
 class Chatbot:
-    RELAIS_MAPPING = {"salon": 1, "chambre": 2, "garage": 3}
 
-    # --- MOTS-CLÉS ---
+    RELAIS_MAPPING = {
+        "salon": 1, "chambre": 2, "garage": 3,
+        "relais1": 1, "relais 1": 1, "relay1": 1,
+        "relais2": 2, "relais 2": 2, "relay2": 2,
+        "relais3": 3, "relais 3": 3, "relay3": 3,
+    }
+
+    AQI = {
+        "pm2p5":     {"bon": 15,  "modere": 35,  "mauvais": 55},
+        "pm10":      {"bon": 45,  "modere": 75,  "mauvais": 150},
+        "mq135_ppm": {"bon": 200, "modere": 400, "mauvais": 700},
+    }
+
     INTENT_WORDS = {
         "on": {
-            "allume", "allumer", "allumé", "allumée",
-            "active", "activer", "activé",
+            "allume", "allumer", "allumee",
+            "active", "activer",
             "mets", "mettre", "met",
             "turn on", "switch on", "enable",
-            "clair", "lumiere", "jour"
+            "ouvre", "ouvrir", "start", "demarrer"
         },
         "off": {
-            "eteins", "éteins", "eteindre", "éteindre", "eteint", "éteint", "éteinte",
-            "coupe", "couper", "coupé",
-            "desactive", "désactive", "desactiver", "désactiver", "desactivé", "désactivé",
+            "eteins", "eteindre", "eteint",
+            "coupe", "couper",
+            "desactive", "desactiver",
             "turn off", "switch off", "disable",
-            "sombre", "noir", "nuit", "stop", "arrete", "arrête"
+            "stop", "arrete", "ferme"
         },
         "toggle": {
-            "bascule", "basculer", "inverse", "inverser", "switch", "change", "changer"
+            "bascule", "basculer", "inverse",
+            "inverser", "switch", "change", "changer"
         },
         "etat": {
-            "etat", "état", "status", "statut", "state",
-            "comment est", "est ce que", "vérifie", "verifie"
+            "etat", "status", "statut",
+            "verifie", "montre"
         },
-        "capteurs": {"capteur", "capteurs", "temperature", "température", "humidite", "humidité", "co2", "gaz", "air", "sol", "dht", "sensor", "sensors", "données", "climat", "meteo", "météo"},
-        "rgb": {"rgb", "couleur", "color", "ws2812", "neopixel", "ambiance", "leds"},
-        "led_simple": {"led", "lumière simple", "ampoule"},
-        "acces": {"accès", "acces", "porte", "portes", "badge", "badges", "entrée", "sorties", "qui est entré", "historique accès", "passages"},
-        "media": {"image", "images", "photo", "photos", "vidéo", "video", "caméra", "camera"},
-        "comptage": {"compte", "comptage", "compteur", "combien", "nombre"},
-        "bio": {"qui est elhadj", "cest qui elhadj", "elhadj diallo", "who is elhadj", "le créateur", "auteur"},
-        "founatek": {"founatek", "founa", "founatek iot", "platform iot", "iot application", "le projet", "c'est quoi"},
-        "help": {"aide", "help", "assistance", "commandes", "que peux tu faire", "menu", "options"},
-        "historique": {"actions", "historique", "journal", "mes actions", "actions récentes", "history", "recent actions", "log", "logs"}
+        "air_quality": {
+            "pm2.5", "pm25", "pm2p5", "pm10",
+            "particules", "particule", "poussiere",
+            "pollution", "aqi", "indice",
+            "air", "pm", "qualite", "mesure",
+            "donnees", "capteur", "capteurs",
+            "sds011", "sds", "conakry",
+            "atmosphere", "environnement",
+            "nexus", "station", "lecture"
+        },
+        "gaz": {
+            "gaz", "mq135", "mq", "co2", "co",
+            "no2", "ppm", "concentration", "toxique",
+            "fumee", "odeur", "polluant", "chimique",
+            "benzene", "ammoniac", "nh3"
+        },
+        "temperature": {
+            "temperature", "temp", "thermometre",
+            "chaud", "froid", "chaleur", "dht", "dht11",
+            "degre", "celsius", "therm", "tiede",
+            "brulant", "glacial", "canicule"
+        },
+        "humidite": {
+            "humidite", "hum", "humid",
+            "hygrometre", "sec", "seche",
+            "vapeur", "moite", "moiteur", "humide"
+        },
+        "gps": {
+            "gps", "position", "localisation", "location",
+            "coordonnees", "latitude", "longitude",
+            "satellite", "carte", "map", "where",
+            "l76x", "gnss"
+        },
+        "device": {
+            "appareil", "device", "esp32",
+            "capteur_pm_001", "connecte", "online",
+            "materiel", "hardware"
+        },
+        "alerte": {
+            "alerte", "alertes", "alert", "urgence",
+            "danger", "critique", "warning", "anomalie",
+            "anomalies", "probleme", "erreur", "issue",
+            "notification", "notif", "alarme"
+        },
+        "stats": {
+            "statistique", "statistiques", "stats",
+            "moyenne", "min", "max", "bilan", "rapport",
+            "analyse", "evolution", "tendance",
+            "24h", "journee", "semaine"
+        },
+        "regles": {
+            "regle", "regles", "rule", "rules",
+            "seuil", "seuils", "limite", "limites",
+            "automatique", "auto", "declencheur"
+        },
+        "rgb": {
+            "rgb", "couleur", "color", "ws2812",
+            "neopixel", "ambiance", "leds", "bande"
+        },
+        "led_simple": {
+            "led", "lumiere", "ampoule", "lampe", "eclairage"
+        },
+        "acces": {
+            "acces", "porte", "portes",
+            "badge", "badges", "rfid", "entree",
+            "securite", "verrou", "cle"
+        },
+        "media": {
+            "image", "images", "photo", "photos",
+            "video", "camera", "surveillance", "capture"
+        },
+        "comptage": {
+            "compte", "comptage", "compteur",
+            "combien", "nombre", "total", "compter"
+        },
+        "historique": {
+            "historique", "history", "journal",
+            "log", "logs", "actions", "recent",
+            "passe", "precedent", "dernier"
+        },
+        "bio": {
+            "qui est elhadj", "elhadj diallo",
+            "who is elhadj", "createur", "auteur",
+            "developpeur", "etudiant", "stagiaire"
+        },
+        "founatek": {
+            "founatek", "founa", "founatek iot",
+            "platform iot", "projet", "iq pro",
+            "air conakry", "odc"
+        },
+        "help": {
+            "aide", "help", "assistance", "commandes",
+            "que peux tu faire", "menu", "options", "tuto"
+        },
     }
 
-    # --- RÉPONSES UNIFORMISÉES ---
-    REPONSES_ALLUME_FR = [
-        "✅ {piece} est maintenant ALLUMÉE.",
-        "💡 Activation de {piece} confirmée.",
-        "✨ C'est fait, {piece} est allumée."
+    ALIAS_PM     = {"air", "pm", "qualite", "mesure", "donnees",
+                    "capteur", "capteurs", "sds", "nexus", "station",
+                    "pollution", "poussiere", "particule", "conakry",
+                    "atmosphere", "environnement", "lecture", "indice"}
+    ALIAS_GAZ    = {"gaz", "mq", "co2", "ppm", "toxique",
+                    "fumee", "odeur", "polluant", "chimique"}
+    ALIAS_TEMP   = {"temp", "chaud", "froid", "chaleur", "dht",
+                    "degre", "celsius", "therm", "tiede", "brulant"}
+    ALIAS_HUM    = {"humide", "humid", "hum", "sec", "seche",
+                    "vapeur", "moite", "moiteur"}
+    ALIAS_RESUME = {"tout", "resume", "situation", "bilan",
+                    "general", "complet", "global", "synthese", "overview"}
+    ALIAS_ALERTE = {"alerte", "alertes", "alert", "urgence",
+                    "danger", "critique", "warning", "anomalie",
+                    "probleme", "erreur", "alarme", "notif"}
+    ALIAS_GPS    = {"gps", "position", "localisation", "latitude",
+                    "longitude", "satellite", "carte", "gnss"}
+    ALIAS_STATS  = {"stats", "statistiques", "moyenne", "bilan",
+                    "rapport", "analyse", "evolution", "24h"}
+    ALIAS_DEVICE = {"appareil", "device", "esp32", "hardware",
+                    "materiel", "connecte", "online"}
+
+    REPONSES_ON = [
+        "✅ {nom} est maintenant ACTIVÉ.",
+        "💡 Activation de {nom} confirmée.",
+        "⚡ C'est fait — {nom} est allumé."
     ]
-    REPONSES_ETEINS_FR = [
-        "🛑 {piece} est maintenant ÉTEINTE.",
-        "💤 Désactivation de {piece} confirmée.",
-        "🌙 C'est fait, {piece} est éteinte."
+    REPONSES_OFF = [
+        "🛑 {nom} est maintenant ÉTEINT.",
+        "💤 {nom} désactivé avec succès.",
+        "🌙 C'est fait — {nom} est éteint."
     ]
-    REPONSES_TOGGLE_FR = [
-        "↔️ {piece} a basculé : elle est maintenant {nouvel_etat}.",
-        "✅ Changement d'état : {piece} est {nouvel_etat}."
-    ]
-    REPONSES_ETAT_FR = [
-        "ℹ️ L'état actuel de {piece} est : {etat}.",
-        "📟 Statut {piece} : {etat}."
-    ]
+    REPONSES_ALLUME_FR = REPONSES_ON
+    REPONSES_ETEINS_FR = REPONSES_OFF
 
-    BIO_TEXT = ("👤 Elhadj Abdourahmane Diallo est étudiant en Licence 3 Physique Appliquée... (Portfolio: https://elhadj23diallo.github.io/site_elhad_portfolio/)")
-    FOUNATEK_TEXT = "🌍 Founatek IoT est une plateforme de gestion et de contrôle d'appareils connectés..."
+    BIO_TEXT = (
+        "👤 Elhadj Abdourahmane Diallo — Étudiant L3 Physique Appliquée, "
+        "Université de Lille (FST). Stagiaire ODC Orange Guinée, Conakry.\n"
+        "🚀 Projet : FOUNATEK NEXUS AIR CONAKRY IQ PRO\n"
+        "🔗 Portfolio : https://elhadj23diallo.github.io/site_elhad_portfolio/"
+    )
 
-    HELP_TOPICS = {
-        "1": "Actions Relais (Allumer/Éteindre salon...)",
-        "2": "Capteurs (Température, Humidité...)",
-        "3": "Lumière RGB (Couleurs et extinction)",
-        "4": "Accès & Sécurité (Portes, Badges)",
-        "5": "Médias & Comptage",
-        "6": "À propos (Founatek/Elhadj)",
-        "7": "Historique & API"
-    }
+    FOUNATEK_TEXT = (
+        "🌍 FOUNATEK NEXUS AIR CONAKRY IQ PRO\n"
+        "Station IoT de mesure de qualité de l'air — ODC Orange Guinée, Conakry\n"
+        "📡 Capteurs : SDS011 (PM2.5/PM10), MQ-135 (Gaz), DHT11 (T°/Hum), GPS L76X\n"
+        "🧠 Agent IA : Détection anomalies Z-Score, alertes automatiques\n"
+        "🌐 founatek224.pythonanywhere.com/air-quality/"
+    )
 
-    HELP_RESPONSES = {
-        "1": "💡 Exemple : 'allume le salon', 'désactive le garage'.",
-        "2": "📟 Exemple : 'quelle est la température ?'.",
-        "3": "🎨 Exemple : 'mets du bleu', 'éteins la lumière rgb'.",
-        "4": "🚪 Exemple : 'qui a ouvert la porte ?', 'historique des accès', 'liste des badges'.",
-        "5": "🖼️ Exemple : 'montre les images' ou 'donne le comptage'.",
-        "6": f"{FOUNATEK_TEXT}\n\n{BIO_TEXT}",
-        "7": "🕒 Tape 'mes actions' pour l'historique. Tes clés API sont sur le dashboard."
-    }
+    SYSTEM_PROMPT_GROQ = """Tu es l'assistant IA de FOUNATEK NEXUS, station IoT de qualité de l'air à Conakry.
+Traduis les demandes en commandes courtes parmi :
+pm25, pm10, gaz, temperature, humidite, gps, device, alertes, stats, regles, historique,
+allume relais N, eteins relais N, etat relais N (N=1,2,3), aide, founatek, bio
 
-    # === PROMPT SYSTÈME (Cerveau de l'IA) ===
-    SYSTEM_INSTRUCTION_GEMINI = """
-Tu es le cerveau d'un système domotique intelligent.
-Ton rôle est TRADUIRE les demandes utilisateurs en commandes standardisées.
-Le système qui lira ta réponse ne comprend que des mots-clés précis.
-
-Voici tes outils :
-- Actions basiques : 'allume', 'éteins', 'bascule', 'etat'
-- Appareils : 'salon', 'chambre', 'garage' (relais), 'led' (simple), 'rgb' (couleur)
-- Capteurs : 'capteurs' (temp, hum, co2, etc.)
-- Sécurité/Accès : 'accès' (pour historique général), 'porte' (état/historique porte), 'badge' (liste/état badges)
-- Divers : 'image', 'vidéo', 'compteur'
-
-Ta mission : Reformule la demande utilisateur en utilisant UNIQUEMENT ces mots-clés pour que l'action soit claire.
-Si la demande contient plusieurs actions, sépare-les par des virgules.
-Sois concis. Pas de phrase de politesse.
+Réponds UNIQUEMENT avec la commande. Pas de phrase. Si plusieurs, sépare par virgule.
+Si tu ne sais pas : inconnu
 
 Exemples :
-- "Il fait sombre salon" -> "allume salon"
-- "Coupe la lumière dans le garage" -> "éteins garage"
-- "Désactive la lumière d'ambiance" -> "éteins rgb"
-- "Quelle est la température" -> "capteurs"
-- "Qui a ouvert la porte ?" -> "accès, porte"
-- "Montre moi les dernières photos" -> "image"
+"C'est quoi la pollution ?" -> "pm25, pm10"
+"Il fait chaud ?" -> "temperature"
+"Alertes récentes ?" -> "alertes"
+"Allume le premier relais" -> "allume relais 1"
+"Tout va bien ?" -> "pm25, pm10, gaz, temperature, alertes"
+"air" -> "pm25, pm10"
+"gaz" -> "gaz"
+"temp" -> "temperature"
+"Parle moi de la pollution à Conakry" -> "pm25, pm10"
 """
 
+    # ============================================================
     def __init__(self, user):
         self.user = user
-        try:
-            self.model = genai.GenerativeModel(
-                "models/gemini-pro",
-                system_instruction=self.SYSTEM_INSTRUCTION_GEMINI
+        self._memory = None
+
+    # ── MÉMOIRE ──────────────────────────────────────────────
+    @property
+    def memory(self):
+        if self._memory is None:
+            self._memory, _ = ChatMemory.objects.get_or_create(user=self.user)
+        return self._memory
+
+    def save_memory(self, device=None, sensor=None, action=None, message=None):
+        m = self.memory
+        if device:  m.last_device = device
+        if sensor:  m.last_sensor = sensor
+        if action:  m.last_action = action
+        if message: m.last_message = message
+        m.save()
+
+    def get_relais_map(self):
+        rmap = dict(self.RELAIS_MAPPING)
+        for r in Relais.objects.filter(user=self.user):
+            nom = normalize(r.nom)
+            rmap[nom] = r.num
+            rmap[f"relais{r.num}"] = r.num
+            rmap[f"relais {r.num}"] = r.num
+        return rmap
+
+    # ============================================================
+    #  DONNÉES IoT — CORRIGÉ : order_by('-last_seen')
+    # ============================================================
+
+    def get_latest_data(self):
+        # ── CORRECTION : prend le device vu le plus récemment ──
+        device = Device.objects.filter(
+            user=self.user,
+            is_active=True
+        ).order_by('-last_seen').first()
+
+        # Fallback — prend n'importe quel device actif
+        if not device:
+            device = Device.objects.filter(
+                is_active=True
+            ).order_by('-last_seen').first()
+
+        if not device:
+            return None, None
+
+        latest = AppareilData.objects.filter(
+            device=device
+        ).order_by('-received_at').first()
+
+        return device, latest
+
+    def get_aqi_status(self, pm25):
+        if pm25 is None: return "❓ Inconnu"
+        t = self.AQI["pm2p5"]
+        if pm25 <= t["bon"]:     return "✅ Bon"
+        if pm25 <= t["modere"]:  return "⚠️ Modéré"
+        if pm25 <= t["mauvais"]: return "🔴 Mauvais"
+        return "☠️ Très mauvais"
+
+    def get_stats_24h(self):
+        depuis  = now() - timedelta(hours=24)
+        devices = Device.objects.filter(user=self.user)
+        readings = AppareilData.objects.filter(
+            device__in=devices, received_at__gte=depuis
+        )
+        sensors = ['pm2p5', 'pm10', 'mq135_ppm', 'temperature', 'humidity']
+        stats = {}
+        for s in sensors:
+            vals = [
+                r.payload.get(s) for r in readings
+                if r.payload and isinstance(r.payload.get(s), (int, float))
+            ]
+            if vals:
+                stats[s] = {
+                    "avg": round(sum(vals)/len(vals), 2),
+                    "min": round(min(vals), 2),
+                    "max": round(max(vals), 2),
+                    "count": len(vals)
+                }
+        return stats
+
+    # ============================================================
+    #  HANDLERS
+    # ============================================================
+
+    def handle_pm(self):
+        device, latest = self.get_latest_data()
+        if not latest or not latest.payload:
+            return "📡 Aucune donnée SDS011 — vérifiez que l'ESP32 envoie des données."
+        p    = latest.payload
+        pm25 = p.get('pm2p5')
+        pm10 = p.get('pm10')
+        ts   = localtime(latest.received_at).strftime('%H:%M:%S')
+        status = self.get_aqi_status(pm25)
+        self.save_memory(device=device, sensor='pm2p5')
+        lines = [f"💨 Qualité de l'air — {device.name} ({ts})"]
+        if pm25 is not None: lines.append(f"  🔵 PM2.5 : {pm25} µg/m³")
+        if pm10 is not None: lines.append(f"  🟤 PM10  : {pm10} µg/m³")
+        lines.append(f"  📊 AQI   : {status}")
+        if pm25 and pm25 > self.AQI["pm2p5"]["mauvais"]:
+            lines.append("  ⚠️ Évitez de sortir, portez un masque FFP2 !")
+        return "\n".join(lines)
+
+    def handle_gaz(self):
+        device, latest = self.get_latest_data()
+        if not latest or not latest.payload:
+            return "🔬 Aucune donnée MQ-135 disponible."
+        p   = latest.payload
+        ppm = p.get('mq135_ppm')
+        ts  = localtime(latest.received_at).strftime('%H:%M:%S')
+        self.save_memory(device=device, sensor='mq135_ppm')
+        if ppm is None:
+            return "🔬 Donnée MQ-135 absente du dernier payload."
+        t = self.AQI["mq135_ppm"]
+        if ppm <= t["bon"]:       statut = "✅ Air sain"
+        elif ppm <= t["modere"]:  statut = "⚠️ Concentration modérée"
+        elif ppm <= t["mauvais"]: statut = "🔴 Élevée — Aérez !"
+        else:                     statut = "☠️ DANGER — Quittez la zone !"
+        return (
+            f"🔬 MQ-135 Gaz — {device.name} ({ts})\n"
+            f"  💨 Concentration : {ppm} PPM\n"
+            f"  📊 Statut : {statut}"
+        )
+
+    def handle_temperature(self):
+        device, latest = self.get_latest_data()
+        if not latest or not latest.payload:
+            return "🌡️ Aucune donnée DHT11 disponible."
+        p  = latest.payload
+        t  = p.get('temperature')
+        h  = p.get('humidity')
+        ts = localtime(latest.received_at).strftime('%H:%M:%S')
+        self.save_memory(device=device, sensor='temperature')
+        lines = [f"🌡️ DHT11 — {device.name} ({ts})"]
+        if t is not None:
+            icon = "🔥" if t > 35 else ("❄️" if t < 18 else "🌤️")
+            lines.append(f"  {icon} Température : {t}°C")
+        if h is not None:
+            icon = "💧" if h > 70 else ("🏜️" if h < 30 else "✅")
+            lines.append(f"  {icon} Humidité    : {h}%")
+        return "\n".join(lines)
+
+    def handle_gps(self):
+        device, latest = self.get_latest_data()
+        if not latest or not latest.payload:
+            return "📡 Aucune donnée GPS disponible."
+        p    = latest.payload
+        lat  = p.get('latitude')
+        lon  = p.get('longitude')
+        sats = p.get('satellites')
+        ts   = localtime(latest.received_at).strftime('%H:%M:%S')
+        if not lat or not lon:
+            return "📡 Signal GPS non acquis — vérifiez l'antenne L76X."
+        lines = [
+            f"📡 GPS L76X — {device.name} ({ts})",
+            f"  📍 Latitude  : {lat}",
+            f"  📍 Longitude : {lon}",
+        ]
+        if sats: lines.append(f"  🛰️ Satellites : {sats}")
+        lines.append(f"  🗺️ Maps : https://maps.google.com/?q={lat},{lon}")
+        return "\n".join(lines)
+
+    def handle_device(self):
+        devices = Device.objects.filter(user=self.user)
+        if not devices.exists():
+            return "📱 Aucun appareil enregistré."
+        lines = [f"📱 Vos appareils ({devices.count()}) :"]
+        for d in devices:
+            last  = localtime(d.last_seen).strftime('%d/%m %H:%M') if d.last_seen else "Jamais"
+            count = AppareilData.objects.filter(device=d).count()
+            etat  = "🟢 En ligne" if d.is_active else "🔴 Hors ligne"
+            lines.append(
+                f"\n  🔌 {d.name} ({d.device_id})\n"
+                f"     {etat} | Vu : {last} | {count} mesures"
             )
-        except Exception as e:
-             logger.error(f"Erreur init modèle Gemini: {e}")
-             self.model = None
+        return "\n".join(lines)
 
-    # ... (get_user_history reste identique) ...
-    def get_user_history(self, user=None, limit=100):
-        user = user or self.user
-        entries = LogEntry.objects.filter(user=user).order_by('-action_time')[:limit]
-        history = []
-        for e in entries:
-            action_type = {ADDITION: "➕", CHANGE: "✏️", DELETION: "🗑️"}.get(e.action_flag, "❓")
-            object_repr = e.object_repr[:30] + "..." if len(e.object_repr) > 30 else e.object_repr
-            history.append(f"{localtime(e.action_time).strftime('%d/%m %H:%M')} {action_type} {object_repr}")
-        return history if history else ["Aucune action enregistrée récemment."]
+    def handle_alertes(self):
+        alerts = AgentAlert.objects.filter(
+            user=self.user, is_read=False
+        ).order_by('-created_at')[:10]
+        if not alerts.exists():
+            return "✅ Aucune alerte active — tout semble normal !"
+        lines = [f"🚨 {alerts.count()} alerte(s) non lue(s) :"]
+        for a in alerts:
+            ts   = localtime(a.created_at).strftime('%H:%M')
+            icon = {"INFO": "ℹ️", "WARN": "⚠️", "CRITICAL": "🔴"}.get(a.level, "❓")
+            lines.append(f"  {icon} [{ts}] {a.message}")
+        return "\n".join(lines)
 
-    # -------------------------
-    # Parsing mis à jour (LOGIQUE ULTRA INTELLIGENTE : PAS DE DEVINETTE)
-    # -------------------------
-    def parse_actions(self, msg):
-        msg = normalize(msg)
-        actions = []
-        parties = re.split(r"\s*(?:et|,|;|and|\n)\s*", msg)
-        for p in parties:
-            if not p.strip(): continue
-            d = {"action": None, "piece": None, "type": None, "raw": p}
-            tokens = set(p.lower().split())
+    def handle_stats(self):
+        stats = self.get_stats_24h()
+        if not stats:
+            return "📊 Pas assez de données pour les statistiques."
+        labels = {
+            'pm2p5':      ('🔵', 'PM2.5',      'µg/m³'),
+            'pm10':       ('🟤', 'PM10',       'µg/m³'),
+            'mq135_ppm':  ('🔬', 'Gaz MQ-135', 'PPM'),
+            'temperature':('🌡️', 'Température','°C'),
+            'humidity':   ('💧', 'Humidité',   '%'),
+        }
+        lines = ["📊 Statistiques 24h — FOUNATEK NEXUS :"]
+        for key, (icon, label, unit) in labels.items():
+            if key in stats:
+                s = stats[key]
+                lines.append(
+                    f"  {icon} {label} : moy={s['avg']}{unit} "
+                    f"| min={s['min']} | max={s['max']} "
+                    f"| {s['count']} mesures"
+                )
+        return "\n".join(lines)
 
-            # --- NOUVEAUX TYPES ---
-            if tokens & self.INTENT_WORDS["acces"]:
-                d["type"] = "acces"
-                if "porte" in tokens: d["target"] = "porte"
-                elif "badge" in tokens: d["target"] = "badge"
-                else: d["target"] = "general"
-            elif tokens & self.INTENT_WORDS["media"]:
-                 d["type"] = "media"
-                 if "vidéo" in tokens or "video" in tokens: d["target"] = "video"
-                 else: d["target"] = "image"
-            elif tokens & self.INTENT_WORDS["comptage"]:
-                 d["type"] = "comptage"
-            # ----------------------
+    def handle_regles(self):
+        rules = SensorRule.objects.filter(user=self.user, active=True)
+        if not rules.exists():
+            return "📋 Aucune règle automatique configurée."
+        lines = [f"📋 {rules.count()} règle(s) active(s) :"]
+        for r in rules:
+            seuil = f"max={r.max_value}" if r.max_value else f"min={r.min_value}"
+            lines.append(
+                f"  ⚙️ [{r.code}] {r.sensor} {seuil} "
+                f"→ {r.action_type} Relais {r.target_num} [{r.level}]"
+            )
+        return "\n".join(lines)
 
-            elif tokens & self.INTENT_WORDS["rgb"]:
-                d["type"] = "rgb"
-                if any(t in self.INTENT_WORDS["off"] for t in tokens):
-                    d["action"] = "eteins"
-                else:
-                    d["action"] = "set"
+    def handle_historique(self):
+        actions = ActionLog.objects.filter(
+            user=self.user
+        ).order_by('-created_at')[:10]
+        if not actions.exists():
+            return "📋 Aucune action récente."
+        lines = ["🕒 Historique :"]
+        for a in actions:
+            ts = localtime(a.created_at).strftime('%d/%m %H:%M')
+            lines.append(f"  {ts} — {a.action}")
+        return "\n".join(lines)
 
-            elif tokens & self.INTENT_WORDS["led_simple"]:
-                d["type"] = "led"
-                if any(t in self.INTENT_WORDS["on"] for t in tokens): d["action"] = "allume"
-                elif any(t in self.INTENT_WORDS["off"] for t in tokens): d["action"] = "eteins"
-                # Pas de fallback sur "etat" ici. Si pas d'ordre clair, l'IA gérera.
+    def handle_resume(self):
+        device, latest = self.get_latest_data()
+        if not latest or not latest.payload:
+            return "📡 Aucune donnée — l'ESP32 est-il connecté ?"
+        p    = latest.payload
+        ts   = localtime(latest.received_at).strftime('%d/%m %H:%M:%S')
+        pm25 = p.get('pm2p5', 'N/A')
+        pm10 = p.get('pm10', 'N/A')
+        gaz  = p.get('mq135_ppm', 'N/A')
+        temp = p.get('temperature', 'N/A')
+        hum  = p.get('humidity', 'N/A')
+        lat  = p.get('latitude', 'N/A')
+        lon  = p.get('longitude', 'N/A')
+        status   = self.get_aqi_status(pm25 if isinstance(pm25, (int, float)) else None)
+        n_alerts = AgentAlert.objects.filter(user=self.user, is_read=False).count()
+        return "\n".join([
+            f"🌍 FOUNATEK NEXUS — Résumé ({ts})",
+            f"  📡 Station  : {device.name}",
+            f"  🔵 PM2.5    : {pm25} µg/m³",
+            f"  🟤 PM10     : {pm10} µg/m³",
+            f"  🔬 MQ-135   : {gaz} PPM",
+            f"  🌡️ Temp     : {temp}°C | 💧 Hum : {hum}%",
+            f"  📊 AQI      : {status}",
+            f"  📍 GPS      : {lat}, {lon}",
+            f"  🚨 Alertes  : {n_alerts} non lue(s)",
+        ])
 
-            elif tokens & self.INTENT_WORDS["capteurs"]:
-                d.update({"type": "capteur", "action": "get"})
-            else:
-                possibles = [t for t in tokens if fuzzy_in(t, self.RELAIS_MAPPING.keys())]
-                if len(possibles) == 1:
-                    piece = possibles[0]
-                    # === LOGIQUE STRICTE ===
-                    # On ne définit l'action que si un verbe est CLAIREMENT identifié.
-                    # Sinon, on laisse 'action' à None, et l'IA prendra le relais.
-                    if any(t in self.INTENT_WORDS["on"] for t in tokens):
-                        d["action"] = "allume"
-                    elif any(t in self.INTENT_WORDS["off"] for t in tokens):
-                        d["action"] = "eteins"
-                    elif any(t in self.INTENT_WORDS["toggle"] for t in tokens):
-                        d["action"] = "toggle"
-                    elif any(t in self.INTENT_WORDS["etat"] for t in tokens):
-                        d["action"] = "etat"
+    def handle_relais(self, num, action):
+        try:
+            relais = Relais.objects.get(user=self.user, num=num)
+        except Relais.DoesNotExist:
+            return f"⚠️ Relais {num} introuvable. Créez-le dans le dashboard."
+        nom = relais.nom or f"Relais {num}"
+        if action == "allume":
+            relais.etat = True; relais.save()
+            return random.choice(self.REPONSES_ON).format(nom=nom)
+        elif action == "eteins":
+            relais.etat = False; relais.save()
+            return random.choice(self.REPONSES_OFF).format(nom=nom)
+        elif action == "toggle":
+            relais.etat = not relais.etat; relais.save()
+            etat = "allumé" if relais.etat else "éteint"
+            return f"↔️ {nom} basculé — maintenant {etat}."
+        else:
+            etat = "allumé 💡" if relais.etat else "éteint 🌙"
+            return f"ℹ️ {nom} (Relais {num}) : {etat}"
 
-                    # Si une action a été trouvée, on valide le type relais
-                    if d["action"]:
-                        d.update({"type": "relais", "piece": piece})
+    def handle_acces(self, target="general"):
+        if target == "porte":
+            logs = AccessLog.objects.filter(user=self.user).order_by('-timestamp')[:5]
+            if not logs.exists():
+                return "🚪 Aucun historique d'accès récent."
+            lines = ["🚪 Derniers accès :"]
+            for log in logs:
+                s = "✅ Autorisé" if log.allowed else "❌ Refusé"
+                d = log.door.name if log.door else "?"
+                b = (log.badge.label if log.badge and log.badge.label else log.uid or "Inconnu")
+                lines.append(f"  {localtime(log.timestamp).strftime('%d/%m %H:%M')} : {d} par {b} ({s})")
+            return "\n".join(lines)
+        elif target == "badge":
+            badges = Badge.objects.filter(owner=self.user)
+            if not badges.exists():
+                return "🆔 Aucun badge associé."
+            lines = [f"🆔 {badges.count()} badge(s) :"]
+            for b in badges:
+                lines.append(f"  - {b.label or b.uid} ({'Actif ✅' if b.is_active else 'Inactif ❌'})")
+            return "\n".join(lines)
+        else:
+            logs = AccessLog.objects.filter(user=self.user).order_by('-timestamp')[:3]
+            if not logs.exists():
+                return "🛡️ Aucun événement récent."
+            lines = ["🛡️ Derniers événements :"]
+            for log in logs:
+                s = "✅" if log.allowed else "❌"
+                lines.append(f"  {s} {localtime(log.timestamp).strftime('%H:%M')} — {log.uid}")
+            return "\n".join(lines)
 
-                elif len(possibles) > 1:
-                    d.update({"type": "clarify", "options": possibles})
+    # ============================================================
+    #  PARSING DES INTENTIONS
+    # ============================================================
 
-            if d["type"]:
-                actions.append(d)
-        return actions
+    def parse_intent(self, msg):
+        msg_norm = normalize(msg)
+        tokens   = set(msg_norm.lower().split())
+        intents  = []
 
-    # -------------------------
-    # Exécution des actions
-    # -------------------------
-    def execute_action(self, act):
-        responses = []
-        # Clarification
-        if act["type"] == "clarify":
-            options = ", ".join(act["options"])
-            responses.append(f"🤔 Je ne suis pas sûr de quelle pièce vous parlez : {options} ?")
+        # ── ÉTAPE 1 : Alias courts prioritaires ──────────────
+        if tokens & self.ALIAS_RESUME:
+            return [{"type": "resume"}]
 
-        # --- ACTIONS ACCÈS ---
-        elif act["type"] == "acces":
-            target = act.get("target")
-            if target == "porte":
-                 logs = AccessLog.objects.filter(user=self.user).order_by('-timestamp')[:5]
-                 if logs:
-                     res = ["🚪 Derniers accès aux portes :"]
-                     for log in logs:
-                         status = "✅ Autorisé" if log.allowed else "❌ Refusé"
-                         door_name = log.door.name if log.door else "Porte inconnue"
-                         badge_label = log.badge.label if log.badge and log.badge.label else (log.uid or "Inconnu")
-                         res.append(f"- {localtime(log.timestamp).strftime('%d/%m %H:%M')} : {door_name} par {badge_label} ({status})")
-                     responses.append("\n".join(res))
-                 else:
-                     responses.append("🚪 Aucun historique d'accès porte récent.")
-            elif target == "badge":
-                 badges = Badge.objects.filter(user=self.user)
-                 if badges:
-                      res = [f"🆔 Vos {badges.count()} badge(s) :"]
-                      for b in badges:
-                          status = "Actif" if b.is_active else "Inactif"
-                          label = b.label or b.uid
-                          res.append(f"- {label} ({status})")
-                      responses.append("\n".join(res))
-                 else:
-                      responses.append("🆔 Aucun badge associé à votre compte.")
-            else:
-                 logs = AccessLog.objects.filter(user=self.user).order_by('-timestamp')[:3]
-                 if logs:
-                     res = ["🛡️ Derniers événements d'accès :"]
-                     for log in logs:
-                         status = "✅" if log.allowed else "❌"
-                         res.append(f"- {localtime(log.timestamp).strftime('%H:%M')} : {log.uid} -> {log.door.name if log.door else '?'} ({status})")
-                     responses.append("\n".join(res))
-                 else:
-                     responses.append("🛡️ Aucun événement d'accès récent.")
+        if tokens & self.ALIAS_PM:
+            intents.append({"type": "pm"})
 
-        # --- ACTIONS MÉDIA & COMPTAGE ---
-        elif act["type"] == "media":
-             if act.get("target") == "video":
-                  vid = Video.objects.filter(user=self.user).last()
-                  responses.append(f"📹 Dernière vidéo : {vid.video.name if vid else 'Aucune'}")
-             else:
-                  img = UploadedImage.objects.filter(user=self.user).last()
-                  img_name = img.image.name if img and img.image else 'Aucune'
-                  responses.append(f"🖼️ Dernière image : {img_name}")
+        if tokens & self.ALIAS_GAZ:
+            intents.append({"type": "gaz"})
 
-        elif act["type"] == "comptage":
-             compte = Comptage.objects.filter(user=self.user).last()
-             if compte:
-                  responses.append(f"🔢 Dernier comptage : {compte.valeur} (le {localtime(compte.timestamp).strftime('%d/%m à %H:%M')})")
-             else:
-                  responses.append("🔢 Aucun comptage enregistré.")
-        # -------------------------
+        if tokens & self.ALIAS_TEMP:
+            intents.append({"type": "temperature"})
 
-        # LED simple
-        elif act["type"] == "led":
-            led = LED.objects.filter(user=self.user).first()
-            if led:
-                piece_name = "la LED simple"
-                if act["action"] == "allume":
-                    led.etat = True
-                    led.save()
-                    responses.append(random.choice(self.REPONSES_ALLUME_FR).format(piece=piece_name))
-                elif act["action"] == "eteins":
-                    led.etat = False
-                    led.save()
-                    responses.append(random.choice(self.REPONSES_ETEINS_FR).format(piece=piece_name))
-                else:
-                    et = "allumée" if led.etat else "éteinte"
-                    responses.append(random.choice(self.REPONSES_ETAT_FR).format(piece=piece_name, etat=et))
-            else:
-                 responses.append("⚠️ Aucune LED simple trouvée pour votre compte.")
+        if (tokens & self.ALIAS_HUM) and not (tokens & self.ALIAS_TEMP):
+            intents.append({"type": "humidite"})
 
-        # LED RGB
-        elif act["type"] == "rgb":
-            if act.get("action") == "eteins":
+        if tokens & self.ALIAS_ALERTE:
+            intents.append({"type": "alertes"})
+
+        if tokens & self.ALIAS_GPS:
+            intents.append({"type": "gps"})
+
+        if tokens & self.ALIAS_STATS:
+            intents.append({"type": "stats"})
+
+        if tokens & self.ALIAS_DEVICE:
+            intents.append({"type": "device"})
+
+        # ── ÉTAPE 2 : INTENT_WORDS complets ──────────────────
+        if tokens & self.INTENT_WORDS["air_quality"] and \
+           not any(i["type"] == "pm" for i in intents):
+            intents.append({"type": "pm"})
+
+        if tokens & self.INTENT_WORDS["gaz"] and \
+           not any(i["type"] == "gaz" for i in intents):
+            intents.append({"type": "gaz"})
+
+        if tokens & self.INTENT_WORDS["temperature"] and \
+           not any(i["type"] == "temperature" for i in intents):
+            intents.append({"type": "temperature"})
+
+        if (tokens & self.INTENT_WORDS["humidite"]) and \
+           not (tokens & self.INTENT_WORDS["temperature"]) and \
+           not any(i["type"] == "humidite" for i in intents):
+            intents.append({"type": "humidite"})
+
+        if tokens & self.INTENT_WORDS["gps"] and \
+           not any(i["type"] == "gps" for i in intents):
+            intents.append({"type": "gps"})
+
+        if tokens & self.INTENT_WORDS["device"] and \
+           not any(i["type"] == "device" for i in intents):
+            intents.append({"type": "device"})
+
+        if tokens & self.INTENT_WORDS["alerte"] and \
+           not any(i["type"] == "alertes" for i in intents):
+            intents.append({"type": "alertes"})
+
+        if tokens & self.INTENT_WORDS["stats"] and \
+           not any(i["type"] == "stats" for i in intents):
+            intents.append({"type": "stats"})
+
+        if tokens & self.INTENT_WORDS["regles"]:
+            intents.append({"type": "regles"})
+
+        if tokens & self.INTENT_WORDS["historique"] and \
+           not any(i["type"] == "stats" for i in intents):
+            intents.append({"type": "historique"})
+
+        if tokens & self.INTENT_WORDS["acces"]:
+            target = "general"
+            if "porte" in tokens or "portes" in tokens: target = "porte"
+            elif "badge" in tokens or "badges" in tokens: target = "badge"
+            intents.append({"type": "acces", "target": target})
+
+        if tokens & self.INTENT_WORDS["media"]:
+            target = "video" if "video" in tokens else "image"
+            intents.append({"type": "media", "target": target})
+
+        if tokens & self.INTENT_WORDS["comptage"]:
+            intents.append({"type": "comptage"})
+
+        if tokens & self.INTENT_WORDS["rgb"]:
+            action = "eteins" if (tokens & self.INTENT_WORDS["off"]) else "set"
+            intents.append({"type": "rgb", "action": action, "raw": msg})
+
+        if (tokens & self.INTENT_WORDS["led_simple"]) and \
+           not (tokens & self.INTENT_WORDS["rgb"]):
+            action = None
+            if tokens & self.INTENT_WORDS["on"]:    action = "allume"
+            elif tokens & self.INTENT_WORDS["off"]: action = "eteins"
+            if action:
+                intents.append({"type": "led", "action": action})
+
+        # ── ÉTAPE 3 : Relais ─────────────────────────────────
+        rmap = self.get_relais_map()
+        relais_num = None
+
+        match = re.search(r'\b([1-9])\b', msg_norm)
+        if match:
+            relais_num = int(match.group(1))
+
+        if not relais_num:
+            for nom, num in rmap.items():
+                if nom in msg_norm:
+                    relais_num = num
+                    break
+
+        if relais_num and 1 <= relais_num <= 10:
+            action = None
+            if tokens & self.INTENT_WORDS["on"]:       action = "allume"
+            elif tokens & self.INTENT_WORDS["off"]:    action = "eteins"
+            elif tokens & self.INTENT_WORDS["toggle"]: action = "toggle"
+            elif tokens & self.INTENT_WORDS["etat"]:   action = "etat"
+            if action:
+                intents.append({"type": "relais", "num": relais_num, "action": action})
+
+        if not any(i.get("type") == "relais" for i in intents):
+            for nom, num in self.RELAIS_MAPPING.items():
+                if fuzzy_in(nom, tokens):
+                    action = None
+                    if tokens & self.INTENT_WORDS["on"]:    action = "allume"
+                    elif tokens & self.INTENT_WORDS["off"]: action = "eteins"
+                    elif tokens & self.INTENT_WORDS["toggle"]: action = "toggle"
+                    elif tokens & self.INTENT_WORDS["etat"]:   action = "etat"
+                    if action:
+                        intents.append({"type": "relais", "num": num, "action": action})
+                    break
+
+        return intents
+
+    # ============================================================
+    #  EXÉCUTION
+    # ============================================================
+
+    def execute_intent(self, intent):
+        t = intent.get("type")
+
+        if t == "resume":      return self.handle_resume()
+        if t == "pm":          return self.handle_pm()
+        if t == "gaz":         return self.handle_gaz()
+        if t == "temperature": return self.handle_temperature()
+        if t == "humidite":    return self.handle_temperature()
+        if t == "gps":         return self.handle_gps()
+        if t == "device":      return self.handle_device()
+        if t == "alertes":     return self.handle_alertes()
+        if t == "stats":       return self.handle_stats()
+        if t == "regles":      return self.handle_regles()
+        if t == "historique":  return self.handle_historique()
+        if t == "acces":       return self.handle_acces(intent.get("target", "general"))
+
+        if t == "media":
+            if intent.get("target") == "video":
+                vid = Video.objects.filter(user=self.user).last()
+                return f"📹 Dernière vidéo : {vid.video.name if vid else 'Aucune'}"
+            img = UploadedImage.objects.filter(user=self.user).order_by('-created_at').first()
+            return f"🖼️ Dernière image : {img.image.name if img else 'Aucune'}"
+
+        if t == "comptage":
+            c = Comptage.objects.filter(user=self.user).last()
+            return (f"🔢 Dernier comptage : {c.compteur} "
+                    f"({localtime(c.timestamp).strftime('%d/%m %H:%M')})"
+                    if c else "🔢 Aucun comptage enregistré.")
+
+        if t == "rgb":
+            if intent.get("action") == "eteins":
                 LEDColor.objects.create(user=self.user, r=0, g=0, b=0)
-                responses.append("⚫ Lumière RGB éteinte (couleur réglée sur noir).")
-            else:
-                rgb = extract_rgb(act["raw"])
-                if rgb:
-                    if rgb == (0,0,0):
-                         LEDColor.objects.create(user=self.user, r=0, g=0, b=0)
-                         responses.append("⚫ Lumière RGB éteinte (couleur réglée sur noir).")
-                    else:
-                        LEDColor.objects.create(user=self.user, r=rgb[0], g=rgb[1], b=rgb[2])
-                        responses.append(f"🎨 Couleur RGB appliquée : {rgb}.")
-                else:
-                    responses.append("⚠️ Je n'ai pas compris la couleur demandée.")
+                return "⚫ LED RGB éteinte."
+            rgb = extract_rgb(intent.get("raw", ""))
+            if rgb and rgb != (0, 0, 0):
+                LEDColor.objects.create(user=self.user, r=rgb[0], g=rgb[1], b=rgb[2])
+                return f"🎨 Couleur RGB appliquée : {rgb}"
+            return "⚠️ Couleur non reconnue. Exemple : 'mets du rouge'."
 
-        # Capteurs
-        elif act["type"] == "capteur":
-            dht = DHTData.objects.filter(user=self.user).order_by("-created_at").first()
-            soil = SoilData.objects.filter(user=self.user).order_by("-created_at").first()
-            air = SensorData.objects.filter(user=self.user).order_by("-timestamp").first()
-            morceaux = []
-            if dht: morceaux.append(f"🌡️ DHT : {dht.temperature:.1f}°C, {dht.humidity:.0f}%")
-            if soil: morceaux.append(f"🌱 Sol : humidité {soil.humidity}%")
-            if air: morceaux.append(f"🌬️ Air : CO₂ {air.co2} ppm, Gaz: {air.gaz_type}")
+        if t == "led":
+            led, _ = LED.objects.get_or_create(user=self.user)
+            if intent.get("action") == "allume":
+                led.etat = True; led.save()
+                return "💡 LED allumée."
+            led.etat = False; led.save()
+            return "🌙 LED éteinte."
 
-            if morceaux: responses.append(" | ".join(morceaux))
-            else: responses.append("⚠️ Aucune donnée capteur récente.")
-        # Relais
-        elif act["type"] == "relais":
-            num = self.RELAIS_MAPPING.get(act["piece"])
-            piece_name = act["piece"].capitalize()
-            try:
-                relais = Relais.objects.get(user=self.user, num=num)
-                if act["action"] == "allume":
-                    relais.etat = True
-                    relais.save()
-                    responses.append(random.choice(self.REPONSES_ALLUME_FR).format(piece=piece_name))
-                elif act["action"] == "eteins":
-                    relais.etat = False
-                    relais.save()
-                    responses.append(random.choice(self.REPONSES_ETEINS_FR).format(piece=piece_name))
-                elif act["action"] == "toggle":
-                    relais.etat = not relais.etat
-                    relais.save()
-                    nouvel = "allumée" if relais.etat else "éteinte"
-                    responses.append(random.choice(self.REPONSES_TOGGLE_FR).format(piece=piece_name, nouvel_etat=nouvel))
-                else:
-                    et = "allumée" if relais.etat else "éteinte"
-                    responses.append(random.choice(self.REPONSES_ETAT_FR).format(piece=piece_name, etat=et))
-            except Relais.DoesNotExist:
-                responses.append(f"⚠️ Relais '{piece_name}' introuvable pour votre compte.")
+        if t == "relais":
+            return self.handle_relais(intent.get("num", 1), intent.get("action", "etat"))
 
-        return responses
+        return "🤔 Commande non reconnue."
 
-    # -------------------------
-    # Réponse globale
-    # -------------------------
+    # ============================================================
+    #  POINT D'ENTRÉE PRINCIPAL
+    # ============================================================
+
     def get_response(self, raw_msg):
         msg = normalize(raw_msg)
-        responses = []
 
-        # 1. Commandes directes
-        if msg in {"stop", "arrête", "stop reading", "urgence"}: return "🛑 ARRÊT D'URGENCE DEMANDÉ."
+        # Arrêt d'urgence
+        if msg in {"stop", "urgence", "emergency"}:
+            Relais.objects.filter(user=self.user).update(etat=False)
+            return "🛑 ARRÊT D'URGENCE — Tous les relais éteints !"
 
-        if msg == "help_more":
-             other_topics = {k: v for k, v in self.HELP_TOPICS.items() if k not in ["1", "2", "4", "5"]}
-             buttons = [{"text": f"{k}. {v.split('(')[0].strip()}", "value": k} for k, v in other_topics.items()]
-             return {"reponse": "📚 Autres sujets :", "buttons": buttons}
+        # Bio
+        if any(m in msg for m in self.INTENT_WORDS["bio"]):
+            return self.BIO_TEXT
 
-        elif any(m in msg for m in self.INTENT_WORDS["bio"]): responses.append(self.BIO_TEXT)
-        elif any(m in msg for m in self.INTENT_WORDS["founatek"]): responses.append(self.FOUNATEK_TEXT)
-        elif any(m in msg for m in self.INTENT_WORDS["historique"]):
-            hist = self.get_user_history(user=self.user)
-            responses.append("🕒 Vos dernières actions :\n" + "\n".join(hist[:15]))
+        # Founatek
+        if any(m in msg for m in self.INTENT_WORDS["founatek"]):
+            return self.FOUNATEK_TEXT
 
-        elif any(m in msg for m in self.INTENT_WORDS["help"]):
-            main_topics = {k: v for k, v in self.HELP_TOPICS.items() if k in ["1", "2", "4", "5"]}
-            buttons = [{"text": f"{k}. {v.split('(')[0].strip()}", "value": k} for k, v in main_topics.items()]
-            buttons.append({"text": "Plus d'aide...", "value": "help_more"})
-            return {"reponse": "📚 Voici les sujets principaux :", "buttons": buttons}
+        # Aide
+        if any(m in msg for m in self.INTENT_WORDS["help"]):
+            return {
+                "reponse": "🤖 Assistant FOUNATEK NEXUS — Que voulez-vous savoir ?",
+                "buttons": [
+                    {"text": "💨 Qualité de l'air", "value": "air"},
+                    {"text": "🌡️ Température",      "value": "temperature"},
+                    {"text": "🔬 Gaz MQ-135",       "value": "gaz"},
+                    {"text": "📡 GPS",               "value": "gps"},
+                    {"text": "🚨 Alertes",           "value": "alertes"},
+                    {"text": "📊 Statistiques",      "value": "stats"},
+                    {"text": "📱 Appareil",          "value": "appareil"},
+                    {"text": "🌍 Résumé complet",    "value": "tout"},
+                    {"text": "⚡ Relais 1",          "value": "etat relais 1"},
+                    {"text": "⚡ Relais 2",          "value": "etat relais 2"},
+                    {"text": "⚡ Relais 3",          "value": "etat relais 3"},
+                ]
+            }
 
-        elif msg in self.HELP_RESPONSES:
-            responses.append(self.HELP_RESPONSES[msg])
+        # Parsing local
+        intents = self.parse_intent(raw_msg)
 
-        # 2. Analyse (Locale STRICTE + IA)
-        actions = self.parse_actions(raw_msg)
+        # Fallback Groq
+        if not intents:
+            translated = call_groq(self.SYSTEM_PROMPT_GROQ, raw_msg)
+            if translated and translated not in ("inconnu", ""):
+                logger.info(f"Groq: '{raw_msg}' -> '{translated}'")
+                intents = self.parse_intent(translated)
 
-        # SI le parsing local n'a rien trouvé de SÛR, on appelle l'IA.
-        # C'est ça qui rend le système "ultra intelligent" : il ne devine plus.
-        if self.model and not actions:
-            try:
-                gemini_response = self.model.generate_content(raw_msg)
-                if gemini_response and gemini_response.text:
-                    translated_cmd = gemini_response.text.strip()
-                    logger.info(f"Gemini translation: '{raw_msg}' -> '{translated_cmd}'")
-                    actions += self.parse_actions(translated_cmd)
-            except Exception as e:
-                logger.error(f"Erreur IA : {e}")
+        # Exécution
+        if not intents:
+            return (
+                "🤔 Je n'ai pas compris. Essayez :\n"
+                "  • 'air' ou 'pm25'\n"
+                "  • 'alertes'\n"
+                "  • 'temperature'\n"
+                "  • 'tout' pour un résumé complet\n"
+                "Tapez 'aide' pour voir toutes les commandes."
+            )
 
-        # 3. Exécution
-        unique_responses = set()
-        seen_actions = set()
-        for act in actions:
-            act_signature = (act.get("type"), act.get("piece") or act.get("target"), act.get("action"))
-            if act_signature not in seen_actions:
-                res_list = self.execute_action(act)
-                unique_responses.update(res_list)
-                seen_actions.add(act_signature)
+        responses  = []
+        seen_types = set()
+        for intent in intents:
+            key = (intent.get("type"), intent.get("num"), intent.get("action"))
+            if key not in seen_types:
+                result = self.execute_intent(intent)
+                if result:
+                    responses.append(result)
+                seen_types.add(key)
 
-        responses.extend(list(unique_responses))
-
-        # 4. Fallback
-        if not responses and not isinstance(responses, dict):
-            help_summary = "Essayez : 'éteins salon', 'température', 'accès porte', 'éteins rgb'..."
-            responses.append(f"🤔 Je n'ai pas compris. {help_summary}\nTapez 'aide' pour plus de détails.")
-
-        final_response = "\n".join([r for r in responses if r])
-        return final_response if final_response else "..."
+        return "\n\n".join(responses) if responses else "..."

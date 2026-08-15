@@ -1,0 +1,41 @@
+Bonjour {{ order.user.get_full_name|default:order.user.username }},
+
+Merci pour votre commande sur FOUNATEK SHOP !
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CONFIRMATION DE COMMANDE #{{ order.pk|stringformat:"06d" }}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Date       : {{ order.created_at|date:"d/m/Y à H:i" }}
+Statut     : {{ order.get_status_display }}
+Téléphone  : {{ order.phone }}
+Adresse    : {{ order.shipping_address }}
+
+ARTICLES COMMANDÉS
+──────────────────
+{% for item in order.items.all %}  • {{ item.product.name }}
+    Qté : {{ item.quantity }}  |  Prix : {{ item.unit_price }} GNF  |  Sous-total : {{ item.subtotal }} GNF
+{% endfor %}
+──────────────────
+TOTAL : {{ order.total }} GNF
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  VOTRE PROGRAMME DE FIDÉLITÉ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{% if earned > 0 %}🎉 Vous venez de gagner {{ earned }} point{{ earned|pluralize }} de fidélité !{% endif %}
+
+  Solde actuel   : {{ loyalty.points }} point{{ loyalty.points|pluralize }}
+  Niveau         : {{ loyalty.get_level_display|upper }}
+  Valeur remise  : {{ loyalty.discount_value }} GNF utilisables
+{% if loyalty.next_level_info %}  Prochain niveau : encore {{ loyalty.next_level_info.needed }} point{{ loyalty.next_level_info.needed|pluralize }} pour atteindre {{ loyalty.next_level_info.name|upper }}
+{% endif %}
+  Règle : 1 point gagné par tranche de 1 000 GNF dépensée
+           10 points = 5 000 GNF de réduction
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Nous vous remercions de votre confiance et espérons vous revoir bientôt !
+
+— L'équipe FOUNATEK SHOP
+Orange Digital Center, Ratoma, Conakry — Guinée

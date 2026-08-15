@@ -40,6 +40,8 @@ class UploadedImageSerializer(serializers.ModelSerializer):
 from django.db import IntegrityError, transaction
 # ...existing code...
 
+
+
 class AppareilDataSerializer(serializers.Serializer):
     device_id = serializers.CharField(max_length=100)
     data = serializers.JSONField()
@@ -50,58 +52,60 @@ class AppareilDataSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
-        user = self.context.get('user', None)
-        device_id = validated_data['device_id']
-        payload = validated_data['data']
-        token_key = self.context.get('token_key', '')
-        # Sans utilisateur ni token, on refuse la création de device (sécurité)
-        if not user and not token_key:
-            raise serializers.ValidationError("Authentification requise pour créer un device ou fournir un token valide")
+        user = self.context.get("user")
+        token_key = self.context.get("token_key")
+        device_id = validated_data["device_id"]
+        payload = validated_data["data"]
 
-        # 1) tenter de trouver l'objet existant (device_id ou api_key)
-        device = Device.objects.filter(device_id=device_id).first()
-        if not device and token_key:
-            device = Device.objects.filter(api_key=token_key).first()
+        if not user:
+            raise serializers.ValidationError("Utilisateur non authentifié")
 
-        # 2) si absent : ne PAS créer automatiquement sans owner
-        #    Pour des raisons de sécurité le provisioning explicite est requis
-        #    (création de device via interface admin ou endpoint de provisioning).
-        if not device:
-            if not user:
-                raise serializers.ValidationError(
-                    "Device non identifié — provisioning requis avant création automatique."
-                )
+        # 🔥 1. CRÉATION AUTO SÉCURISÉE PAR USER
+        with transaction.atomic():
+            device, created = Device.objects.get_or_create(
+                device_id=device_id,
+                user=user,
+                defaults={
+                    "name": f"Device {device_id}",
+                    "is_active": True,
+                    "api_key": token_key
+                }
+            )
 
-            try:
-                with transaction.atomic():
-                    defaults = {
-                        "user": user,
-                        "name": device_id,
-                        "is_active": True,
-                    }
-                    if token_key:
-                        defaults["api_key"] = token_key
+        # 🔥 2. AUTO-ENRICHISSEMENT INTELLIGENT
+        updated = False
 
-                    device, _ = Device.objects.get_or_create(
-                        device_id=device_id,
-                        defaults=defaults,
-                    )
-            except IntegrityError:
-                # retenter la récupération si insertion concurrente a échoué
-                device = Device.objects.filter(device_id=device_id).first()
-                if not device and token_key:
-                    device = Device.objects.filter(api_key=token_key).first()
+        # 👉 Type auto
+        if payload:
+            if "pm2p5" in payload or "pm10" in payload:
+                if getattr(device, "type", None) != "air_quality":
+                    device.type = "air_quality"
+                    updated = True
 
-        if not device:
-            raise serializers.ValidationError("Impossible de créer ou d'identifier le device")
+            elif "soil_moisture" in payload:
+                device.type = "agriculture"
+                updated = True
 
-            # Ne pas attacher automatiquement le `Device` à l'utilisateur ici.
-            # L'attribution doit être faite via un provisioning explicite pour
-            # éviter les collisions quand plusieurs utilisateurs sont connectés.
+            elif "temperature" in payload and "humidity" in payload:
+                device.type = "environment"
+                updated = True
 
-        # 3) création de l'AppareilData
+        # 👉 Géolocalisation
+        if payload.get("latitude") and payload.get("longitude"):
+            device.latitude = payload.get("latitude")
+            device.longitude = payload.get("longitude")
+            updated = True
+
+        # 👉 Dernière activité
+        from django.utils import timezone
+        device.last_seen = timezone.now()
+        updated = True
+
+        if updated:
+            device.save()
+
+        # 🔥 3. SAUVEGARDE DATA
         return AppareilData.objects.create(
             device=device,
             payload=payload
         )
-# ...existing code...

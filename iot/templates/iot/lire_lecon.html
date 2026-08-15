@@ -68,7 +68,8 @@
     .terminal-body {
         padding: 15px;
         font-family: 'Fira Code', monospace;
-        white-space: pre;
+        white-space: pre-wrap;
+        word-break: break-word;
         font-size: 0.95rem;
     }
 
@@ -111,6 +112,18 @@
         border: 1px solid rgba(0,210,255,0.3);
         text-align: center;
     }
+
+    .media-img{
+        width:100%;
+        max-height:500px;
+        object-fit:contain;
+        border-radius:12px;
+    }
+
+    .video-player{
+        width:100%;
+        border-radius:12px;
+    }
 </style>
 
 <div class="lesson-container">
@@ -118,108 +131,221 @@
     <!-- ================= EN-TÊTE ================= -->
     <div class="lesson-header">
         <h1 class="lesson-title">{{ lecon.titre }}</h1>
+
         {% if lecon.resume %}
-            <div class="lesson-resume">{{ lecon.resume }}</div>
+            <div class="lesson-resume">
+                {{ lecon.resume }}
+            </div>
         {% endif %}
     </div>
 
     <!-- ================= BLOCS ================= -->
+
     {% for bloc in blocs %}
+
         <div class="content-block">
 
             {% if bloc.type == "texte" %}
-                <div class="block-text">{{ bloc.contenu|linebreaks }}</div>
+
+                <div class="block-text">
+                    {{ bloc.contenu|linebreaks }}
+                </div>
 
             {% elif bloc.type == "code" %}
+
                 <div class="terminal-window">
                     <div class="terminal-header">
                         {{ bloc.language|default:"CODE" }}
                     </div>
+
                     <div class="terminal-body">{{ bloc.code }}</div>
                 </div>
 
             {% elif bloc.type == "image" %}
-                <img src="{{ bloc.media_file.url }}" class="img-fluid rounded">
+
+                {% if bloc.media_file %}
+
+                    <img
+                        src="{{ bloc.media_file.url }}"
+                        class="media-img">
+
+                {% else %}
+
+                    <div class="alert alert-warning">
+                        ⚠️ Aucune image n'a été ajoutée pour ce bloc.
+                    </div>
+
+                {% endif %}
 
             {% elif bloc.type == "video" %}
-                <video controls class="w-100 rounded">
-                    <source src="{{ bloc.media_file.url }}">
-                </video>
+
+                {% if bloc.media_file %}
+
+                    <video controls class="video-player">
+                        <source src="{{ bloc.media_file.url }}">
+                        Votre navigateur ne supporte pas la lecture vidéo.
+                    </video>
+
+                {% else %}
+
+                    <div class="alert alert-warning">
+                        ⚠️ Aucune vidéo n'a été ajoutée pour ce bloc.
+                    </div>
+
+                {% endif %}
+
             {% endif %}
 
         </div>
+
+    {% empty %}
+
+        <div class="alert alert-info">
+            Aucun contenu disponible pour cette leçon.
+        </div>
+
     {% endfor %}
 
     <!-- ================= QUIZ ================= -->
+
     {% if quizzes and not lecon_validee %}
+
         <div class="quiz-section">
-            <h3><i class="fas fa-brain"></i> Validation des acquis</h3>
+
+            <h3>
+                <i class="fas fa-brain"></i>
+                Validation des acquis
+            </h3>
 
             <form method="post">
-                {% csrf_token %}
-                {% for quiz in quizzes %}
-                    <div class="quiz-card">
-                        <strong>Q{{ forloop.counter }}.</strong> {{ quiz.question }}
 
-                        <div class="mt-3">
-                            <label><input type="radio" name="quiz_{{ quiz.id }}" value="A"> {{ quiz.choix_a }}</label><br>
-                            <label><input type="radio" name="quiz_{{ quiz.id }}" value="B"> {{ quiz.choix_b }}</label><br>
-                            {% if quiz.choix_c %}
-                                <label><input type="radio" name="quiz_{{ quiz.id }}" value="C"> {{ quiz.choix_c }}</label><br>
-                            {% endif %}
-                            {% if quiz.choix_d %}
-                                <label><input type="radio" name="quiz_{{ quiz.id }}" value="D"> {{ quiz.choix_d }}</label>
-                            {% endif %}
-                        </div>
+                {% csrf_token %}
+
+                {% for quiz in quizzes %}
+
+                    <div class="quiz-card">
+
+                        <strong>
+                            Question {{ forloop.counter }}
+                        </strong>
+
+                        <p class="mt-2">
+                            {{ quiz.question }}
+                        </p>
+
+                        <label>
+                            <input type="radio" name="quiz_{{ quiz.id }}" value="A">
+                            {{ quiz.choix_a }}
+                        </label>
+
+                        <br>
+
+                        <label>
+                            <input type="radio" name="quiz_{{ quiz.id }}" value="B">
+                            {{ quiz.choix_b }}
+                        </label>
+
+                        {% if quiz.choix_c %}
+                            <br>
+                            <label>
+                                <input type="radio" name="quiz_{{ quiz.id }}" value="C">
+                                {{ quiz.choix_c }}
+                            </label>
+                        {% endif %}
+
+                        {% if quiz.choix_d %}
+                            <br>
+                            <label>
+                                <input type="radio" name="quiz_{{ quiz.id }}" value="D">
+                                {{ quiz.choix_d }}
+                            </label>
+                        {% endif %}
+
                     </div>
+
                 {% endfor %}
 
-                <button type="submit" class="btn-cyber">
-                    <i class="fas fa-check-circle"></i> Soumettre le quiz
+                <button class="btn-cyber" type="submit">
+                    <i class="fas fa-check-circle"></i>
+                    Soumettre le quiz
                 </button>
+
             </form>
+
         </div>
+
     {% endif %}
 
-    <!-- ================= FEEDBACK ================= -->
+    <!-- ================= SCORE ================= -->
+
     {% if score is not None %}
+
         <div class="alert {% if lecon_validee %}alert-success{% else %}alert-danger{% endif %} mt-4">
-            🧠 Score obtenu : <strong>{{ score }}%</strong><br>
+
+            <strong>Score obtenu :</strong>
+            {{ score }} %
+
+            <br><br>
+
             {% if lecon_validee %}
-                🎉 Leçon validée avec succès !
+                🎉 Félicitations ! Cette leçon est validée.
             {% else %}
-                ❌ Score insuffisant (80% requis).
+                ❌ Vous devez obtenir au moins 80 % pour valider cette leçon.
             {% endif %}
+
         </div>
+
     {% endif %}
 
     <!-- ================= LEÇON SUIVANTE ================= -->
+
     {% if lecon_validee and lecon_suivante %}
+
         <a href="{% url 'iot:lire_lecon' lecon_suivante.id %}"
            class="btn btn-next btn-cyber">
-            ➡️ Passer à la leçon suivante
+
+            ➜ Passer à la leçon suivante
+
         </a>
+
     {% endif %}
 
-    <!-- ================= CERTIFICATION ================= -->
-    {% if certificat_url %}
-        <div class="certif-box">
-            <h3>🎓 Félicitations !</h3>
-            <p>Vous avez terminé ce parcours avec succès.</p>
+    <!-- ================= CERTIFICAT ================= -->
 
-            <a href="{{ certificat_url }}" target="_blank" class="btn btn-cyber mt-3">
+    {% if certificat_url %}
+
+        <div class="certif-box">
+
+            <h3>🎓 Félicitations !</h3>
+
+            <p>
+                Vous avez terminé ce parcours avec succès.
+            </p>
+
+            <a href="{{ certificat_url }}"
+               target="_blank"
+               class="btn btn-cyber">
+
                 📄 Télécharger le certificat
+
             </a>
 
             {% if certificat_uuid %}
+
                 <a href="{% url 'iot:verifier_certificat' certificat_uuid %}"
                    target="_blank"
                    class="btn btn-outline-light mt-3">
-                    🔐 Vérifier / partager le certificat
+
+                    🔐 Vérifier le certificat
+
                 </a>
+
             {% endif %}
+
         </div>
+
     {% endif %}
 
 </div>
+
 {% endblock %}

@@ -8,18 +8,37 @@ from django.conf import settings
 
 #Api generique universel
 
+
 class Device(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="devices"
     )
-    device_id = models.CharField(max_length=100, unique=True)
+
+    device_id = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
-    api_key = models.CharField(max_length=255, unique=True)
+
+    api_key = models.CharField(max_length=255, blank=True, null=True)
+
     is_active = models.BooleanField(default=True)
-    # Dernière fois où le device a envoyé des données
+
+    # 🔥 NOUVEAUX CHAMPS (INTELLIGENCE)
+    type = models.CharField(max_length=50, blank=True, null=True)
+
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+
     last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # 🔥 TRÈS IMPORTANT
+        unique_together = ("device_id", "user")
+
+    def __str__(self):
+        return f"{self.name} ({self.device_id})"
 
 
 
@@ -379,28 +398,44 @@ class AgentConfig(models.Model):
 
 #Rendre l'agent dynamique
 
-class SensorRule(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    device = models.ForeignKey(
-        Device, null=True, blank=True, on_delete=models.CASCADE
-    )  # null = toutes machines
 
-    sensor = models.CharField(max_length=50)   # "temperature", "ph", "lux"
+class SensorRule(models.Model):
+    # On définit les types d'actions possibles
+    ACTION_CHOICES = [
+        ("ALERT", "🚨 Alerte uniquement"),
+        ("START_IRRIGATION", "💧 Activer un Relais (Irrigation/Ventilation)"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    device = models.ForeignKey(Device, null=True, blank=True, on_delete=models.CASCADE)
+
+    sensor = models.CharField(max_length=50) # ex: "soil_moisture"
     min_value = models.FloatField(null=True, blank=True)
     max_value = models.FloatField(null=True, blank=True)
+
+    # --- NOUVEAUX CHAMPS ---
+    action_type = models.CharField(
+        max_length=20,
+        choices=ACTION_CHOICES,
+        default="ALERT"
+    )
+    target_num = models.IntegerField(
+        default=1,
+        help_text="Numéro du relais à activer (1, 2, etc.)"
+    )
+    # -----------------------
 
     level = models.CharField(
         max_length=10,
         choices=[("INFO","INFO"),("WARN","WARN"),("CRITICAL","CRITICAL")]
     )
-
     message = models.CharField(max_length=255)
     code = models.CharField(max_length=50)
-
     active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.sensor} ({self.user})"
+        return f"{self.sensor} -> {self.action_type} (Relais {self.target_num})"
+
 
 
 #Model de mémoire chatbot

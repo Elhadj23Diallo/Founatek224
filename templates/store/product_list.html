@@ -1,0 +1,87 @@
+{% extends 'store/base.html' %}
+{% block title %}Produits â€” FOUNATEK SHOP{% endblock %}
+{% block content %}
+
+<div class="row">
+  <div class="col-12 col-md-3">
+    {# Filtre catégories â€” collapse sur mobile #}
+    <div class="d-flex justify-content-between align-items-center mb-2 d-md-none">
+      <h6 class="mb-0 fw-bold">Catégories</h6>
+      <button class="btn btn-sm btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-cats">
+        <i class="bi bi-filter me-1"></i>Filtrer
+      </button>
+    </div>
+    <div class="collapse d-md-block mb-3" id="sidebar-cats">
+      <h5 class="d-none d-md-block">Catégories</h5>
+      <div class="list-group">
+        <a href="{% url 'Founatekapp:product_list' %}" class="list-group-item list-group-item-action {% if not current_category %}active{% endif %}">
+          Tous les produits
+        </a>
+        {% for cat in categories %}
+        <a href="{{ cat.get_absolute_url }}" class="list-group-item list-group-item-action {% if current_category == cat %}active{% endif %}">
+          {{ cat.name }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-9">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4>
+        {% if current_category %}{{ current_category.name }}
+        {% elif query %}Résultats pour "{{ query }}"
+        {% else %}Tous les produits{% endif %}
+        <small class="text-muted fs-6">({{ products|length }} résultat{{ products|length|pluralize }})</small>
+      </h4>
+    </div>
+
+    <div class="row g-3">
+      {% for product in products %}
+      <div class="col-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+          {% if product.image %}
+            <img src="{{ product.image.url }}" class="card-img-top p-2" style="height:140px;object-fit:contain;" alt="{{ product.name }}">
+          {% else %}
+            <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:140px;">
+              <i class="bi bi-box-seam fs-1 text-secondary"></i>
+            </div>
+          {% endif %}
+          <div class="card-body d-flex flex-column">
+            <h6 class="card-title">{{ product.name }}</h6>
+            <p class="text-muted small mb-1">{{ product.category.name }}</p>
+            <p class="fw-bold text-success mt-auto mb-2">
+              {% if currency_code != 'GNF' and exchange_rate %}
+                {{ product.price|mul:exchange_rate.rate_from_gnf }} {{ currency_code }}
+              {% else %}
+                {{ product.price }} GNF
+              {% endif %}
+            </p>
+            {% if not product.in_stock %}<span class="badge bg-danger mb-2">Épuisé</span>{% endif %}
+            <div class="d-flex gap-2">
+              <a href="{{ product.get_absolute_url }}" class="btn btn-outline-dark btn-sm flex-grow-1">
+                <i class="bi bi-eye"></i> Voir
+              </a>
+              {% if product.in_stock %}
+              <form method="post" action="{% url 'Founatekapp:cart_add' product.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning btn-sm">
+                  <i class="bi bi-cart-plus"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <p class="text-muted">Aucun produit trouvé.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

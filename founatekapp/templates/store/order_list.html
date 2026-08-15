@@ -1,0 +1,75 @@
+{% extends 'store/base.html' %}
+{% block title %}Mes commandes â€” FOUNATEK SHOP{% endblock %}
+{% load shop_extras %}
+{% block content %}
+
+<h2 class="mb-4"><i class="bi bi-bag-check me-2"></i>Mes commandes</h2>
+
+{% if orders %}
+
+{# Desktop #}
+<div class="d-none d-md-block table-responsive">
+  <table class="table table-hover">
+    <thead class="table-dark">
+      <tr><th>#</th><th>Date</th><th>Statut</th><th>Articles</th><th>Total</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+      <tr>
+        <td>#{{ order.pk }}</td>
+        <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
+        <td>
+          <span class="badge {% if order.status == 'pending' %}bg-warning text-dark{% elif order.status == 'confirmed' %}bg-info{% elif order.status == 'shipped' %}bg-primary{% elif order.status == 'delivered' %}bg-success{% else %}bg-danger{% endif %}">
+            {{ order.get_status_display }}
+          </span>
+        </td>
+        <td>{{ order.total_items }}</td>
+        <td class="fw-bold">{% if currency_code != 'GNF' and exchange_rate %}{{ order.total|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}{{ order.total }} GNF{% endif %}</td>
+        <td class="d-flex gap-1">
+          <a href="{{ order.get_absolute_url }}" class="btn btn-sm btn-outline-dark">Détails</a>
+          <a href="{% url 'founatekapp:order_receipt' order.pk %}" class="btn btn-sm btn-success" title="Reçu PDF">
+            <i class="bi bi-file-earmark-pdf"></i>
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# Mobile â€” cards #}
+<div class="d-md-none">
+  {% for order in orders %}
+  <div class="card border-0 shadow-soft mb-3">
+    <div class="card-body p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-bold">#{{ order.pk }}</span>
+        <span class="badge {% if order.status == 'pending' %}bg-warning text-dark{% elif order.status == 'confirmed' %}bg-info{% elif order.status == 'shipped' %}bg-primary{% elif order.status == 'delivered' %}bg-success{% else %}bg-danger{% endif %}">
+          {{ order.get_status_display }}
+        </span>
+      </div>
+      <div class="text-muted small mb-1">{{ order.created_at|date:"d/m/Y Ã  H:i" }}</div>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <span class="fw-bold text-success">{% if currency_code != 'GNF' and exchange_rate %}{{ order.total|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}{{ order.total }} GNF{% endif %}</span>
+        <div class="d-flex gap-2">
+          <a href="{{ order.get_absolute_url }}" class="btn btn-sm btn-outline-dark">Détails</a>
+          <a href="{% url 'founatekapp:order_receipt' order.pk %}" class="btn btn-sm btn-success">
+            <i class="bi bi-file-earmark-pdf"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-bag-x" style="font-size:4rem;color:#ccc;"></i>
+  <p class="mt-3 text-muted fs-5">Aucune commande pour l'instant.</p>
+  <a href="{% url 'founatekapp:product_list' %}" class="btn btn-warning">Commencer mes achats</a>
+</div>
+{% endif %}
+{% endblock %}
+
+

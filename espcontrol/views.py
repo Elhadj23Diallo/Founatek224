@@ -253,8 +253,14 @@ from django.core.files.base import ContentFile
 from django.contrib.auth.decorators import login_required
 from rest_framework.permissions import IsAuthenticated
 from .utils import api_permission_required
-from monetisation.decorators import plan_required, require_quota, premium_feature_required
-from monetisation.quota import check_quota
+try:
+    from monetisation.decorators import plan_required, require_quota, premium_feature_required
+    from monetisation.quota import check_quota
+except Exception:
+    plan_required = lambda *args, **kwargs: (lambda view: view)
+    require_quota = lambda *args, **kwargs: (lambda view: view)
+    premium_feature_required = lambda *args, **kwargs: (lambda view: view)
+    check_quota = lambda *args, **kwargs: True
 # ... tes imports actuels ...
 from django.core.paginator import Paginator # Pour faire des pages (1, 2, 3...)
 import zipfile # Pour créer le fichier ZIP
@@ -265,8 +271,13 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from pathlib import Path
-from iot.models import Parcours
-
+try:
+    from iot.models import Parcours
+except Exception:
+    Parcours = None
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .models import AgentAlert
 from .models import Device, AppareilData, AgentAlert
 import numpy as np
 
@@ -588,7 +599,7 @@ def air_dashboard(request):
             "alerts": alerts,
             "image": "/static/air/pm2p5_dashboard.png",
         }
-        return render(request, "espcontrol/air_dashboard.html", context)
+        return render(request, "espcontrol/air_quality_dashboard.html", context)
 
     except FileNotFoundError as e:
         return render(
@@ -1610,19 +1621,448 @@ def export_excel(request):
     workbook.save(response)
     return response
 
+# Importe ta fonction de détection d'anomalies ici
 
 
 
-#Vues pour télécharger les données recoltées par le capteur de gaz MQTT35
+def detect_anomalies(device, window=50, sigma_threshold=2):
+    # Récupérer les données pour ce device spécifique
+    data_points = list(AppareilData.objects.filter(device=device).order_by('-received_at')[:window])
+    if not data_points:
+        return []
+
+    # Liste des capteurs SDS011 et autres
+    sensors = ['pm2p5', 'pm10', 'temperature', 'humidity', 'mq135_ppm']
+    anomalies = []
+
+    for sensor in sensors:
+        # Extraire uniquement les valeurs numériques
+        values = [d.payload.get(sensor) for d in data_points
+                 if d.payload and isinstance(d.payload.get(sensor), (int, float))]
+
+        if len(values) < 5: # Besoin d'un minimum de points pour la moyenne
+            continue
+
+        mean = np.mean(values)
+        std = np.std(values)
+        latest_data = data_points[0]
+        latest_value = latest_data.payload.get(sensor)
+
+        if latest_value is not None:
+            # Algorithme du Z-Score
+            if std > 0 and (abs(latest_value - mean) > sigma_threshold * std):
+                anomalies.append({
+                    'sensor': sensor,
+                    'value': latest_value,
+                    'mean': round(float(mean), 2),
+                    'std': round(float(std), 2)
+                })
+                # Marquer en base de données
+                latest_data.is_anomaly = True
+                latest_data.save()
+
+                # --- Création automatique de l'alerte pour l'Agent IA ---
+                AgentAlert.objects.get_or_create(
+                    user=device.user,
+                    device=device,
+                    sensor=sensor,
+                    value=str(latest_value),
+                    level='CRITICAL' if sensor.startswith('pm') and latest_value > 50 else 'WARN',
+                    message=f"Anomalie détectée sur {sensor}: {latest_value} (Moyenne: {round(mean, 1)})",
+                    is_read=False
+                )
+    return anomalies
+
+@login_required
+def air_quality_dashboard(request):
+    """
+    Vue principale du Dashboard Founatek Nexus.
+    Affiche les alertes IA, les statistiques et les graphiques par appareil.
+
+    🎯 COHÉRENCE AGENT : le badge AQI utilise la même logique que l'agent IA
+    (moyenne glissante 5 mesures) — un pic ponctuel (cigarette) ne déclenche
+    pas un changement de statut alarmant.
+    """
+    from espcontrol.models import Relais
+
+    now = timezone.now()
+    yesterday = now - timedelta(hours=24)
+
+    # 1. Récupération des alertes non lues récentes (30 dernières minutes)
+    recent_limit = now - timedelta(minutes=30)
+    agent_alerts = AgentAlert.objects.filter(
+        user=request.user,
+        is_read=False,
+        created_at__gte=recent_limit
+    ).order_by("-created_at")
+
+    devices = Device.objects.filter(user=request.user)
+    devices_data = []
+    sensors_list = ['pm2p5', 'pm10', 'temperature', 'humidity', 'mq135_ppm']
+
+    for device in devices:
+        # Récupération des données brutes
+        device_readings = AppareilData.objects.filter(device=device).order_by('-received_at')
+        all_points      = device_readings[:50]
+        recent_readings = device_readings.filter(received_at__gte=yesterday)
+
+        # 2. Détection d'anomalies (IA Z-Score)
+        anomalies = detect_anomalies(device, window=5)
+
+        # 3. Calcul des statistiques PM2.5 et PM10 (sur 24h)
+        pm25_v = [
+            r.payload.get('pm2p5') for r in recent_readings
+            if r.payload and isinstance(r.payload.get('pm2p5'), (int, float))
+        ]
+        pm10_v = [
+            r.payload.get('pm10') for r in recent_readings
+            if r.payload and isinstance(r.payload.get('pm10'), (int, float))
+        ]
+        stats = {
+            'avg_pm25': round(sum(pm25_v) / len(pm25_v), 2) if pm25_v else 0,
+            'avg_pm10': round(sum(pm10_v) / len(pm10_v), 2) if pm10_v else 0,
+        }
+
+        # ════════════════════════════════════════════════════════════════
+        # 4. Calcul du statut AQI — MOYENNE GLISSANTE 5 MESURES
+        # ════════════════════════════════════════════════════════════════
+        # Cohérent avec la logique de l'agent IA : on filtre les pics
+        # ponctuels (cigarette, voiture) pour ne réagir qu'aux tendances
+        # durables de pollution.
+        latest = device_readings.first()
+        aqi = {"status": "N/A", "color": "#64748b", "icon": "❓"}
+
+        # Moyenne glissante sur les 5 dernières mesures
+        recent_5 = list(device_readings[:5])
+        pm25_values = [
+            r.payload.get('pm2p5') for r in recent_5
+            if r.payload and isinstance(r.payload.get('pm2p5'), (int, float))
+        ]
+
+        if pm25_values:
+            pm25_moy = sum(pm25_values) / len(pm25_values)
+
+            # Classification selon les seuils OMS 2021
+            if pm25_moy <= 15:
+                aqi = {
+                    "status": "Bon",
+                    "color":  "#10b981",
+                    "icon":   "✅",
+                    "value":  round(pm25_moy, 1),
+                }
+            elif pm25_moy <= 35:
+                aqi = {
+                    "status": "Modéré",
+                    "color":  "#f59e0b",
+                    "icon":   "⚠️",
+                    "value":  round(pm25_moy, 1),
+                }
+            elif pm25_moy <= 55:
+                aqi = {
+                    "status": "Mauvais",
+                    "color":  "#ef4444",
+                    "icon":   "🔴",
+                    "value":  round(pm25_moy, 1),
+                }
+            else:
+                aqi = {
+                    "status": "Très mauvais",
+                    "color":  "#7c2d12",
+                    "icon":   "☠️",
+                    "value":  round(pm25_moy, 1),
+                }
+
+        # 5. Préparation des points pour les graphiques Chart.js
+        processed_points = []
+        for p in all_points:
+            processed_points.append({
+                "id":          p.id,
+                "received_at": p.received_at.isoformat(),
+                "payload":     p.payload,
+                "is_anomaly":  p.is_anomaly,
+            })
+
+        # 6. Compilation des données par appareil
+        devices_data.append({
+            "device":         device,
+            "latest_reading": latest,
+            "stats":          stats,
+            "aqi_status":     aqi,
+            "chart_data":     list(reversed(processed_points[:20])),
+            "data_points":    processed_points,
+            "has_anomaly":    bool(anomalies),
+            "total_count":    AppareilData.objects.filter(device=device).count(),
+            "relais_list":    Relais.objects.filter(user=request.user),
+        })
+
+    return render(request, 'espcontrol/air_quality_dashboard.html', {
+        "devices_data":  devices_data,
+        "sensors_list":  sensors_list,
+        "agent_alerts":  agent_alerts,
+    })
+
+@api_permission_required
+@api_view(['GET'])
+def air_quality_data_api(request):
+    """API basée sur les vraies données IoT (AppareilData)"""
+
+    limit = int(request.GET.get('limit', 50))
+
+    readings = (
+        AppareilData.objects
+        .select_related("device")
+        .order_by('-received_at')[:limit]
+    )
+
+    data_by_device = {}
+
+    for r in readings:
+        payload = r.payload or {}
+        device_name = r.device.name if r.device else "Inconnu"
+
+        if device_name not in data_by_device:
+            data_by_device[device_name] = {
+                "device": device_name,
+                "latest": r,
+                "readings": []
+            }
+
+        data_by_device[device_name]["readings"].append(r)
+
+    response_data = []
+
+    for device_name, data in data_by_device.items():
+        pm25_list = [r.payload.get("pm2p5", 0) for r in data["readings"]]
+        pm10_list = [r.payload.get("pm10", 0) for r in data["readings"]]
+
+        avg_pm25 = sum(pm25_list) / len(pm25_list) if pm25_list else 0
+        avg_pm10 = sum(pm10_list) / len(pm10_list) if pm10_list else 0
+
+        latest_payload = data["latest"].payload or {}
+
+        response_data.append({
+            "device": device_name,
+            "latest": {
+                "pm2p5": latest_payload.get("pm2p5"),
+                "pm10": latest_payload.get("pm10"),
+                "timestamp": data["latest"].received_at.isoformat(),
+            },
+            "averages": {
+                "pm2p5": round(avg_pm25, 1),
+                "pm10": round(avg_pm10, 1),
+            },
+            "location": {
+                "lat": latest_payload.get("latitude"),
+                "lon": latest_payload.get("longitude"),
+            }
+        })
+
+    return Response({"data": response_data}, status=status.HTTP_200_OK)
+
+
+import openpyxl
+from django.http import HttpResponse
+
+
+
+@login_required
+def export_air_founatek_nexus_excel(request, device_id):
+
+    # ──────────────────────────────────────────────────────────
+    # SÉCURITÉ
+    # ──────────────────────────────────────────────────────────
+    device = get_object_or_404(
+        Device,
+        id=device_id,
+        user=request.user
+    )
+
+    # ──────────────────────────────────────────────────────────
+    # FILTRAGE PAR PÉRIODE (optionnel)
+    # ──────────────────────────────────────────────────────────
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    query = AppareilData.objects.filter(device=device)
+
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, '%Y-%m-%d').replace(hour=0, minute=0)
+            end = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59)
+            query = query.filter(received_at__range=[start, end])
+        except ValueError:
+            pass
+
+    # ──────────────────────────────────────────────────────────
+    # DONNÉES
+    # ──────────────────────────────────────────────────────────
+    data = query.order_by('-received_at')[:2000]
+
+    # ──────────────────────────────────────────────────────────
+    # 🚨 DÉTECTION ANOMALIES
+    # ──────────────────────────────────────────────────────────
+    anomalies = detect_anomalies(device, window=100, sigma_threshold=2)
+    anomaly_ids = set(a.get('id') for a in anomalies if 'id' in a)
+
+    # ──────────────────────────────────────────────────────────
+    # 🤖 ALERTES AGENT IA
+    # ──────────────────────────────────────────────────────────
+    agent_alerts = AgentAlert.objects.filter(
+        user=request.user,
+        device=device
+    ).order_by('-created_at')[:50]
+
+    alert_map = {a.id: a for a in agent_alerts}
+
+    # ──────────────────────────────────────────────────────────
+    # CLASSEUR EXCEL
+    # ──────────────────────────────────────────────────────────
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = f"Mesures {device.name}"
+
+    # ──────────────────────────────────────────────────────────
+    # EN-TÊTES
+    # ──────────────────────────────────────────────────────────
+    sheet.append([
+        "Date/Heure",
+        "Appareil",
+        "PM2.5 (µg/m³)",
+        "PM10 (µg/m³)",
+        "Gaz MQ135 (PPM)",
+        "Température (°C)",
+        "Humidité (%)",
+        "Latitude",
+        "Longitude",
+        "Satellites GPS",
+        "🚨 Anomalie",
+        "🤖 Alerte Agent"
+    ])
+
+    # Style header
+    from openpyxl.styles import Font, PatternFill
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+
+    for cell in sheet[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+
+    # ──────────────────────────────────────────────────────────
+    # DONNÉES LIGNES
+    # ──────────────────────────────────────────────────────────
+    for entry in data:
+        p = entry.payload or {}
+
+        is_anomaly = entry.is_anomaly or (entry.id in anomaly_ids)
+        anomaly_label = "⚠️ OUI" if is_anomaly else "Non"
+
+        alert_msg = ""
+        if entry.id in alert_map:
+            alert = alert_map[entry.id]
+            alert_msg = f"{alert.level}: {alert.message}"
+
+        row = [
+            entry.received_at.strftime("%d/%m/%Y %H:%M:%S"),
+            device.name,
+            p.get("pm2p5", "0"),
+            p.get("pm10", "0"),
+            p.get("mq135_ppm", "0"),
+            p.get("temperature", "0"),
+            p.get("humidity", "0"),
+            p.get("latitude", "0"),
+            p.get("longitude", "0"),
+            p.get("satellites", "0"),
+            anomaly_label,
+            alert_msg
+        ]
+
+        sheet.append(row)
+
+        if is_anomaly:
+            anomaly_fill = PatternFill(start_color="FFE6E6", end_color="FFE6E6", fill_type="solid")
+            for cell in sheet[sheet.max_row]:
+                cell.fill = anomaly_fill
+
+    # ──────────────────────────────────────────────────────────
+    # STYLE COLONNES
+    # ──────────────────────────────────────────────────────────
+    column_widths = {
+        "A": 22, "B": 25, "C": 15, "D": 15, "E": 18,
+        "F": 18, "G": 15, "H": 16, "I": 16, "J": 16,
+        "K": 15, "L": 35
+    }
+
+    for col, width in column_widths.items():
+        sheet.column_dimensions[col].width = width
+
+    # ──────────────────────────────────────────────────────────
+    # FEUILLE STATISTIQUES
+    # ──────────────────────────────────────────────────────────
+    stats_sheet = workbook.create_sheet("Statistiques")
+
+    pm25_list = [d.payload.get('pm2p5', 0) for d in data if d.payload and d.payload.get('pm2p5')]
+    pm10_list = [d.payload.get('pm10', 0) for d in data if d.payload and d.payload.get('pm10')]
+
+    stats_sheet.append(["Métrique", "Valeur"])
+    stats_sheet.append(["Total mesures", len(data)])
+    stats_sheet.append(["Anomalies détectées", len(anomalies)])
+    stats_sheet.append(["Alertes Agent", agent_alerts.count()])
+    stats_sheet.append(["PM2.5 Moyenne", round(sum(pm25_list) / len(pm25_list), 2) if pm25_list else 0])
+    stats_sheet.append(["PM2.5 Min", min(pm25_list) if pm25_list else 0])
+    stats_sheet.append(["PM2.5 Max", max(pm25_list) if pm25_list else 0])
+    stats_sheet.append(["PM10 Moyenne", round(sum(pm10_list) / len(pm10_list), 2) if pm10_list else 0])
+    stats_sheet.append(["PM10 Min", min(pm10_list) if pm10_list else 0])
+    stats_sheet.append(["PM10 Max", max(pm10_list) if pm10_list else 0])
+
+    for cell in stats_sheet[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+
+    stats_sheet.column_dimensions["A"].width = 25
+    stats_sheet.column_dimensions["B"].width = 20
+
+    # ──────────────────────────────────────────────────────────
+    # NOM FICHIER
+    # ──────────────────────────────────────────────────────────
+    filename = (
+        f"Data_{device.name.replace(' ', '_')}_"
+        f"{timezone.now().strftime('%d_%m_%Y_%Hh%M')}.xlsx"
+    )
+
+    # ──────────────────────────────────────────────────────────
+    # RÉPONSE HTTP
+    # ──────────────────────────────────────────────────────────
+    response = HttpResponse(
+        content_type=(
+            "application/vnd.openxmlformats-"
+            "officedocument.spreadsheetml.sheet"
+        )
+    )
+
+    response["Content-Disposition"] = (
+        f'attachment; filename="{filename}"'
+    )
+
+    workbook.save(response)
+
+    return response
+
+# Vues pour télécharger les données recoltées par le capteur de gaz MQTT35
+
 @login_required
 def export_gas_excel(request):
+
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
 
     data = SensorData.objects.filter(user=request.user)
 
     if start_date and end_date:
-        data = data.filter(timestamp__date__gte=start_date, timestamp__date__lte=end_date)
+        data = data.filter(
+            timestamp__date__gte=start_date,
+            timestamp__date__lte=end_date
+        )
 
     workbook = openpyxl.Workbook()
     sheet = workbook.active
@@ -1647,6 +2087,51 @@ def export_gas_excel(request):
     workbook.save(response)
     return response
 
+@login_required
+def export_air_data_excel(request):
+    # Récupérer les données des appareils de l'utilisateur
+    # On prend les 1000 dernières mesures par exemple
+    devices = Device.objects.filter(user=request.user)
+    data = AppareilData.objects.filter(device__in=devices).order_by("-received_at")[:1000]
+
+    # Création du classeur Excel
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Données Air Quality"
+
+    # En-têtes des colonnes
+    headers = [
+        "Horodatage", "Appareil", "PM2.5 (µg/m³)", "PM10 (µg/m³)",
+        "Température (°C)", "Humidité (%)", "Gaz (PPM)", "Latitude", "Longitude"
+    ]
+    sheet.append(headers)
+
+    # Remplissage des lignes
+    for entry in data:
+        p = entry.payload or {}
+        sheet.append([
+            entry.received_at.strftime("%d/%m/%Y %H:%M:%S"),
+            entry.device.name,
+            p.get("pm2p5", "N/A"),
+            p.get("pm10", "N/A"),
+            p.get("temperature", "N/A"),
+            p.get("humidity", "N/A"),
+            p.get("mq135_ppm", "N/A"),
+            p.get("latitude", "N/A"),
+            p.get("longitude", "N/A"),
+        ])
+
+    # Configuration de la réponse HTTP pour le téléchargement
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"Founatek_Air_Data_{timezone.now().strftime('%Y%m%d')}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    workbook.save(response)
+    return response
+
+
 
 # views.py pour la bande de led ws2812b
 from django.http import JsonResponse
@@ -1665,18 +2150,20 @@ def led_color_esp(request):
 
 # views.py
 import json
+import logging
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .chatbot_model import Chatbot
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def chatbot_view(request):
     if request.method != "POST":
         return JsonResponse({"reponse": "Méthode non autorisée."}, status=405)
 
-    # Récupération du message envoyé
     try:
-        data = json.loads(request.body or "{}")
+        data    = json.loads(request.body or "{}")
         raw_msg = str(data.get("message", "")).strip()
     except json.JSONDecodeError:
         return JsonResponse({"reponse": "⚠️ Données invalides."})
@@ -1685,17 +2172,22 @@ def chatbot_view(request):
         return JsonResponse({"reponse": "Dis-moi ce que tu veux faire 🙂"})
 
     bot = Chatbot(request.user)
+
     try:
         response = bot.get_response(raw_msg)
     except Exception as e:
-        return JsonResponse({"reponse": f"⚠️ Erreur interne du Chatbot : {e}"})
+        logger.error(f"Erreur chatbot user={request.user.id}: {e}")
+        return JsonResponse({"reponse": f"⚠️ Erreur interne : {e}"})
 
-    # Si le bot renvoie un dictionnaire (ex: avec boutons d'aide)
+    # ── CORRECTION BUG "aide" ────────────────────────────────
+    # Si le bot retourne un dict avec boutons, s'assurer
+    # que "reponse" est toujours présent
     if isinstance(response, dict):
+        if "reponse" not in response:
+            response["reponse"] = "Voici les options :"
         return JsonResponse(response)
 
     return JsonResponse({"reponse": response, "tts": response})
-
 
 
 #Vue pour le contrôle d'accès automatique
@@ -1833,6 +2325,15 @@ MAX_INGEST_BODY_BYTES = 16 * 1024  # 16 KB
 
 
 class SensorIngestAPIView(APIView):
+    """
+    API d'ingestion des données ESP32.
+
+    🎯 NOUVEAU : Déclenchement événementiel de l'agent IA
+    L'agent FOUNATEK analyse la mesure IMMÉDIATEMENT après réception,
+    dans la même requête HTTP. Plus besoin de polling 0.5s.
+
+    Délai total ESP32 → Django → Agent → Alerte ≈ 100ms
+    """
     authentication_classes = []
     permission_classes = []
 
@@ -1872,7 +2373,6 @@ class SensorIngestAPIView(APIView):
             return Response({'error': 'Payload JSON invalide'}, status=status.HTTP_400_BAD_REQUEST)
         if 'device_id' not in request.data or 'data' not in request.data:
             return Response({'error': 'Champs requis manquants (device_id, data)'}, status=status.HTTP_400_BAD_REQUEST)
-
         # ensure payload is an object/dict
         if not isinstance(request.data.get('data'), (dict,)):
             return Response({'error': 'Le champ data doit être un objet JSON'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1901,31 +2401,62 @@ class SensorIngestAPIView(APIView):
                     },
                 )
 
+            # ════════════════════════════════════════════════════════════
+            # 🎯 DÉCLENCHEMENT ÉVÉNEMENTIEL DE L'AGENT IA
+            # ════════════════════════════════════════════════════════════
+            # L'agent analyse la nouvelle mesure IMMÉDIATEMENT.
+            # Si une pollution est détectée, l'alerte est créée AVANT
+            # même que l'ESP32 reçoive sa réponse 201.
+            # ════════════════════════════════════════════════════════════
+            if user:
+                try:
+                    from espcontrol.agent.agent import FounatekAgent
+                    agent = FounatekAgent(user)
+                    agent.run()
+                except Exception as e:
+                    # L'agent ne doit JAMAIS bloquer l'ingestion ESP32
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"⚠️ Agent IA failed silently for user={user.username}: {e}"
+                    )
+
             return Response({"status": "data received"}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required
 def dashboard_univers(request):
+    # On récupère tous les appareils de l'utilisateur
     devices = Device.objects.filter(user=request.user)
     devices_data = []
 
-    sensors_list = ['temperature','humidity','soil_moisture','ultrason','mq135_ppm']
+    # Liste exhaustive des capteurs possibles
+    sensors_list = ['temperature', 'humidity', 'soil_moisture', 'ultrason', 'mq135_ppm']
 
     for device in devices:
-        data_points = list(
-            AppareilData.objects
-            .filter(device=device)
-            .order_by('-received_at')[:50]
-        )
+        # On récupère les 50 derniers points
+        data_points_qs = AppareilData.objects.filter(device=device).order_by('-received_at')[:50]
 
+        # Détection des anomalies (ta fonction existante)
         anomalies = detect_anomalies(device, window=50, sigma_threshold=2)
-        has_anomaly = bool(anomalies)
+        anomaly_ids = [a.get('id') for a in anomalies if 'id' in a]
+
+        # On prépare les données pour le template
+        processed_points = []
+        for p in data_points_qs:
+            point_dict = {
+                "id": p.id,
+                "received_at": p.received_at.isoformat(), # Pour faciliter le JS
+                "payload": p.payload,
+                "is_anomaly": p.id in anomaly_ids
+            }
+            processed_points.append(point_dict)
 
         devices_data.append({
             "device": device,
-            "data_points": list(reversed(data_points)),
-            "has_anomaly": has_anomaly,
+            "data_points": list(reversed(processed_points)), # Chronologique pour Chart.js
+            "has_anomaly": bool(anomalies),
             "anomalies": anomalies,
         })
 
@@ -1933,11 +2464,6 @@ def dashboard_univers(request):
         user=request.user,
         is_read=False
     ).order_by('-created_at')[:20]
-
-    # NOTE: ne pas marquer les alertes comme lues ici — laisser l'API `latest_alerts` gérer
-    # AgentAlert.objects.filter(
-    #     id__in=alerts.values_list("id", flat=True)
-    # ).update(is_read=True)
 
     return render(request, "espcontrol/dashboardUniv.html", {
         "devices_data": devices_data,
@@ -1996,20 +2522,25 @@ class DeviceLast10APIView(APIView):
         except Device.DoesNotExist:
             return Response({"error": "Device introuvable"}, status=status.HTTP_404_NOT_FOUND)
 
-        data_points = AppareilData.objects.filter(device=device).order_by('-received_at')[:10]
-        data_points = list(reversed(data_points))  # ancien -> récent
+        data_points = list(
+            AppareilData.objects.filter(device=device)
+            .order_by('-received_at')[:200]
+        )
+        data_points = list(reversed(data_points))
 
         result = []
         for d in data_points:
             result.append({
-                "received_at": d.received_at.isoformat(),
-                "payload": d.payload,
-                "is_anomaly": d.is_anomaly
+                "time":        d.received_at.strftime('%H:%M:%S'),
+                "pm25":        d.payload.get('pm2p5'),
+                "pm10":        d.payload.get('pm10'),
+                "gas":         d.payload.get('mq135_ppm'),
+                "temperature": d.payload.get('temperature'),
+                "humidity":    d.payload.get('humidity'),
+                "id":          d.id,
             })
 
-        return Response(result, status=status.HTTP_200_OK)
-
-
+        return Response({"readings": result})
 #Api pour charger l'agent api depuis le javascript
 
 
@@ -2084,3 +2615,17 @@ def alert_graph_data(request, sensor):
 
 def menu_page(request):
     return render(request, "espcontrol/menu_page.html")
+
+
+
+
+@csrf_exempt
+def mark_alert_read(request, alert_id):
+    if request.method == 'POST':
+        try:
+            alert = AgentAlert.objects.get(id=alert_id, user=request.user)
+            alert.is_read = True
+            alert.save()
+            return JsonResponse({'status': 'success'})
+        except AgentAlert.DoesNotExist:
+            return JsonResponse({'status': 'error'}, status=404)

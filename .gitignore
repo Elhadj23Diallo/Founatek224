@@ -32,6 +32,9 @@ founatek_mobile/**/generated_plugin_registrant.dart
 video_capture.avi
 espcontrol/tmp*
 *.log
+db_backup_*.sqlite3
+*.zip
+rule.max_value
 .vscode/
 .idea/
 

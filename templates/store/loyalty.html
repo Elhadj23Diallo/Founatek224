@@ -1,0 +1,238 @@
+{% extends 'store/base.html' %}
+{% load static %}
+{% block title %}Ma fidélité â€” FOUNATEK SHOP{% endblock %}
+{% block content %}
+
+<div class="row g-4">
+
+  {# â”€â”€ Carte niveau â”€â”€ #}
+  <div class="col-md-4">
+    <div class="card border-0 shadow text-center h-100"
+         style="background: linear-gradient(135deg, #1a1a2e 60%, {{ loyalty.level_color }}44);">
+      <div class="card-body py-4 text-white">
+        <img src="{% static 'img/logo_fou.jpeg' %}" alt="FOUNATEK" height="55" class="mb-3" style="border-radius:8px;">
+        <div style="font-size:3rem; color:{{ loyalty.level_color }};">
+          <i class="bi {{ loyalty.level_icon }}"></i>
+        </div>
+        <h3 class="fw-bold mt-1" style="color:{{ loyalty.level_color }};">
+          {{ loyalty.get_level_display|upper }}
+        </h3>
+        <p class="text-white-50 mb-3">{{ request.user.get_full_name|default:request.user.username }}</p>
+
+        <div class="display-4 fw-bold" style="color:{{ loyalty.level_color }};">
+          {{ loyalty.points }}
+        </div>
+        <div class="text-white-50 small mb-3">point{{ loyalty.points|pluralize }} de fidélité</div>
+
+        {# â”€â”€ Réduction disponible â”€â”€ #}
+        <div class="bg-white bg-opacity-10 rounded-3 p-3 mb-3">
+          {% if loyalty.points >= 10 %}
+            <div class="fw-bold text-warning fs-5">{{ loyalty.discount_value|floatformat:0 }} GNF</div>
+            <div class="text-white-50 small">de réduction disponible</div>
+            <div class="text-white-50 small mt-1">
+              <i class="bi bi-info-circle me-1"></i>
+              Utilisez-la au moment du paiement
+            </div>
+            <a href="{% url 'Founatekapp:checkout' %}" class="btn btn-warning btn-sm mt-2 fw-bold">
+              <i class="bi bi-credit-card me-1"></i>Utiliser ma réduction
+            </a>
+          {% else %}
+            <div class="fw-bold text-white-50 fs-6">Pas encore de réduction</div>
+            <div class="text-white-50 small mt-1">
+              Il vous faut <strong class="text-warning">{{ 10|add:"-"|add:loyalty.points|stringformat:"s" }}</strong>
+              {% with need=10 %}
+              encore {{ need }} pt minimum pour débloquer 5 000 GNF
+              {% endwith %}
+            </div>
+            <div class="text-white-50 small">(10 pts = 5 000 GNF de remise)</div>
+          {% endif %}
+        </div>
+
+        {% if loyalty.next_level_info %}
+        <div class="mt-2">
+          <div class="text-white-50 small mb-1">
+            Prochain niveau : <strong style="color:{{ loyalty.level_color }};">{{ loyalty.next_level_info.name|upper }}</strong>
+          </div>
+          <div class="progress" style="height:8px; background:rgba(255,255,255,0.15);">
+            <div class="progress-bar" role="progressbar"
+                 style="width:{% widthratio loyalty.points loyalty.next_level_info.threshold 100 %}%;
+                        background:{{ loyalty.level_color }};">
+            </div>
+          </div>
+          <div class="text-white-50 small mt-1">
+            encore {{ loyalty.next_level_info.needed }} pt{{ loyalty.next_level_info.needed|pluralize }}
+          </div>
+        </div>
+        {% else %}
+        <div class="badge bg-warning text-dark fs-6 mt-2">
+          <i class="bi bi-trophy-fill me-1"></i>Niveau maximum atteint !
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# â”€â”€ Règles + Niveaux + Historique â”€â”€ #}
+  <div class="col-md-8">
+
+    {# Comment ça marche #}
+    <div class="card border-0 shadow mb-4">
+      <div class="card-body">
+        <h5 class="fw-bold mb-3"><i class="bi bi-info-circle me-2 text-warning"></i>Comment ça marche ?</h5>
+        <div class="row g-3 text-center">
+          <div class="col-4">
+            <div class="bg-dark text-white rounded-3 p-2 p-md-3">
+              <div style="font-size:1.8rem;">ðŸ›’</div>
+              <div class="fw-bold mt-1 small">Commandez</div>
+              <div class="text-muted" style="font-size:.75rem;">1 pt / 1 000 GNF dépensés</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="bg-dark text-white rounded-3 p-2 p-md-3">
+              <div style="font-size:1.8rem;">â­</div>
+              <div class="fw-bold mt-1 small">Cumulez</div>
+              <div class="text-muted" style="font-size:.75rem;">Montez de niveau et débloquez des avantages</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="bg-dark text-white rounded-3 p-2 p-md-3">
+              <div style="font-size:1.8rem;">ðŸŽ</div>
+              <div class="fw-bold mt-1 small">Profitez</div>
+              <div class="text-muted" style="font-size:.75rem;">10 pts = 5 000 GNF de remise sur votre prochaine commande</div>
+            </div>
+          </div>
+        </div>
+
+        {# Explication calcul des points #}
+        <div class="bg-dark text-white rounded-3 p-3 mt-3">
+          <h6 class="fw-bold text-warning mb-2"><i class="bi bi-calculator me-1"></i>Comment sont calculés vos points ?</h6>
+          <p class="small mb-2">Les points sont crédités <strong>automatiquement</strong> dès que vous passez une commande :</p>
+          <div class="table-responsive">
+            <table class="table table-sm table-dark mb-0">
+              <thead><tr><th>Montant de la commande</th><th class="text-warning">Points gagnés</th></tr></thead>
+              <tbody>
+                <tr><td>1 000 GNF</td><td class="text-warning fw-bold">+1 pt</td></tr>
+                <tr><td>15 000 GNF</td><td class="text-warning fw-bold">+15 pts</td></tr>
+                <tr><td>50 000 GNF</td><td class="text-warning fw-bold">+50 pts</td></tr>
+                <tr><td>500 GNF</td><td class="text-warning fw-bold">+0 pt <span class="text-muted fw-normal">(min. 1 000 GNF)</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small text-white-50 mb-0 mt-2">
+            <i class="bi bi-info-circle me-1"></i>
+            Vos points actuels vous ont été gagnés sur un total de <strong class="text-white">{{ loyalty.total_spent|floatformat:0 }} GNF</strong> dépensés.
+          </p>
+        </div>
+
+        {# Explication réduction #}
+        <div class="alert alert-warning mt-3 mb-0 p-3">
+          <h6 class="fw-bold mb-2"><i class="bi bi-lightning-fill me-1"></i>Comment utiliser votre réduction ?</h6>
+          <ol class="mb-0 ps-3 small">
+            <li>Ajoutez des produits Ã  votre panier</li>
+            <li>Allez Ã  la page <strong>Commander</strong></li>
+            <li>Un curseur apparaît si vous avez <strong>10 pts ou plus</strong> â€” glissez-le pour choisir combien de points utiliser</li>
+            <li>La réduction est déduite automatiquement du total avant paiement</li>
+          </ol>
+          <p class="mt-2 mb-0 small"><strong>Exemple :</strong> vous avez 30 pts â†’ vous pouvez déduire jusqu'Ã  <strong>15 000 GNF</strong> sur votre commande.</p>
+        </div>
+      </div>
+    </div>
+
+    {# Tableau des niveaux avec avantages détaillés #}
+    <div class="card border-0 shadow mb-4">
+      <div class="card-body">
+        <h5 class="fw-bold mb-3"><i class="bi bi-trophy me-2 text-warning"></i>Les niveaux et leurs avantages</h5>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-dark">
+              <tr><th>Niveau</th><th>Points requis</th><th>Avantages</th></tr>
+            </thead>
+            <tbody>
+              <tr class="{% if loyalty.level == 'bronze' %}table-warning{% endif %}">
+                <td><i class="bi bi-award" style="color:#cd7f32;"></i> <strong>Bronze</strong>
+                  {% if loyalty.level == 'bronze' %}<span class="badge bg-dark ms-1">Votre niveau</span>{% endif %}
+                </td>
+                <td>0 pt</td>
+                <td class="small">
+                  Accès au programme fidélité<br>
+                  <span class="text-muted">Réduction 10 pts = 5 000 GNF</span>
+                </td>
+              </tr>
+              <tr class="{% if loyalty.level == 'argent' %}table-warning{% endif %}">
+                <td><i class="bi bi-award-fill" style="color:#aaa9ad;"></i> <strong>Argent</strong>
+                  {% if loyalty.level == 'argent' %}<span class="badge bg-dark ms-1">Votre niveau</span>{% endif %}
+                </td>
+                <td>100 pts</td>
+                <td class="small">
+                  + Offres exclusives en avant-première<br>
+                  <span class="text-muted">Réduction 10 pts = 5 000 GNF</span>
+                </td>
+              </tr>
+              <tr class="{% if loyalty.level == 'or' %}table-warning{% endif %}">
+                <td><i class="bi bi-trophy" style="color:#ffd700;"></i> <strong>Or</strong>
+                  {% if loyalty.level == 'or' %}<span class="badge bg-dark ms-1">Votre niveau</span>{% endif %}
+                </td>
+                <td>300 pts</td>
+                <td class="small">
+                  + Livraison prioritaire<br>
+                  + Offres VIP & accès early-access<br>
+                  <span class="text-muted">Réduction 10 pts = 5 000 GNF</span>
+                </td>
+              </tr>
+              <tr class="{% if loyalty.level == 'platine' %}table-warning{% endif %}">
+                <td><i class="bi bi-trophy-fill" style="color:#00d2ff;"></i> <strong>Platine</strong>
+                  {% if loyalty.level == 'platine' %}<span class="badge bg-dark ms-1">Votre niveau</span>{% endif %}
+                </td>
+                <td>700 pts</td>
+                <td class="small">
+                  + Support client dédié<br>
+                  + Accès aux produits en exclusivité<br>
+                  + Invitations aux événements FOUNATEK<br>
+                  <span class="text-muted">Réduction 10 pts = 5 000 GNF</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# Historique #}
+    <div class="card border-0 shadow">
+      <div class="card-body">
+        <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2 text-warning"></i>Historique des points</h5>
+        {% if transactions %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover">
+            <thead class="table-dark">
+              <tr><th>Date</th><th>Description</th><th class="text-end">Points</th></tr>
+            </thead>
+            <tbody>
+              {% for tx in transactions %}
+              <tr>
+                <td class="text-muted small text-nowrap">{{ tx.created_at|date:"d/m/Y H:i" }}</td>
+                <td>{{ tx.description }}</td>
+                <td class="text-end fw-bold {% if tx.points > 0 %}text-success{% else %}text-danger{% endif %}">
+                  {% if tx.points > 0 %}+{{ tx.points }} pt{{ tx.points|pluralize }}{% else %}{{ tx.points }} pt{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-3">
+          Aucune transaction pour l'instant.<br>
+          <a href="{% url 'Founatekapp:product_list' %}" class="btn btn-warning mt-2">
+            <i class="bi bi-cart me-1"></i>Commencer Ã  gagner des points
+          </a>
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+

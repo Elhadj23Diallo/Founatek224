@@ -1,0 +1,125 @@
+{% extends 'store/base.html' %}
+{% load static %}
+{% block title %}Commande confirmée â€” FOUNATEK SHOP{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    {# â”€â”€ Carte confirmation â”€â”€ #}
+    <div class="card border-0 shadow-lg text-center py-5 px-4">
+
+      <img src="{% static 'img/logo_fou.jpeg' %}" alt="FOUNATEK"
+           class="mx-auto mb-3" style="height:90px; border-radius:12px;">
+
+      <div class="mb-3">
+        <span style="font-size:3.5rem;">âœ…</span>
+      </div>
+
+      <h2 class="fw-bold text-success mb-1">Commande confirmée !</h2>
+      <p class="text-muted mb-4">Merci pour votre achat sur <strong>FOUNATEK SHOP</strong></p>
+
+      <div class="bg-light rounded-3 p-3 mb-4 text-start">
+        <div class="row g-2">
+          <div class="col-6">
+            <small class="text-muted d-block">Numéro de commande</small>
+            <strong class="fs-5">#{{ order.pk|stringformat:"06d" }}</strong>
+          </div>
+          <div class="col-6 text-end">
+            <small class="text-muted d-block">Total payé</small>
+            <strong class="fs-5 text-success">{{ order.total }} GNF</strong>
+          </div>
+          {% if order.discount %}
+          <div class="col-12">
+            <div class="d-flex justify-content-between text-muted small">
+              <span>Sous-total</span><span>{{ order.subtotal }} GNF</span>
+            </div>
+            <div class="d-flex justify-content-between text-danger small fw-semibold">
+              <span><i class="bi bi-tag-fill me-1"></i>Réduction points fidélité</span>
+              <span>-{{ order.discount }} GNF</span>
+            </div>
+          </div>
+          {% endif %}
+          <div class="col-6">
+            <small class="text-muted d-block">Téléphone</small>
+            <strong>{{ order.phone|default:"â€”" }}</strong>
+          </div>
+          <div class="col-6 text-end">
+            <small class="text-muted d-block">Articles</small>
+            <strong>{{ order.total_items }}</strong>
+          </div>
+          {% if order.shipping_address %}
+          <div class="col-12 mt-1">
+            <small class="text-muted d-block">Adresse de livraison</small>
+            <strong>{{ order.shipping_address }}</strong>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-grid gap-2 d-sm-flex justify-content-center">
+        <a href="{% url 'Founatekapp:order_receipt' order.pk %}"
+           class="btn btn-success btn-lg px-4">
+          <i class="bi bi-file-earmark-pdf me-1"></i>Télécharger le reçu PDF
+        </a>
+        <a href="{% url 'Founatekapp:order_detail' order.pk %}"
+           class="btn btn-outline-dark btn-lg px-4">
+          <i class="bi bi-bag-check me-1"></i>Voir la commande
+        </a>
+      </div>
+
+      {% if loyalty %}
+      <div class="mt-4 p-3 rounded-3 text-start" style="background:linear-gradient(135deg,#1a1a2e,#0f3460); color:white;">
+
+        {# Points gagnés sur cette commande #}
+        {% if earned_points %}
+        <div class="text-center mb-3 p-2 rounded-2" style="background:rgba(255,193,7,0.15);">
+          <div style="font-size:2rem;">ðŸŽ‰</div>
+          <div class="fw-bold text-warning fs-5">+{{ earned_points }} point{{ earned_points|pluralize }} gagnés !</div>
+          <div class="text-white-50 small">sur cette commande de {{ order.total }} GNF</div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex align-items-center gap-3">
+          <div style="font-size:2rem; color:{{ loyalty.level_color }};"><i class="bi {{ loyalty.level_icon }}"></i></div>
+          <div>
+            <div class="fw-bold small text-white-50">Niveau actuel</div>
+            <div class="fw-bold" style="color:{{ loyalty.level_color }};">{{ loyalty.get_level_display|upper }}</div>
+          </div>
+          <div class="ms-auto text-end">
+            <div class="fw-bold small text-white-50">Solde total</div>
+            <div class="fs-4 fw-bold" style="color:{{ loyalty.level_color }};">{{ loyalty.points }} pts</div>
+          </div>
+        </div>
+
+        {% if loyalty.discount_value %}
+        <div class="mt-2 small text-white-50">
+          <i class="bi bi-tag me-1"></i>
+          Vous pouvez utiliser <strong class="text-warning">{{ loyalty.discount_value|floatformat:0 }} GNF</strong> de réduction sur votre prochaine commande
+        </div>
+        {% endif %}
+
+        {% if loyalty.next_level_info %}
+        <div class="text-white-50 small mt-2">
+          <i class="bi bi-arrow-up-circle me-1"></i>
+          Encore <strong style="color:{{ loyalty.level_color }};">{{ loyalty.next_level_info.needed }} pts</strong>
+          pour le niveau <strong>{{ loyalty.next_level_info.name|upper }}</strong>
+        </div>
+        {% endif %}
+
+        <a href="{% url 'Founatekapp:loyalty' %}" class="btn btn-sm btn-outline-light mt-3 w-100">
+          <i class="bi bi-trophy me-1"></i>Voir mon tableau de bord fidélité
+        </a>
+      </div>
+      {% endif %}
+
+      <a href="{% url 'Founatekapp:product_list' %}" class="btn btn-link mt-3 text-muted">
+        Continuer mes achats
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+

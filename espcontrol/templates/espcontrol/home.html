@@ -5,7 +5,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
 
 <style>
-    /* --- STYLES GLOBAUX --- */
     body {
         background-color: #050a1f;
         background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
@@ -13,21 +12,14 @@
         font-family: 'Roboto', sans-serif;
         margin: 0; padding: 20px; min-height: 100vh; overflow-x: hidden;
     }
-
     .main-container { max-width: 1400px; margin: auto; }
-
-    /* Barre utilisateur */
-    .user-info-bar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 30px; padding: 10px 20px; background: rgba(13, 18, 41, 0.8); border-radius: 15px; border: 1px solid #1a243d; flex-wrap: wrap; }
+    .user-info-bar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 30px; padding: 10px 20px; background: rgba(13,18,41,0.8); border-radius: 15px; border: 1px solid #1a243d; flex-wrap: wrap; gap: 10px; }
     .user-info-bar p { margin: 0 20px 0 0; font-size: 0.95rem; }
     .user-info-bar strong { color: #00d2ff; }
     .logout-btn { background: transparent; color: #00d2ff; border: 1px solid #00d2ff; padding: 6px 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; white-space: nowrap; }
     .logout-btn:hover { background-color: #00d2ff; color: #050a1f; }
+    h1.main-title { font-family: 'Orbitron', sans-serif; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 40px; color: #fff; text-shadow: 0 0 15px rgba(0,210,255,0.7); }
 
-    /* Titre Principal */
-    h1.main-title { font-family: 'Orbitron', sans-serif; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 40px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.7); }
-
-    /* --- LAYOUT PRINCIPAL (CSS GRID RESPONSIVE) --- */
-    /* Grands écrans (PC) */
     .dashboard-layout {
         display: grid;
         grid-template-columns: 350px 1fr 450px;
@@ -35,30 +27,41 @@
         align-items: start;
         grid-template-areas: "phone hub controls";
     }
+    .layout-left   { grid-area: phone;    display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .layout-center { grid-area: hub;      display: flex; justify-content: center; align-items: center; height: 100%; padding-top: 60px; }
+    .layout-right  { grid-area: controls; display: flex; flex-direction: column; gap: 40px; width: 100%; }
 
-    .layout-left { grid-area: phone; display: flex; flex-direction: column; align-items: center; width: 100%; }
-    .layout-center { grid-area: hub; display: flex; justify-content: center; align-items: center; height: 100%; padding-top: 60px; }
-    .layout-right { grid-area: controls; display: flex; flex-direction: column; gap: 40px; width: 100%; }
+    .iot-panel { width: 100%; background: rgba(13,18,41,0.95); border: 1px solid #00d2ff; border-radius: 18px; padding: 14px; margin-bottom: 14px; box-sizing: border-box; box-shadow: 0 0 20px rgba(0,210,255,0.1); }
+    .iot-panel-title { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: #00d2ff; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .iot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 8px; }
+    .iot-card { background: rgba(0,210,255,0.04); border: 1px solid rgba(0,210,255,0.15); border-radius: 10px; padding: 7px 6px; text-align: center; }
+    .iot-label { font-size: 0.6rem; color: #667788; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .iot-value { font-family: 'Orbitron', sans-serif; font-size: 1.05rem; font-weight: 700; color: #00d2ff; line-height: 1; }
+    .iot-unit { font-size: 0.55rem; color: #667788; margin-top: 2px; }
+    .aqi-row { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; gap: 7px; }
+    .aqi-badge { flex: 1; text-align: center; padding: 4px 8px; border-radius: 20px; font-size: 0.72rem; font-weight: bold; border: 1px solid; }
+    .aqi-bon     { background: rgba(16,185,129,0.15); color: #10b981; border-color: #10b981; }
+    .aqi-modere  { background: rgba(245,158,11,0.15); color: #f59e0b; border-color: #f59e0b; }
+    .aqi-mauvais { background: rgba(239,68,68,0.15);  color: #ef4444; border-color: #ef4444; }
+    .aqi-inconnu { background: rgba(100,116,139,0.15); color: #64748b; border-color: #64748b; }
+    .alert-btn { display: flex; align-items: center; gap: 5px; background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-radius: 10px; padding: 4px 10px; cursor: pointer; transition: all 0.3s; font-size: 0.72rem; color: #ef4444; white-space: nowrap; }
+    .alert-btn:hover { background: rgba(239,68,68,0.25); }
+    .alert-num { font-family: 'Orbitron'; font-weight: bold; }
+    .station-row { display: flex; align-items: center; gap: 6px; margin-top: 7px; font-size: 0.68rem; color: #667788; }
+    .dot-live { width: 7px; height: 7px; border-radius: 50%; background: #10b981; flex-shrink: 0; animation: blink-green 2s infinite; }
+    .dot-off { background: #ef4444; animation: none; }
+    @keyframes blink-green { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,0); } }
 
-    /* --- TÉLÉPHONE (CHAT) --- */
-    .device-phone {
-        width: 100%; max-width: 350px; height: 600px;
-        background: #000; border-radius: 35px; border: 4px solid #222;
-        padding: 12px; box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
-        margin-bottom: 30px; position: relative;
-    }
+    .device-phone { width: 100%; max-width: 350px; height: 520px; background: #000; border-radius: 35px; border: 4px solid #222; padding: 12px; box-shadow: 0 0 30px rgba(0,210,255,0.2); position: relative; }
     .phone-screen { background: #1e293b; height: 100%; border-radius: 25px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #334155; }
-    .chatbox h3 { margin: 0; padding: 15px; background: #0f172a; color: #00d2ff; font-size: 1.1rem; text-align: left; border-bottom: 1px solid #334155; font-family: 'Orbitron'; }
-    #chat_history { flex-grow: 1; overflow-y: auto; padding: 15px; background: #1e293b; scrollbar-width: thin; scrollbar-color: #00d2ff #0f172a; }
-
-    /* Messages Chat */
-    .assistant-message, .user-message { margin-bottom: 10px; padding: 10px; border-radius: 8px; font-size: 0.9rem; line-height: 1.4; max-width: 85%; }
-    .assistant-message { background: #0f172a; border: 1px solid #00d2ff; color: #fff; align-self: flex-start; }
-    .user-message { background: #0056b3; color: white; align-self: flex-end; text-align: right; margin-left: auto; }
-    .chat-avatar { font-weight: bold; font-size: 0.7rem; color: #888; margin-bottom: 2px; }
+    .chatbox h3 { margin: 0; padding: 12px 15px; background: #0f172a; color: #00d2ff; font-size: 0.95rem; text-align: left; border-bottom: 1px solid #334155; font-family: 'Orbitron'; display: flex; align-items: center; gap: 8px; }
+    .ai-badge { margin-left: auto; font-size: 0.6rem; color: #00ff99; }
+    #chat_history { flex-grow: 1; overflow-y: auto; padding: 12px; background: #1e293b; scrollbar-width: thin; scrollbar-color: #00d2ff #0f172a; }
+    .assistant-message, .user-message { margin-bottom: 10px; padding: 10px; border-radius: 8px; font-size: 0.85rem; line-height: 1.4; max-width: 88%; }
+    .assistant-message { background: #0f172a; border: 1px solid #00d2ff; color: #fff; }
+    .user-message { background: #0056b3; color: white; text-align: right; margin-left: auto; }
+    .chat-avatar { font-weight: bold; font-size: 0.65rem; color: #888; margin-bottom: 2px; }
     .chat-img { max-width: 100%; border-radius: 8px; margin-top: 5px; border: 1px solid #00d2ff; display: block; }
-
-    /* Input Chat */
     .input-area { padding: 10px; background: #0f172a; border-top: 1px solid #334155; display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; }
     #commande { flex: 1; min-width: 0; padding: 10px 15px; font-size: 0.9rem; border-radius: 25px; border: 1px solid #334155; background: #1e293b; color: white; outline: none; }
     .input-area button { flex-shrink: 0; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid #00d2ff; background: transparent; color: #00d2ff; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.2s; font-size: 1rem; }
@@ -66,212 +69,318 @@
     #listeningIcon { font-size: 1.2rem; display: none; color: #ef4444; animation: pulse 1s infinite; margin: 0 2px; }
     @keyframes pulse { 50% { opacity: 0.5; } }
 
-    /* --- HUB CENTRAL --- */
-    .central-hub-ring { width: 250px; height: 250px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0%, #00d2ff 20%, transparent 40%, #00ff99 60%, transparent 80%, #00d2ff 100%); padding: 6px; box-shadow: 0 0 50px rgba(0, 210, 255, 0.4); animation: spin-hub 10s linear infinite; }
-    .central-hub-core { width: 100%; height: 100%; background: #0a1128; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px solid #00d2ff; z-index: 5; }
+    .central-hub-ring { width: 250px; height: 250px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0%, #00d2ff 20%, transparent 40%, #00ff99 60%, transparent 80%, #00d2ff 100%); padding: 6px; box-shadow: 0 0 50px rgba(0,210,255,0.4); animation: spin-hub 10s linear infinite; }
+    .central-hub-core { width: 100%; height: 100%; background: #0a1128; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px solid #00d2ff; }
     .hub-title { margin-top: 15px; font-family: 'Orbitron'; font-weight: 700; color: #fff; text-shadow: 0 0 5px #00d2ff; text-align: center; font-size: 1rem; }
     @keyframes spin-hub { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    /* --- BLOCS DE CONTRÔLE --- */
-    .group-container { position: relative; padding: 30px 25px 25px 25px; border: 1px dashed rgba(0, 210, 255, 0.3); border-radius: 20px; background: rgba(13, 18, 41, 0.3); }
+    .group-container { position: relative; padding: 30px 25px 25px 25px; border: 1px dashed rgba(0,210,255,0.3); border-radius: 20px; background: rgba(13,18,41,0.3); }
     .group-label-title { position: absolute; top: -14px; left: 25px; background: #050a1f; padding: 0 15px; color: #00ff99; font-weight: bold; font-family: 'Orbitron'; letter-spacing: 1px; white-space: nowrap; font-size: 0.9rem; }
-
-    .nodes-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; width: 100%; }
-    .node-block-container .node-block, .nodes-row .node-block { flex: 1 1 calc(50% - 20px); min-width: 140px; }
-
-    .node-block { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 10px; text-decoration: none; transition: transform 0.3s ease, border 0.3s ease; width: 100%; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 18px; border: 1px solid transparent; }
+    .nodes-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; width: 100%; }
+    .node-block { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 10px; text-decoration: none; transition: transform 0.3s ease, border 0.3s ease; flex: 1 1 calc(33% - 15px); min-width: 90px; background: rgba(255,255,255,0.03); padding: 12px 8px; border-radius: 18px; border: 1px solid transparent; }
     .node-block:hover { transform: translateY(-5px); border-color: #00d2ff; background: rgba(255,255,255,0.05); }
-
-    /* Style des icônes et labels */
-    .icon-box { width: 65px; height: 65px; background: linear-gradient(145deg, #1a243d, #0d1221); border: 2px solid #00d2ff; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 2rem; color: #00d2ff; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); margin-bottom: 12px; position: relative; }
-    .node-green .icon-box { border-color: #00ff99; color: #00ff99; }
-    .node-gold .icon-box { border-color: #ffd700; color: #ffd700; }
-    .node-social .icon-box { border-color: #a855f7; color: #a855f7; }
-    .node-profil .icon-box { border-color: #ff6b81; color: #ff6b81; } /* Style pour le profil */
-
-    .node-label { font-size: 0.85rem; font-weight: 500; color: #cce; line-height: 1.3; }
-    .badge-live-mini { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); animation: pulse-red 1.5s infinite; }
-    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-    .counter-text { font-family: 'Orbitron'; font-weight: bold; }
-
-    /* Mini-nœuds (Relais) */
-    .relais-mini-container { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
-    .node-mini { width: 55px; height: 55px; background: #1a243d; border: 2px solid #00ff99; border-radius: 15px; display: flex; justify-content: center; align-items: center; color: #00ff99; font-size: 1.4rem; text-decoration: none; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .icon-box { width: 60px; height: 60px; background: linear-gradient(145deg, #1a243d, #0d1221); border: 2px solid #00d2ff; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; color: #00d2ff; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 10px; position: relative; }
+    .node-green .icon-box  { border-color: #00ff99; color: #00ff99; }
+    .node-gold .icon-box   { border-color: #ffd700; color: #ffd700; }
+    .node-purple .icon-box { border-color: #a855f7; color: #a855f7; }
+    .node-red .icon-box    { border-color: #ef4444; color: #ef4444; }
+    .node-orange .icon-box { border-color: #f97316; color: #f97316; }
+    .node-label { font-size: 0.78rem; font-weight: 500; color: #cce; line-height: 1.3; }
+    .badge-live-mini { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; animation: pulse-red 1.5s infinite; }
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 70% { box-shadow: 0 0 0 5px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
+    .counter-text { font-family: 'Orbitron'; font-weight: bold; font-size: 1rem; }
+    .relais-mini-container { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .node-mini { width: 52px; height: 52px; background: #1a243d; border: 2px solid #00ff99; border-radius: 15px; display: flex; justify-content: center; align-items: center; color: #00ff99; font-size: 1.3rem; text-decoration: none; transition: all 0.3s ease; }
     .node-mini:hover { background: #00ff99; color: #0a1128; transform: scale(1.1); }
+    .sensors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-top: 15px; }
+    .group-split { display: flex; flex-wrap: wrap; gap: 25px; }
+    .sub-group { flex: 1 1 280px; }
 
-    /* Grilles Capteurs et Groupes */
-    .sensors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; margin-top: 20px; }
-    .group-split { display: flex; flex-wrap: wrap; gap: 30px; }
-    .sub-group { flex: 1 1 300px; }
-
-    /* --- MEDIA QUERIES RESPONSIVES --- */
-
-    /* Tablettes (768px - 1200px) */
     @media (max-width: 1200px) {
-        .dashboard-layout {
-            grid-template-columns: 1fr 1fr;
-            grid-template-areas: "hub hub" "phone controls";
-            gap: 30px;
-        }
-        .layout-center { padding-top: 20px; margin-bottom: 30px; }
-        .layout-left { width: auto; align-items: center; }
-        .device-phone { height: 550px; }
-        .nodes-row-left { max-width: 400px; }
+        .dashboard-layout { grid-template-columns: 1fr 1fr; grid-template-areas: "hub hub" "phone controls"; gap: 25px; }
+        .layout-center { padding-top: 20px; margin-bottom: 20px; }
+        .device-phone { height: 480px; }
     }
-
-    /* Mobiles (< 768px) */
     @media (max-width: 768px) {
-        body { padding: 15px 10px; }
-        .main-title { font-size: 1.3rem; margin-bottom: 25px; margin-top: 5px; }
-        .user-info-bar { flex-direction: column; gap: 10px; align-items: center; text-align: center; padding: 15px; }
-        .user-info-bar p { margin: 0; }
-
-        .dashboard-layout {
-            grid-template-columns: 1fr;
-            grid-template-areas: "hub" "controls" "phone";
-            gap: 30px;
-        }
-
-        /* Hub réduit */
-        .layout-center { padding-top: 0; margin-bottom: 5px; }
-        .central-hub-ring { width: 150px; height: 150px; padding: 4px; }
-        .hub-title { font-size: 0.8rem; margin-top: 8px; }
-        .central-hub-core i { font-size: 2.5rem; }
-
-        /* Téléphone ajusté */
-        .device-phone { height: 480px; max-width: 100%; border-width: 2px; border-radius: 25px; }
-        .input-area button { width: 35px; height: 35px; font-size: 0.9rem; }
-
-        /* Contrôles optimisés */
-        .group-container { padding: 25px 15px 20px 15px; }
-        .group-label-title { font-size: 0.8rem; left: 15px; top: -12px; }
-        .nodes-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .node-block-container .node-block, .nodes-row .node-block { width: auto; min-width: auto; margin-bottom: 0; }
-        .icon-box { width: 55px; height: 55px; font-size: 1.6rem; margin-bottom: 10px; }
-        .node-label { font-size: 0.8rem; }
-
-        .relais-mini-container { gap: 10px; }
-        .node-mini { width: 45px; height: 45px; font-size: 1.1rem; }
-        .sensors-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        body { padding: 12px 8px; }
+        h1.main-title { font-size: 1.1rem; margin-bottom: 20px; letter-spacing: 1px; }
+        .user-info-bar { flex-direction: column; align-items: center; text-align: center; padding: 12px; }
+        .user-info-bar p { margin: 0; font-size: 0.85rem; }
+        .dashboard-layout { grid-template-columns: 1fr; grid-template-areas: "hub" "controls" "phone"; gap: 20px; }
+        .layout-center { padding-top: 0; margin-bottom: 0; }
+        .central-hub-ring { width: 130px; height: 130px; padding: 4px; }
+        .hub-title { font-size: 0.7rem; margin-top: 6px; }
+        .central-hub-core i { font-size: 2rem !important; }
+        .device-phone { height: 420px; max-width: 100%; border-width: 2px; border-radius: 22px; padding: 8px; margin-bottom: 0; }
+        .chatbox h3 { font-size: 0.9rem; padding: 10px; }
+        #commande { padding: 8px 12px; font-size: 0.85rem; }
+        .input-area { padding: 8px; gap: 6px; }
+        .input-area button { width: 32px; height: 32px; font-size: 0.85rem; }
+        .group-container { padding: 22px 12px 16px 12px; }
+        .group-label-title { font-size: 0.75rem; left: 12px; top: -11px; padding: 0 10px; }
+        .nodes-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .node-block { flex: none; min-width: auto; padding: 10px 6px; border-radius: 14px; }
+        .icon-box { width: 46px; height: 46px; font-size: 1.3rem; border-radius: 14px; margin-bottom: 8px; }
+        .node-label { font-size: 0.7rem; }
+        .relais-mini-container { gap: 8px; }
+        .node-mini { width: 42px; height: 42px; font-size: 1.1rem; border-radius: 12px; }
+        .sensors-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .sub-group { flex: 1 1 100%; }
-
-        /* Spécifique à la colonne de gauche sur mobile */
-        .nodes-row-left { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
-        .nodes-row-left .node-block { min-width: auto; }
-        .nodes-row-left .icon-box { width: 50px; height: 50px; font-size: 1.4rem; }
-        .nodes-row-left .node-label { font-size: 0.7rem; }
+        .group-split { gap: 20px; }
+        .iot-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 400px) {
+        .nodes-row { grid-template-columns: repeat(2, 1fr); }
+        .sensors-grid { grid-template-columns: repeat(2, 1fr); }
+        .iot-grid { grid-template-columns: repeat(2, 1fr); }
+        h1.main-title { font-size: 0.95rem; }
     }
 </style>
 
 <div class="main-container">
     <div class="user-info-bar">
-        <p>👤 Connecté en tant que <strong>{{ request.user.username }}</strong></p>
-        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="logout-btn">Se déconnecter</button></form>
+        <p>👤 Connecté : <strong>{{ request.user.username }}</strong></p>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="logout-btn">Se déconnecter</button>
+        </form>
     </div>
 
-    <h1 class="main-title">Structure Founatek IoT - Powered by Gemini</h1>
+    <h1 class="main-title">Founatek IoT Platform</h1>
 
     <div class="dashboard-layout">
 
         <div class="layout-left">
+            <div class="iot-panel">
+                <div class="iot-panel-title">
+                    <i class="fas fa-satellite-dish"></i>
+                    FOUNATEK NEXUS — Live
+                </div>
+                <div class="iot-grid">
+                    <div class="iot-card">
+                        <div class="iot-label">PM2.5</div>
+                        <div class="iot-value" id="val-pm25">--</div>
+                        <div class="iot-unit">µg/m³</div>
+                    </div>
+                    <div class="iot-card">
+                        <div class="iot-label">PM10</div>
+                        <div class="iot-value" id="val-pm10">--</div>
+                        <div class="iot-unit">µg/m³</div>
+                    </div>
+                    <div class="iot-card">
+                        <div class="iot-label">MQ-135</div>
+                        <div class="iot-value" id="val-gaz">--</div>
+                        <div class="iot-unit">PPM</div>
+                    </div>
+                    <div class="iot-card">
+                        <div class="iot-label">Temp.</div>
+                        <div class="iot-value" id="val-temp">--</div>
+                        <div class="iot-unit">°C</div>
+                    </div>
+                    <div class="iot-card">
+                        <div class="iot-label">Hum.</div>
+                        <div class="iot-value" id="val-hum">--</div>
+                        <div class="iot-unit">%</div>
+                    </div>
+                    <div class="iot-card">
+                        <div class="iot-label">GPS</div>
+                        <div class="iot-value" style="font-size:0.65rem;" id="val-gps">--</div>
+                        <div class="iot-unit">Conakry</div>
+                    </div>
+                </div>
+                <div class="aqi-row">
+                    <div class="aqi-badge aqi-inconnu" id="aqi-badge">AQI : --</div>
+                    <div class="alert-btn" onclick="envoyer('alertes')">
+                        <i class="fas fa-bell"></i>
+                        <span class="alert-num" id="alert-count">0</span> alerte(s)
+                    </div>
+                </div>
+                <div class="station-row">
+                    <div class="dot-live" id="station-dot"></div>
+                    <span id="station-label">Connexion...</span>
+                    <span style="margin-left:auto; font-size:0.6rem;" id="station-time"></span>
+                </div>
+            </div>
+
             <div class="device-phone">
                 <div class="phone-screen">
                     <div class="chatbox" style="height:100%; display:flex; flex-direction:column;">
-                        <h3><i class="fas fa-robot me-2"></i> Assistant IoT</h3>
+                        <h3>
+                            <i class="fas fa-robot"></i>
+                            Assistant IA
+                            <span class="ai-badge">● GROQ</span>
+                        </h3>
                         <div id="chat_history">
                             <div class="assistant-message">
                                 <div class="chat-avatar">AI</div>
-                                <div class="message-content">Bonjour {{ request.user.username }} ! Dites "aide" ou "regarde la caméra".</div>
+                                <div class="message-content">
+                                    Bonjour <strong>{{ request.user.username }}</strong> ! 👋<br>
+                                    Je surveille votre air en temps réel.<br>
+                                    Tapez <strong>"aide"</strong> pour mes commandes.
+                                </div>
                             </div>
                         </div>
                         <div class="input-area">
-                            <input id="commande" type="text" placeholder="Ordre...">
+                            <input id="commande" type="text" placeholder="Posez votre question...">
                             <span id="listeningIcon">🔴</span>
-                            <button type="button" onclick="startDictation()" title="Dictée vocale"><i class="fas fa-microphone"></i></button>
+                            <button type="button" onclick="startDictation()" title="Vocal"><i class="fas fa-microphone"></i></button>
                             <button id="sendBtn" title="Envoyer"><i class="fas fa-paper-plane"></i></button>
-                            <button id="ttsToggleBtn" title="Activer/Désactiver la voix"><i class="fas fa-volume-up"></i></button>
+                            <button id="ttsToggleBtn" title="Voix ON/OFF"><i class="fas fa-volume-up"></i></button>
                         </div>
                     </div>
                 </div>
             </div>
-
         </div>
 
         <div class="layout-center">
-            <div class="central-hub-ring">
-                <div class="central-hub-core">
-                    <i class="fab fa-python fa-4x" style="color:#00d2ff;"></i>
-                    <div class="hub-title">Chatbot Controller<br>(Python/Django)</div>
+            <div>
+                <div class="central-hub-ring">
+                    <div class="central-hub-core">
+                        <i class="fab fa-python fa-3x" style="color:#00d2ff;"></i>
+                        <div class="hub-title">FOUNATEK<br>NEXUS</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="layout-right">
             <div class="group-container">
-                <div class="group-label-title">Relais (Maison)</div>
-                <div class="relais-mini-container" style="margin-top: 20px;">
-                    <a href="{% url 'afficher_relais' %}" class="node-mini" title="Contrôle des Relais"><i class="fas fa-toggle-on"></i></a>
-                    <div class="node-mini" title="Salon"><i class="fas fa-lightbulb"></i></div>
-                    <div class="node-mini" title="Chambre"><i class="fas fa-plug"></i></div>
-                    <div class="node-mini" title="Garage"><i class="fas fa-fan"></i></div>
+                <div class="group-label-title">🌍 Air Quality IoT</div>
+                <div class="nodes-row" style="margin-top:20px;">
+                    <a href="{% url 'air_quality_dashboard' %}" class="node-block node-green">
+                        <span class="badge-live-mini">Live</span>
+                        <div class="icon-box"><i class="fas fa-wind"></i></div>
+                        <div class="node-label">Dashboard Air</div>
+                    </a>
+                    <a href="{% url 'air_map_view' %}" class="node-block node-green">
+                        <div class="icon-box"><i class="fas fa-map-marked-alt"></i></div>
+                        <div class="node-label">Carte Pollution</div>
+                    </a>
+                    <a href="{% url 'air_dashboard' %}" class="node-block node-gold">
+                        <div class="icon-box"><i class="fas fa-brain"></i></div>
+                        <div class="node-label">Prédiction ML</div>
+                    </a>
+                    <a href="{% url 'air_alerts' %}" class="node-block node-red">
+                        <div class="icon-box"><i class="fas fa-bell"></i></div>
+                        <div class="node-label">Alertes Air</div>
+                    </a>
+                    <a href="{% url 'tableau_bord_univ' %}" class="node-block node-purple">
+                        <div class="icon-box"><i class="fas fa-chart-line"></i></div>
+                        <div class="node-label">Dashboard Univ</div>
+                    </a>
+                    <a href="{% url 'air_sim_latest' %}" class="node-block">
+                        <div class="icon-box"><i class="fas fa-satellite-dish"></i></div>
+                        <div class="node-label">Simulateur</div>
+                    </a>
+                </div>
+            </div>
+
+            <div class="group-container">
+                <div class="group-label-title">⚡ Actionneurs</div>
+                <div class="relais-mini-container" style="margin-top:18px;">
+                    <a href="{% url 'afficher_relais' %}" class="node-mini" title="Relais"><i class="fas fa-toggle-on"></i></a>
+                    <a href="{% url 'control_relais' %}" class="node-mini" title="Créer relais"><i class="fas fa-plus-circle"></i></a>
+                    <div class="node-mini" title="LED Salon"><i class="fas fa-lightbulb"></i></div>
+                    <div class="node-mini" title="Ventilateur"><i class="fas fa-fan"></i></div>
+                    <div class="node-mini" title="Prise"><i class="fas fa-plug"></i></div>
                 </div>
             </div>
 
             <div class="group-split">
                 <div class="sub-group group-container">
-                    <div class="group-label-title">LEDs</div>
-                    <div class="nodes-row" style="margin-top: 20px;">
-                        <a href="{% url 'afficher_relais' %}" class="node-block node-green">
-                             <div class="icon-box"><i class="far fa-lightbulb"></i></div>
-                             <div class="node-label">LED Simple</div>
-                        </a>
-                        <div class="node-block">
-                             <div class="icon-box"><i class="fas fa-circle-notch" style="background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); -webkit-background-clip: text; color: transparent;"></i></div>
-                             <div class="node-label">LED RGB</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="sub-group group-container">
-                    <div class="group-label-title">Capteurs</div>
+                    <div class="group-label-title">🌡 Capteurs</div>
                     <div class="sensors-grid">
-                         <a href="{% url 'dht-data' %}" class="node-block node-green">
-                             {% if is_abonne %}<span class="badge-live-mini">Data</span>{% endif %}
-                             <div class="icon-box"><i class="fas fa-thermometer-half"></i></div>
-                             <div class="node-label">Temp/Hum</div>
-                        </a>
-                         <a href="#" class="node-block node-green">
-                             <div class="icon-box"><i class="fas fa-seedling"></i></div>
-                             <div class="node-label">Irrigation</div>
-                        </a>
-                        <a href="{% url 'poubelle_intelligente' %}" class="node-block node-green">
-                             {% if is_abonne %}<span class="badge-live-mini">Live</span>{% endif %}
-                             <div class="icon-box"><i class="fas fa-trash-alt"></i></div>
-                             <div class="node-label">Poubelle</div>
+                        <a href="{% url 'dht-data' %}" class="node-block node-green">
+                            <div class="icon-box"><i class="fas fa-thermometer-half"></i></div>
+                            <div class="node-label">Temp/Hum</div>
                         </a>
                         <a href="{% url 'gas_data' %}" class="node-block node-green">
-                             <div class="icon-box"><i class="fas fa-smog"></i></div>
-                             <div class="node-label">Qualité Air</div>
+                            <div class="icon-box"><i class="fas fa-smog"></i></div>
+                            <div class="node-label">Gaz MQ135</div>
+                        </a>
+                        <a href="{% url 'ntc_data' %}" class="node-block node-gold">
+                            <div class="icon-box"><i class="fas fa-fire"></i></div>
+                            <div class="node-label">Thermistance</div>
+                        </a>
+                        <a href="{% url 'soil_data' %}" class="node-block node-green">
+                            <div class="icon-box"><i class="fas fa-seedling"></i></div>
+                            <div class="node-label">Sol/Eau</div>
+                        </a>
+                        <a href="{% url 'irrigation_auto' %}" class="node-block node-green">
+                            <div class="icon-box"><i class="fas fa-tint"></i></div>
+                            <div class="node-label">Irrigation</div>
+                        </a>
+                        <a href="{% url 'poubelle_intelligente' %}" class="node-block node-green">
+                            {% if is_abonne %}<span class="badge-live-mini">Live</span>{% endif %}
+                            <div class="icon-box"><i class="fas fa-trash-alt"></i></div>
+                            <div class="node-label">Poubelle</div>
+                        </a>
+                    </div>
+                </div>
+                <div class="sub-group group-container">
+                    <div class="group-label-title">💡 Éclairage</div>
+                    <div class="sensors-grid">
+                        <a href="{% url 'afficher_relais' %}" class="node-block node-green">
+                            <div class="icon-box"><i class="far fa-lightbulb"></i></div>
+                            <div class="node-label">LED Simple</div>
+                        </a>
+                        <a href="{% url 'led_color_esp' %}" class="node-block">
+                            <div class="icon-box"><i class="fas fa-palette"></i></div>
+                            <div class="node-label">LED RGB</div>
                         </a>
                     </div>
                 </div>
             </div>
 
             <div class="group-container">
-                <div class="group-label-title">Sécurité</div>
-                <div class="nodes-row" style="margin-top: 25px;">
-                    <a href="{% url 'access-logs' %}" class="node-block">
-                        <div class="icon-box"><i class="fas fa-list-alt"></i></div>
-                        <div class="node-label">Logs Accès</div>
-                    </a>
+                <div class="group-label-title">🔒 Sécurité & Surveillance</div>
+                <div class="nodes-row" style="margin-top:20px;">
                     <a href="{% url 'surveillance' %}" class="node-block node-green">
                         {% if is_abonne %}<span class="badge-live-mini">Live</span>{% endif %}
                         <div class="icon-box"><i class="fas fa-camera"></i></div>
-                        <div class="node-label">Caméra</div>
+                        <div class="node-label">Caméra Live</div>
                     </a>
+                    <a href="{% url 'archive_gallery' %}" class="node-block">
+                        <div class="icon-box"><i class="fas fa-photo-video"></i></div>
+                        <div class="node-label">Archives</div>
+                    </a>
+                    <a href="{% url 'access-logs' %}" class="node-block">
+                        <div class="icon-box"><i class="fas fa-key"></i></div>
+                        <div class="node-label">Contrôle Accès</div>
+                    </a>
+                    <a href="{% url 'check-access' %}" class="node-block node-red">
+                        <div class="icon-box"><i class="fas fa-shield-alt"></i></div>
+                        <div class="node-label">Badge RFID</div>
+                    </a>
+                </div>
+            </div>
+
+            <div class="group-container">
+                <div class="group-label-title">📊 Analytics & Export</div>
+                <div class="nodes-row" style="margin-top:20px;">
                     <a href="{% url 'dashboard' %}" class="node-block">
                         <div class="icon-box"><span class="counter-text">000</span></div>
                         <div class="node-label">Compteur</div>
+                    </a>
+                    <a href="{% url 'export_excel' %}" class="node-block node-green">
+                        <div class="icon-box"><i class="fas fa-file-excel"></i></div>
+                        <div class="node-label">Export DHT</div>
+                    </a>
+                    <a href="{% url 'export_gas_excel' %}" class="node-block node-green">
+                        <div class="icon-box"><i class="fas fa-file-csv"></i></div>
+                        <div class="node-label">Export Gaz</div>
+                    </a>
+                    <a href="{% url 'export_ntc_excel' %}" class="node-block node-green">
+                        <div class="icon-box"><i class="fas fa-download"></i></div>
+                        <div class="node-label">Export NTC</div>
+                    </a>
+                    <a href="{% url 'irrigation_predict' %}" class="node-block node-gold">
+                        <div class="icon-box"><i class="fas fa-robot"></i></div>
+                        <div class="node-label">ML Irrigation</div>
+                    </a>
+                    <a href="{% url 'latest_alerts' %}" class="node-block node-red">
+                        <div class="icon-box"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="node-label">Alertes IA</div>
                     </a>
                 </div>
             </div>
@@ -280,128 +389,197 @@
 </div>
 
 <script>
+// ============================================================
+//  TTS
+// ============================================================
 let synth = window.speechSynthesis;
 let ttsEnabled = true;
 
 function toggleTTS() {
-    if(ttsEnabled){
-        if(synth.speaking) synth.cancel();
-        ttsEnabled=false;
-        document.getElementById('ttsToggleBtn').innerHTML='<i class="fas fa-volume-mute"></i>';
+    if (ttsEnabled) {
+        if (synth.speaking) synth.cancel();
+        ttsEnabled = false;
+        document.getElementById('ttsToggleBtn').innerHTML = '<i class="fas fa-volume-mute"></i>';
     } else {
-        ttsEnabled=true;
-        document.getElementById('ttsToggleBtn').innerHTML='<i class="fas fa-volume-up"></i>';
+        ttsEnabled = true;
+        document.getElementById('ttsToggleBtn').innerHTML = '<i class="fas fa-volume-up"></i>';
     }
 }
 
-function speakText(text){
-    if(!ttsEnabled || !text) return;
-    if(synth.speaking) synth.cancel();
-    let cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-    const utter = new SpeechSynthesisUtterance(cleanText);
-    utter.lang='fr-FR';
+function speakText(text) {
+    if (!ttsEnabled || !text) return;
+    if (synth.speaking) synth.cancel();
+    let clean = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.lang = 'fr-FR';
     synth.speak(utter);
 }
 
-function appendMessage(text, who='assistant', buttons = [], imageUrl = null){
+// ============================================================
+//  CHATBOT
+// ============================================================
+function appendMessage(text, who='assistant', buttons=[], imageUrl=null) {
     const el = document.getElementById('chat_history');
     const msgContainer = document.createElement('div');
     msgContainer.className = who === 'user' ? 'user-message' : 'assistant-message';
-
     const avatar = document.createElement('div');
     avatar.className = 'chat-avatar';
     avatar.textContent = who === 'user' ? 'Vous' : 'AI';
-
     const content = document.createElement('div');
     content.className = 'message-content';
-
     if (imageUrl) {
         const img = document.createElement('img');
         img.src = imageUrl + "?t=" + Date.now();
         img.className = 'chat-img';
         content.appendChild(img);
     }
-
     const txtNode = document.createElement('div');
-    txtNode.innerHTML = text.replace(/\n/g, '<br>');
+    txtNode.innerHTML = (text || '...').replace(/\n/g, '<br>');
     content.appendChild(txtNode);
-
     msgContainer.appendChild(avatar);
     msgContainer.appendChild(content);
-
     el.appendChild(msgContainer);
-
     if (buttons && buttons.length > 0 && who === 'assistant') {
         const helpDiv = document.createElement('div');
-        helpDiv.style.marginTop = "10px";
-        helpDiv.style.display = "flex";
-        helpDiv.style.flexWrap = "wrap";
-        helpDiv.style.gap = "5px";
+        helpDiv.style.cssText = "margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;";
         buttons.forEach(btn => {
             const b = document.createElement('button');
             b.textContent = btn.text;
             b.className = 'logout-btn';
-            b.style.fontSize = "0.8rem";
-            b.style.padding = "4px 10px";
+            b.style.cssText = "font-size:0.75rem;padding:3px 8px;";
             b.onclick = () => envoyer(btn.value);
             helpDiv.appendChild(b);
         });
         el.appendChild(helpDiv);
     }
-
     el.scrollTop = el.scrollHeight;
-    if(who === 'assistant') speakText(text);
+    if (who === 'assistant') speakText(text || '');
 }
 
-function envoyer(texteInput=null){
+function envoyer(texteInput=null) {
     const input = document.getElementById('commande');
     const texte = texteInput ?? input.value.trim();
-    if(!texte) return;
-
-    appendMessage(texte,'user');
-    input.value='';
-
-    fetch("{% url 'chatbot_view' %}",{
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
-        body: JSON.stringify({message:texte})
+    if (!texte) return;
+    appendMessage(texte, 'user');
+    input.value = '';
+    fetch("{% url 'chatbot_view' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({message: texte})
     })
-    .then(res=>res.json())
-    .then(data=>{
-        appendMessage(data.reponse, 'assistant', data.buttons, data.image_url);
+    .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
     })
-    .catch(err=>{
+    .then(data => {
+        // ── CORRECTION CLÉ : toujours avoir une réponse ──
+        const reponse  = data.reponse || data.message || data.detail || "...";
+        const buttons  = data.buttons  || [];
+        const imageUrl = data.image_url || null;
+        appendMessage(reponse, 'assistant', buttons, imageUrl);
+    })
+    .catch(err => {
         console.error("Erreur chatbot:", err);
-        appendMessage("⚠️ Erreur de communication avec le serveur.",'assistant');
+        appendMessage("⚠️ Erreur de communication. Vérifiez votre connexion.", 'assistant');
     });
 }
 
-document.getElementById('sendBtn').addEventListener('click',()=>envoyer());
-document.getElementById('commande').addEventListener('keydown',e=>{if(e.key==='Enter') envoyer();});
-document.getElementById('ttsToggleBtn').addEventListener('click',toggleTTS);
+document.getElementById('sendBtn').addEventListener('click', () => envoyer());
+document.getElementById('commande').addEventListener('keydown', e => {
+    if (e.key === 'Enter') envoyer();
+});
+document.getElementById('ttsToggleBtn').addEventListener('click', toggleTTS);
 
-function startDictation(){
-    if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
-        alert("Votre navigateur ne supporte pas la reconnaissance vocale."); return;
+function startDictation() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert("Reconnaissance vocale non supportée sur ce navigateur."); return;
     }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new Recognition();
-    recognition.lang='fr-FR';
+    recognition.lang = 'fr-FR';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-
     const icon = document.getElementById('listeningIcon');
-    recognition.onstart = () => { icon.style.display = 'inline-block'; };
-    recognition.onend = () => { icon.style.display = 'none'; };
-    recognition.onerror = (event) => { icon.style.display = 'none'; console.error("Erreur vocale:", event.error); };
-
+    recognition.onstart  = () => { icon.style.display = 'inline-block'; };
+    recognition.onend    = () => { icon.style.display = 'none'; };
+    recognition.onerror  = () => { icon.style.display = 'none'; };
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        if(transcript) {
-            envoyer(transcript);
-        }
+        if (transcript) envoyer(transcript);
     };
     recognition.start();
 }
+
+// ============================================================
+//  PANNEAU IoT — Mise à jour automatique toutes les 15s
+// ============================================================
+function getAQI(pm25) {
+    if (pm25 === null || pm25 === undefined || isNaN(pm25))
+        return ['aqi-inconnu', 'AQI : --'];
+    if (pm25 <= 15) return ['aqi-bon',     '✅ BON'];
+    if (pm25 <= 35) return ['aqi-modere',  '⚠️ MODÉRÉ'];
+    if (pm25 <= 55) return ['aqi-mauvais', '🔴 MAUVAIS'];
+    return ['aqi-mauvais', '☠️ TRÈS MAUVAIS'];
+}
+
+function setVal(id, val, decimals=1) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = (val !== null && val !== undefined && !isNaN(val))
+        ? parseFloat(val).toFixed(decimals)
+        : '--';
+}
+
+function updatePanel() {
+    // Alertes
+    fetch("{% url 'latest_alerts' %}")
+    .then(r => r.json())
+    .then(alerts => {
+        document.getElementById('alert-count').textContent = Array.isArray(alerts) ? alerts.length : 0;
+    })
+    .catch(() => {});
+
+    {% for device_data in devices_data %}
+    {% with device=device_data.device %}
+    fetch("/api/device/{{ device.id }}/last10/")
+    .then(r => r.json())
+    .then(data => {
+        if (!data.readings || data.readings.length === 0) {
+            document.getElementById('station-dot').className   = 'dot-live dot-off';
+            document.getElementById('station-label').textContent = 'Aucune donnée reçue';
+            return;
+        }
+        const last = data.readings[data.readings.length - 1];
+
+        setVal('val-pm25', last.pm25);
+        setVal('val-pm10', last.pm10);
+        setVal('val-gaz',  last.gas, 0);
+        setVal('val-temp', last.temperature);
+        setVal('val-hum',  last.humidity, 0);
+        document.getElementById('val-gps').textContent = '📍 Ratoma';
+
+        const [cls, label] = getAQI(last.pm25);
+        const badge = document.getElementById('aqi-badge');
+        badge.className   = 'aqi-badge ' + cls;
+        badge.textContent = label;
+
+        document.getElementById('station-dot').className    = 'dot-live';
+        document.getElementById('station-label').textContent = '{{ device.name }} — En ligne';
+        document.getElementById('station-time').textContent  = last.time || '';
+    })
+    .catch(() => {
+        document.getElementById('station-dot').className    = 'dot-live dot-off';
+        document.getElementById('station-label').textContent = 'Station hors ligne';
+        document.getElementById('station-time').textContent  = '';
+    });
+    {% endwith %}
+    {% endfor %}
+}
+
+updatePanel();
+setInterval(updatePanel, 15000);
 </script>
 {% endblock %}

@@ -13,25 +13,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 
 import os
-import google.generativeai as genai
 
-# === Gemini AI Config ===
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCO8uhWDYpKD02JBoBseWOO_Qq9bzRT0UE")
-
-
-LIVEKIT_API_KEY = "APIYBtxUkbTBEv9"
-LIVEKIT_SECRET_KEY = "D7LQ1cGLddk76Yam248cD9e139WLkwFtefcpUBTLN1jB"
-LIVEKIT_URL = "wss://founatek-live-i4dwtgab.livekit.cloud"
-
-
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-else:
-    print("⚠️ Attention : aucune clé GEMINI_API_KEY trouvée dans les variables d'environnement.")
-
-
-PAYPAL_CLIENT_ID = "Ab0m34YZToGSeyo38iFnHZHV2plHGmS-eevZl5chB9LzWPywjReAo8kLEqxRkHt5yCS-UWUP0HK4Qmpg"
-PAYPAL_SECRET = "EEvDOTqc1SLLEPDbiwLuvT7JrSw5eqGroC_tlmsOkENGp1ZNEQ3vCBIioGX3MHoOD19fzINU9j3HUjXo"
+PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
+PAYPAL_SECRET = os.getenv("PAYPAL_SECRET", "")
 PAYPAL_API_BASE = "https://api-m.sandbox.paypal.com"  # Mode test
 
 
@@ -44,14 +28,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-1au1y&pvu8#)0-gn**c1g7f(fu+rqsw_ru#9tj($8bz_y@*1nd'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-1au1y&pvu8#)0-gn**c1g7f(fu+rqsw_ru#9tj($8bz_y@*1nd')
 
 import os
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['founatek224.pythonanywhere.com', 'localhost', '127.0.0.1', '10.0.2.2', '192.168.43.11']
+ALLOWED_HOSTS = ['founatek224.pythonanywhere.com', 'localhost', '192.168.43.11']
 
 
 # Application definition
@@ -74,6 +58,9 @@ INSTALLED_APPS = [
     'channels',
     'techfeed',
     'oscilloscope_app',
+    'founatekapp',
+    'crispy_forms',
+    'crispy_bootstrap5',
     'monetisation.apps.MonetisationConfig',
     'corsheaders',
 ]
@@ -96,13 +83,13 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'middleware.api_key_middleware.APIKeyMiddleware',
 ]
 
@@ -151,6 +138,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {'timeout': 30},
     }
 }
 
@@ -186,7 +174,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-LOGIN_REDIRECT_URL = '/home/'  # ou toute autre URL après connexion
+LOGIN_REDIRECT_URL = '/shop/'  # ou toute autre URL après connexion
 LOGOUT_REDIRECT_URL = '/login/'  # pour revenir à la page de login après déconnexion
 
 
@@ -196,9 +184,9 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  # Pour Gmail, sinon utiliser l'option appropriée
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'jallohelhadjabdul@gmail.com'  # Remplace par ton email
-EMAIL_HOST_PASSWORD = 'bialacjzhodegleq'  # Remplace par ton mot de passe ou utilise une application spécifique
-DEFAULT_FROM_EMAIL = 'jallohelhadjabdul@gmail.com'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'jallohelhadjabdul@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'jallohelhadjabdul@gmail.com')
 
 
 # Static files (CSS, JavaScript, Images)
@@ -223,10 +211,6 @@ VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi', 'mkv']
 
 
 
-# Paramètres d'e-mail (pour les liens de réinitialisation)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Pour tests (console)
-DEFAULT_FROM_EMAIL = 'admin@founatek.com'  # Change avec ton adresse
-
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -244,11 +228,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ... tout à la fin du fichier ...
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'iot:landing'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Clé Google Gemini
-GEMINI_API_KEY = "AIzaSyCNNinYlYn2dJPOgv5s79MYufVC0yw8sY8"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # settings.py
 

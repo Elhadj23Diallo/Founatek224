@@ -1,0 +1,685 @@
+{% extends "espcontrol/base.html" %}
+{% load static %}
+
+{% block title %}Founatek Nexus — Air Conakry IQ Pro{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    :root {
+        --primary: #3b82f6;
+        --danger:  #ef4444;
+        --warning: #f59e0b;
+        --success: #10b981;
+        --dark-bg: #0f172a;
+        --surface: #ffffff;
+        --bg:      #f1f5f9;
+        --border:  #e2e8f0;
+        --text:    #1e293b;
+        --muted:   #64748b;
+        --pm25:    #be123c;
+        --pm10:    #9333ea;
+        --gas:     #0891b2;
+        --radius:  20px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Inter', system-ui, sans-serif;
+        margin: 0;
+    }
+
+    .wrap { max-width: 1440px; margin: 0 auto; padding: 16px 12px; }
+
+    /* ── TOP BAR ── */
+    .top-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+    }
+    .brand h1 {
+        font-size: 1.6rem; font-weight: 900; letter-spacing: -1px; margin: 0;
+    }
+    .brand p { color: var(--muted); font-weight: 600; margin: 4px 0 0; font-size: 0.8rem; }
+    .top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    @media (max-width: 600px) {
+        .brand h1 { font-size: 1.3rem; }
+        .brand p  { font-size: 0.72rem; }
+        .top-right { width: 100%; justify-content: space-between; }
+    }
+
+    /* ── LIVE BADGE ── */
+    .live-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: #dcfce7; color: #166534;
+        padding: 6px 12px; border-radius: 50px;
+        font-weight: 700; font-size: 0.75rem; text-transform: uppercase;
+    }
+    .live-badge.offline { background: #fee2e2; color: #991b1b; }
+    .live-dot {
+        width: 9px; height: 9px; border-radius: 50%; background: #16a34a;
+        animation: pulse-dot 1.5s ease-in-out infinite; flex-shrink: 0;
+    }
+    .live-badge.offline .live-dot { background: #dc2626; animation: none; }
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .last-update  { color: var(--muted); font-size: 0.75rem; font-weight: 600; }
+    .device-select {
+        background: var(--dark-bg); color: white;
+        padding: 8px 16px; border-radius: 50px; border: none;
+        font-weight: 700; cursor: pointer; font-size: 0.82rem;
+        max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .btn-relais-page {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: #7c3aed; color: white; padding: 8px 14px;
+        border-radius: 50px; font-weight: 700; text-decoration: none;
+        font-size: 0.78rem; transition: 0.25s; white-space: nowrap;
+    }
+    .btn-relais-page:hover { background: #6d28d9; transform: scale(1.03); }
+
+    /* ── ALERTES ── */
+    .alerts-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .alerts-title  { font-weight: 800; font-size: 0.95rem; color: var(--text); }
+    .alert-count {
+        background: var(--danger); color: white;
+        border-radius: 50px; padding: 2px 10px;
+        font-size: 0.75rem; font-weight: 800; display: none;
+    }
+
+    .alert-card {
+        background: var(--surface);
+        border-left: 5px solid var(--danger);
+        border-radius: 14px;
+        padding: 14px 16px; margin-bottom: 10px;
+        display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+        box-shadow: 0 4px 12px rgba(239,68,68,0.08);
+        border: 1px solid rgba(239,68,68,0.15);
+        border-left: 5px solid var(--danger);
+        animation: slide-in 0.35s ease;
+        transition: opacity 0.4s, transform 0.4s;
+        flex-wrap: wrap;
+    }
+    .alert-card.warning {
+        border-left-color: var(--warning);
+        box-shadow: 0 4px 12px rgba(245,158,11,0.08);
+        border-color: rgba(245,158,11,0.15);
+    }
+    @keyframes slide-in { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:none; } }
+
+    .alert-icon  { font-size: 1.6rem; flex-shrink: 0; }
+    .alert-info  { flex: 1; min-width: 180px; }
+    .alert-level {
+        font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+        color: var(--danger); letter-spacing: 0.5px;
+    }
+    .alert-card.warning .alert-level { color: var(--warning); }
+    .alert-msg  { font-weight: 700; font-size: 0.9rem; color: var(--dark-bg); margin: 3px 0; }
+    .alert-meta { color: var(--muted); font-size: 0.75rem; }
+
+    .btn-archive {
+        background: var(--dark-bg); color: white; border: none;
+        padding: 8px 14px; border-radius: 10px; font-weight: 700;
+        cursor: pointer; transition: 0.25s; white-space: nowrap;
+        font-size: 0.78rem; flex-shrink: 0;
+    }
+    .btn-archive:hover { background: var(--success); transform: scale(1.05); }
+
+    /* ── DEVICE SECTION ── */
+    .device-section {
+        display: none; background: var(--surface);
+        border-radius: 20px; padding: 18px 14px;
+        border: 1px solid var(--border); margin-top: 10px;
+    }
+
+    /* ── EXPORT ZONE ── */
+    .export-zone {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+    }
+    .export-zone-header {
+        font-size: 0.78rem; font-weight: 800;
+        color: var(--muted); text-transform: uppercase;
+        letter-spacing: 0.5px; margin-bottom: 10px;
+    }
+    .export-period-row {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .export-period-row label {
+        font-size: 0.75rem; font-weight: 700; color: var(--muted); white-space: nowrap;
+    }
+    .export-date-input {
+        background: white; border: 1.5px solid var(--border);
+        border-radius: 8px; padding: 6px 10px;
+        font-size: 0.8rem; font-weight: 600; color: var(--text);
+        outline: none; cursor: pointer; transition: border-color 0.2s;
+    }
+    .export-date-input:focus { border-color: var(--primary); }
+
+    .btn-export {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: #059669; color: white; padding: 8px 14px;
+        border-radius: 10px; font-weight: 700;
+        font-size: 0.78rem; transition: 0.25s;
+        border: none; cursor: pointer; white-space: nowrap;
+    }
+    .btn-export:hover { background: #047857; transform: scale(1.03); }
+
+    .btn-export-all {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: transparent; color: var(--muted);
+        padding: 7px 12px; border-radius: 10px;
+        font-weight: 700; font-size: 0.75rem;
+        border: 1.5px solid var(--border); cursor: pointer;
+        transition: 0.2s; text-decoration: none; white-space: nowrap;
+    }
+    .btn-export-all:hover { border-color: #059669; color: #059669; background: #f0fdf4; }
+
+    .status-badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 7px 16px; border-radius: 50px;
+        font-weight: 800; font-size: 0.78rem;
+        text-transform: uppercase; margin: 12px 0;
+    }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; animation: pulse-dot 2s infinite; flex-shrink: 0; }
+
+    /* ── STATS GRID ── */
+    .stats-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: 10px; margin-top: 4px;
+    }
+    @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
+    @media (max-width: 360px) { .stats-grid { grid-template-columns: 1fr; } }
+
+    .stat-card {
+        background: #f8fafc; border-radius: 14px;
+        padding: 12px 10px; border: 1px solid var(--border);
+        text-align: center; transition: transform 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-label { font-size: 0.65rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 1.4rem; font-weight: 900; line-height: 1.2; margin-top: 4px; }
+    .stat-unit  { font-size: 0.65rem; font-weight: 700; color: var(--muted); margin-left: 1px; }
+    .stat-trend { font-size: 0.68rem; margin-top: 3px; font-weight: 600; }
+
+    /* ── RELAIS ── */
+    .relais-section { margin-top: 16px; }
+    .relais-title {
+        font-weight: 800; font-size: 0.82rem; color: var(--muted);
+        text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+    }
+    .relais-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .relais-card {
+        display: flex; align-items: center; gap: 8px;
+        background: #f8fafc; border: 2px solid var(--border);
+        border-radius: 12px; padding: 10px 14px;
+        font-weight: 700; font-size: 0.82rem; transition: 0.2s;
+    }
+    .relais-card.on  { border-color: var(--success); background: #f0fdf4; color: #166534; }
+    .relais-card.off { border-color: var(--border);  background: #f8fafc; color: var(--muted); }
+    .relais-led { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    .relais-card.on  .relais-led { background: var(--success); animation: pulse-dot 1.5s infinite; }
+    .relais-card.off .relais-led { background: #cbd5e1; }
+
+    .btn-manage-relais {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: #ede9fe; color: #7c3aed;
+        padding: 6px 14px; border-radius: 10px;
+        font-weight: 700; font-size: 0.75rem;
+        text-decoration: none; transition: 0.2s;
+        border: 1.5px solid #c4b5fd;
+    }
+    .btn-manage-relais:hover { background: #7c3aed; color: white; }
+
+    /* ── CHART CONTROLS ── */
+    .chart-controls {
+        margin: 16px 0 10px;
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        background: #f8fafc; padding: 10px 14px;
+        border-radius: 12px; border: 1px solid var(--border);
+    }
+    .chart-controls label { font-weight: 800; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+    .pro-select {
+        background: white; border: 2px solid var(--primary);
+        padding: 6px 12px; border-radius: 8px;
+        font-weight: 700; color: var(--primary); outline: none;
+        font-size: 0.8rem; cursor: pointer; flex: 1; min-width: 140px;
+    }
+    .data-counter {
+        margin-left: auto; background: var(--dark-bg); color: white;
+        border-radius: 8px; padding: 5px 12px; font-size: 0.75rem; font-weight: 700;
+    }
+
+    /* ── VISUAL GRID ── */
+    .visual-grid {
+        display: grid; grid-template-columns: 1fr 1.3fr;
+        gap: 16px; margin-top: 4px;
+    }
+    @media (max-width: 900px) { .visual-grid { grid-template-columns: 1fr; } }
+
+    .map-frame {
+        height: 320px; border-radius: 16px;
+        overflow: hidden; border: 2px solid var(--border);
+    }
+    @media (max-width: 600px) { .map-frame { height: 220px; } }
+
+    .chart-frame {
+        height: 320px; background: var(--surface);
+        border-radius: 16px; border: 2px solid var(--border);
+        padding: 14px; position: relative;
+    }
+    @media (max-width: 600px) { .chart-frame { height: 260px; } }
+
+    .chart-updating {
+        position: absolute; top: 10px; right: 12px;
+        font-size: 0.7rem; color: var(--success); font-weight: 700;
+        opacity: 0; transition: opacity 0.3s;
+    }
+    .chart-updating.show { opacity: 1; }
+
+    @media (max-width: 480px) {
+        .device-section { padding: 14px 10px; }
+        .export-date-input { font-size: 0.75rem; }
+    }
+</style>
+
+<div class="wrap">
+
+    <!-- ── HEADER ── -->
+    <header class="top-bar">
+        <div class="brand">
+            <h1>FOUNATEK <span style="color:var(--primary)">NEXUS</span></h1>
+            <p>Air Conakry IQ Pro — Monitoring environnemental temps réel</p>
+        </div>
+        <div class="top-right">
+            <span class="last-update" id="lastUpdate">Màj : --</span>
+            <span class="live-badge" id="liveBadge">
+                <span class="live-dot"></span> Direct
+            </span>
+            <a href="{% url 'afficher_relais' %}" class="btn-relais-page">
+                ⚡ Relais
+            </a>
+            <select id="deviceSelector" class="device-select">
+                {% for item in devices_data %}
+                    <option value="device-{{ item.device.id }}" data-devid="{{ item.device.id }}">
+                        📍 {{ item.device.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </header>
+
+    <!-- ── ALERTES ── -->
+    <div class="alerts-header">
+        <span class="alerts-title">Alertes Agent IA</span>
+        <span class="alert-count" id="alertCount">0</span>
+    </div>
+
+    <div id="mainAlertContainer">
+        {% if agent_alerts %}
+            {% for alert in agent_alerts %}
+            <div class="alert-card {% if alert.level == 'WARNING' %}warning{% endif %}"
+                 id="alert-{{ alert.id }}">
+                <div class="alert-icon">{% if alert.level == 'CRITICAL' %}🚨{% else %}⚠️{% endif %}</div>
+                <div class="alert-info">
+                    <div class="alert-level">[{{ alert.level }}] {{ alert.sensor|upper }}</div>
+                    <div class="alert-msg">{{ alert.message }}</div>
+                    <div class="alert-meta">
+                        ⏱ {{ alert.created_at|date:"H:i:s" }} &nbsp;|&nbsp;
+                        📊 <strong>{{ alert.value|floatformat:1 }}</strong> &nbsp;|&nbsp;
+                        🛰 {{ alert.device.name }}
+                    </div>
+                </div>
+                <button class="btn-archive" onclick="archiveAlert({{ alert.id }})">
+                    🛡 Archiver
+                </button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- ── DEVICES ── -->
+    <div id="dynamicDataWrapper">
+        {% for item in devices_data %}
+        <div class="device-section" id="device-{{ item.device.id }}">
+
+            <!-- ── ZONE EXPORT AVEC PÉRIODE ── -->
+            <div class="export-zone">
+                <div class="export-zone-header">📥 Exporter les données (.xlsx)</div>
+                <div class="export-period-row">
+                    <label>Du</label>
+                    <input type="date" class="export-date-input" id="startDate-{{ item.device.id }}" />
+                    <label>Au</label>
+                    <input type="date" class="export-date-input" id="endDate-{{ item.device.id }}" />
+                    <button
+                        class="btn-export"
+                        onclick="doExport('{{ item.device.id }}', '{% url 'export_air_founatek_nexus_excel' item.device.id %}')"
+                    >
+                        📥 Exporter la période
+                    </button>
+                    <a href="{% url 'export_air_founatek_nexus_excel' item.device.id %}" class="btn-export-all">
+                        📋 Tout exporter
+                    </a>
+                    <span style="font-size:0.75rem; color:var(--muted); font-weight:600; margin-left:auto;">
+                        Total : <strong id="totalCount-{{ item.device.id }}">{{ item.total_count|default:"—" }}</strong> mesures
+                    </span>
+                </div>
+            </div>
+
+            <div id="status-{{ item.device.id }}"></div>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="stats-{{ item.device.id }}">
+                <div class="stat-card">
+                    <div class="stat-label">PM2.5</div>
+                    <div class="stat-value" style="color:var(--pm25)">
+                        {{ item.latest_reading.payload.pm2p5|floatformat:1|default:"—" }}<span class="stat-unit">µg/m³</span>
+                    </div>
+                    <div class="stat-trend" style="color:var(--muted)">Particules fines</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">PM10</div>
+                    <div class="stat-value" style="color:var(--pm10)">
+                        {{ item.latest_reading.payload.pm10|floatformat:1|default:"—" }}<span class="stat-unit">µg/m³</span>
+                    </div>
+                    <div class="stat-trend" style="color:var(--muted)">Suspension</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Gaz MQ135</div>
+                    <div class="stat-value" style="color:var(--gas)">
+                        {{ item.latest_reading.payload.mq135_ppm|floatformat:0|default:"—" }}<span class="stat-unit">ppm</span>
+                    </div>
+                    <div class="stat-trend" style="color:var(--muted)">CO₂ · NOx</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Température</div>
+                    <div class="stat-value" style="color:#f59e0b">
+                        {{ item.latest_reading.payload.temperature|floatformat:1|default:"—" }}<span class="stat-unit">°C</span>
+                    </div>
+                    <div class="stat-trend" style="color:var(--muted)">Ambiante</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Humidité</div>
+                    <div class="stat-value" style="color:var(--primary)">
+                        {{ item.latest_reading.payload.humidity|floatformat:1|default:"—" }}<span class="stat-unit">%</span>
+                    </div>
+                    <div class="stat-trend" style="color:var(--muted)">Relative</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">GPS</div>
+                    <div style="font-size:0.8rem; font-weight:700; margin-top:6px; line-height:1.5;">
+                        {{ item.latest_reading.payload.latitude|floatformat:4|default:"9.5377" }}° N<br>
+                        {{ item.latest_reading.payload.longitude|floatformat:4|default:"-13.6773" }}° W
+                    </div>
+                    <div class="stat-trend" style="color:var(--success)">Signal actif</div>
+                </div>
+            </div>
+
+            <!-- Relais -->
+            <div class="relais-section" id="relais-{{ item.device.id }}">
+                <div class="relais-title">État des actionneurs</div>
+                <div class="relais-grid">
+                    {% for relais in item.relais_list %}
+                    <div class="relais-card {% if relais.etat %}on{% else %}off{% endif %}"
+                         id="relais-card-{{ relais.id }}">
+                        <span class="relais-led"></span>
+                        {{ relais.nom }}
+                        <strong>{% if relais.etat %}ON{% else %}OFF{% endif %}</strong>
+                    </div>
+                    {% empty %}
+                    <span style="color:var(--muted); font-size:0.82rem;"></span>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'afficher_relais' %}" class="btn-manage-relais">
+                    ⚡ Gérer les actionneurs →
+                </a>
+            </div>
+
+            <!-- Chart controls -->
+            <div class="chart-controls">
+                <label>Vue :</label>
+                <select class="pro-select" onchange="filterChart('{{ item.device.id }}', this.value)">
+                    <option value="all">Tous les capteurs</option>
+                    <option value="pm">PM2.5 / PM10</option>
+                    <option value="gas">Gaz MQ135</option>
+                    <option value="climate">Temp / Humidité</option>
+                </select>
+                <span class="data-counter" id="pointsCount-{{ item.device.id }}">— pts</span>
+            </div>
+
+            <!-- Map + Chart -->
+            <div class="visual-grid">
+                <div class="map-frame" id="map-{{ item.device.id }}"></div>
+                <div class="chart-frame">
+                    <span class="chart-updating" id="chartBadge-{{ item.device.id }}">● Mise à jour...</span>
+                    <canvas id="chart-{{ item.device.id }}"></canvas>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+const CSRF   = '{{ csrf_token }}';
+const maps   = {};
+const charts = {};
+
+/* ── EXPORT AVEC PÉRIODE ── */
+function doExport(deviceId, baseUrl) {
+    const start = document.getElementById(`startDate-${deviceId}`).value;
+    const end   = document.getElementById(`endDate-${deviceId}`).value;
+
+    if (!start || !end) {
+        alert('Veuillez sélectionner une date de début et une date de fin.');
+        return;
+    }
+    if (start > end) {
+        alert('La date de début doit être antérieure à la date de fin.');
+        return;
+    }
+
+    window.location.href = `${baseUrl}?start_date=${start}&end_date=${end}`;
+}
+
+function archiveAlert(id) {
+    fetch(`/alert/read/${id}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF }
+    }).then(r => {
+        if (!r.ok) return;
+        const el = document.getElementById(`alert-${id}`);
+        if (!el) return;
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(80px)';
+        setTimeout(() => { el.remove(); refreshAlertCount(); }, 400);
+    });
+}
+
+function refreshAlertCount() {
+    const n = document.querySelectorAll('#mainAlertContainer .alert-card').length;
+    const badge = document.getElementById('alertCount');
+    badge.textContent = n;
+    badge.style.display = n > 0 ? 'inline-block' : 'none';
+}
+
+function updateStatusBadge(deviceId, pm25) {
+    const el = document.getElementById(`status-${deviceId}`);
+    if (!el) return;
+    let label = 'Air sain', color = 'var(--success)', bg = '#dcfce7';
+    if      (pm25 > 55) { label = 'Danger critique'; color = 'var(--danger)'; bg = '#fee2e2'; }
+    else if (pm25 > 35) { label = 'Médiocre';        color = '#f97316';       bg = '#ffedd5'; }
+    else if (pm25 > 12) { label = 'Modéré';          color = 'var(--warning)';bg = '#fef9c3'; }
+    el.innerHTML = `
+        <div class="status-badge" style="background:${bg}; color:${color};">
+            <span class="status-dot" style="background:${color};"></span>
+            ${label}
+        </div>`;
+}
+
+function filterChart(deviceId, type) {
+    const ch = charts[deviceId];
+    if (!ch) return;
+    ch.data.datasets.forEach(ds => {
+        const l = ds.label;
+        if      (type === 'all')     ds.hidden = false;
+        else if (type === 'pm')      ds.hidden = !(l === 'PM2.5' || l === 'PM10');
+        else if (type === 'gas')     ds.hidden = !(l === 'Gaz');
+        else if (type === 'climate') ds.hidden = !(l === 'Temp' || l === 'Humidité');
+    });
+    ch.update();
+}
+
+function initMap(deviceId, lat, lng, name) {
+    if (maps[deviceId]) { maps[deviceId].invalidateSize(); return; }
+    setTimeout(() => {
+        const m = L.map(`map-${deviceId}`).setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(m);
+        L.marker([lat, lng]).addTo(m)
+          .bindPopup(`<b>${name}</b><br>Station active`)
+          .openPopup();
+        maps[deviceId] = m;
+    }, 300);
+}
+
+function initChart(deviceId) {
+    if (charts[deviceId]) return;
+    const isMobile = window.innerWidth < 600;
+    const ctx = document.getElementById(`chart-${deviceId}`).getContext('2d');
+    charts[deviceId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                { label:'PM2.5',    data:[], borderColor:'#be123c', backgroundColor:'rgba(190,18,60,0.08)', fill:true, tension:0.4, pointRadius: isMobile ? 0 : 2, borderWidth: isMobile ? 1.5 : 2 },
+                { label:'PM10',     data:[], borderColor:'#9333ea', tension:0.4, pointRadius: isMobile ? 0 : 2, borderWidth: isMobile ? 1.5 : 2 },
+                { label:'Gaz',      data:[], borderColor:'#0891b2', tension:0.4, pointRadius: isMobile ? 0 : 2, borderWidth: isMobile ? 1.5 : 2 },
+                { label:'Temp',     data:[], borderColor:'#f59e0b', tension:0.4, pointRadius: isMobile ? 0 : 2, borderWidth: isMobile ? 1.5 : 2 },
+                { label:'Humidité', data:[], borderColor:'#3b82f6', hidden:true, tension:0.4, pointRadius: isMobile ? 0 : 2, borderWidth: isMobile ? 1.5 : 2 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: isMobile ? 8 : 12,
+                        font: { size: isMobile ? 9 : 11 },
+                        padding: isMobile ? 8 : 16
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { maxTicksLimit: isMobile ? 5 : 10, font: { size: isMobile ? 8 : 10 }, maxRotation: 0 } },
+                y: { ticks: { font: { size: isMobile ? 8 : 10 } } }
+            }
+        }
+    });
+    loadChartData(deviceId);
+}
+
+function loadChartData(deviceId) {
+    fetch(`/api/device/${deviceId}/last10/`)
+        .then(r => r.json())
+        .then(json => {
+            const ch = charts[deviceId];
+            if (!ch) return;
+            const readings = json.readings || [];
+            ch.data.labels           = readings.map(r => r.time);
+            ch.data.datasets[0].data = readings.map(r => r.pm25);
+            ch.data.datasets[1].data = readings.map(r => r.pm10);
+            ch.data.datasets[2].data = readings.map(r => r.gas);
+            ch.data.datasets[3].data = readings.map(r => r.temperature);
+            ch.data.datasets[4].data = readings.map(r => r.humidity);
+            ch.update('none');
+            updatePointsCount(deviceId);
+            const badge = document.getElementById(`chartBadge-${deviceId}`);
+            if (badge) { badge.classList.add('show'); setTimeout(() => badge.classList.remove('show'), 1200); }
+            if (readings.length > 0) {
+                const valides = readings.slice(-5).map(r => r.pm25).filter(v => v !== null && v !== undefined && !isNaN(v));
+                if (valides.length > 0) updateStatusBadge(deviceId, valides.reduce((a, b) => a + b, 0) / valides.length);
+            }
+        })
+        .catch(err => console.warn('Chart data error:', err));
+}
+
+function updatePointsCount(deviceId) {
+    const ch = charts[deviceId];
+    if (!ch) return;
+    const el = document.getElementById(`pointsCount-${deviceId}`);
+    if (el) el.textContent = `${ch.data.labels.length} pts`;
+}
+
+function showDevice(deviceId) {
+    document.querySelectorAll('.device-section').forEach(s => {
+        s.style.display = s.id === deviceId ? 'block' : 'none';
+    });
+    {% for item in devices_data %}
+    if (deviceId === 'device-{{ item.device.id }}') {
+        const lat = parseFloat('{{ item.latest_reading.payload.latitude|default:9.5377 }}');
+        const lng = parseFloat('{{ item.latest_reading.payload.longitude|default:-13.6773 }}');
+        initMap('{{ item.device.id }}', lat, lng, '{{ item.device.name|escapejs }}');
+        initChart('{{ item.device.id }}');
+    }
+    {% endfor %}
+}
+
+function fetchUpdates() {
+    fetch(window.location.href)
+        .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+        .then(html => {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const selectedId = document.getElementById('deviceSelector').value;
+            const newAlerts = doc.getElementById('mainAlertContainer');
+            if (newAlerts) { document.getElementById('mainAlertContainer').innerHTML = newAlerts.innerHTML; refreshAlertCount(); }
+            {% for item in devices_data %}
+            (function() {
+                const devId = '{{ item.device.id }}';
+                const newStats = doc.getElementById(`stats-${devId}`);
+                if (newStats) { const old = document.getElementById(`stats-${devId}`); if (old) old.innerHTML = newStats.innerHTML; }
+                const newRelais = doc.getElementById(`relais-${devId}`);
+                if (newRelais) { const old = document.getElementById(`relais-${devId}`); if (old) old.innerHTML = newRelais.innerHTML; }
+                if (selectedId === `device-${devId}`) loadChartData(devId);
+            })();
+            {% endfor %}
+            setOnline(true);
+            document.getElementById('lastUpdate').textContent = 'Màj : ' + new Date().toLocaleTimeString('fr-FR');
+        })
+        .catch(() => setOnline(false));
+}
+
+function setOnline(online) {
+    const badge = document.getElementById('liveBadge');
+    if (!badge) return;
+    badge.className = 'live-badge' + (online ? '' : ' offline');
+    badge.innerHTML = online ? '<span class="live-dot"></span> Direct' : '<span class="live-dot"></span> Hors ligne';
+}
+
+document.getElementById('deviceSelector').addEventListener('change', e => showDevice(e.target.value));
+
+window.addEventListener('load', () => {
+    showDevice(document.getElementById('deviceSelector').value);
+    refreshAlertCount();
+    setInterval(fetchUpdates, 5000);
+});
+</script>
+{% endblock %}

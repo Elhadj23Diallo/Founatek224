@@ -1,331 +1,393 @@
 {% extends "espcontrol/base.html" %}
 {% load static %}
 
+{% block title %}Air Intelligence - Multi-Devices{% endblock %}
+
 {% block extra_head %}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-/* ===== VARIABLES ===== */
-:root {
-    --neon-blue: #00d2ff;
-    --neon-green: #00ff99;
-    --neon-red: #ff4757;
-    --neon-orange: #ff9500;
-    --neon-yellow: #ffe600;
-    --bg-dark: #050a1f;
-    --card-bg: rgba(13,18,41,0.85);
-    --text-primary: #e0e6ff;
-    --text-secondary: #aab2cd;
-}
+    :root {
+        --primary: #2563eb;
+        --primary-light: #dbeafe;
+        --secondary: #64748b;
+        --success: #10b981;
+        --danger: #ff4757;
+        --bg-body: #f1f5f9;
+        --glass: rgba(255, 255, 255, 0.92);
+        --border: #e2e8f0;
+    }
 
-/* ===== GLOBAL ===== */
-.iot-dashboard-wrapper {
-    max-width:1600px;
-    margin:30px auto;
-    padding:20px;
-    font-family:'Roboto',sans-serif;
-    color:var(--text-primary);
-}
+    body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: #f1f5f9;
+        margin: 0;
+    }
 
-.cyber-title {
-    text-align:center;
-    font-family:'Orbitron',sans-serif;
-    color:var(--neon-blue);
-    margin-bottom:30px;
-    text-transform:uppercase;
-    letter-spacing:2px;
-    text-shadow:0 0 20px rgba(0,210,255,0.5);
-    font-size:2rem;
-}
+    .dashboard-wrapper {
+        padding: 20px;
+        max-width: 1400px;
+        margin: auto;
+    }
 
-/* ===== CARDS ===== */
-.cyber-card {
-    background:var(--card-bg);
-    border-radius:20px;
-    padding:25px;
-    border:1px solid rgba(0,210,255,.3);
-    box-shadow:0 0 20px rgba(0,210,255,0.1);
-    backdrop-filter:blur(10px);
-    margin-bottom:30px;
-}
+    /* HEADER */
+    header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
 
-.device-grid {
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(400px,1fr));
-    gap:30px;
-}
+    header h1 {
+        font-size: 2.6rem;
+        font-weight: 900;
+        color: #1e293b;
+    }
 
-.card-header {
-    display:flex;
-    justify-content:space-between;
-    border-bottom:1px solid rgba(0,210,255,.2);
-    margin-bottom:10px;
-}
+    header p {
+        color: var(--secondary);
+        margin-bottom: 1.5rem;
+    }
 
-/* ===== LOGS ===== */
-.log-entry {
-    font-family:'Courier New',monospace;
-    font-size:0.85rem;
-    border-bottom:1px dashed rgba(0,210,255,.1);
-    padding:8px 5px;
-    display:flex;
-    justify-content:space-between;
-}
+    /* SELECTOR */
+    .selector-box {
+        display: inline-block;
+        background: white;
+        padding: 12px 20px;
+        border-radius: 40px;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
 
-.log-entry.anomaly {
-    background:rgba(255,71,87,0.15);
-    border-left:3px solid var(--neon-red);
-}
+    select {
+        border: none;
+        font-weight: 600;
+        color: var(--primary);
+        outline: none;
+        background: transparent;
+    }
 
-.log-time {
-    font-weight:bold;
-    margin-right:10px;
-}
+    /* GLOBAL STATS */
+    .global-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 2rem;
+    }
 
-/* ===== CHART ===== */
-.pro-chart-container {
-    height:300px;
-    margin-bottom:20px;
-}
-.anomaly-badge { background: var(--neon-red); color: white; padding: 4px 8px; border-radius: 12px; font-size:0.8rem; font-weight:bold; }
-.cyber-card.has-anomaly { box-shadow: 0 0 30px rgba(255,71,87,0.12); border-color: rgba(255,71,87,0.25); }
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid var(--border);
+        text-align: center;
+        transition: 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--secondary);
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
+    .stat-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin-top: 10px;
+    }
+
+    /* ALERT */
+    .alert-card {
+        background: white;
+        border-left: 5px solid var(--danger);
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+
+    /* DEVICE CARD */
+    .device-section {
+        background: var(--glass);
+        border-radius: 20px;
+        padding: 25px;
+        margin-bottom: 2rem;
+        border: 1px solid var(--border);
+        display: none;
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from {opacity:0; transform:translateY(10px);}
+        to {opacity:1; transform:translateY(0);}
+    }
+
+    .top-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    @media(max-width:900px){
+        .top-grid { grid-template-columns: 1fr; }
+        .global-stats { grid-template-columns: 1fr; }
+    }
+
+    .stats-subgrid {
+        display: grid;
+        grid-template-columns: repeat(2,1fr);
+        gap: 15px;
+    }
+
+    .map-container {
+        height: 300px;
+        border-radius: 15px;
+        border: 1px solid var(--border);
+    }
+
+    .chart-container {
+        background: white;
+        padding: 15px;
+        border-radius: 15px;
+        border: 1px solid var(--border);
+        height: 320px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        margin-top: 15px;
+    }
+
+    th {
+        background: #f8fafc;
+        padding: 12px;
+        text-align: left;
+        font-size: 0.8rem;
+        color: var(--secondary);
+    }
+
+    td {
+        padding: 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+    }
+
+    .anomaly {
+        background: rgba(255,71,87,0.06);
+    }
+
 </style>
+
 {% endblock %}
 
 {% block content %}
-<div class="iot-dashboard-wrapper">
 
-    <h2 class="cyber-title">📡 Dashboard IoT Analytique</h2>
+<div class="dashboard-wrapper">
 
-    <!-- ===================================================== -->
-    <!-- 🚨 ALERTES LIVE (API latest_alerts) -->
-    <!-- ===================================================== -->
-    <div class="cyber-card">
-        <h3 style="color:#ff4757">🚨 Alertes récentes (temps réel)</h3>
-        <div id="alerts-live">
-            <div style="color:#00ff99">Chargement…</div>
+    <!-- HEADER -->
+    <header>
+        <h1>📡 Air Intelligence Network</h1>
+        <p>Monitoring environnemental multi-stations en temps réel</p>
+
+        <div class="selector-box">
+            <select id="deviceSelector">
+                {% for item in devices_data %}
+                <option value="device-{{ item.device.id }}">
+                    📍 {{ item.device.name }} • {{ item.device.device_id }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </header>
+
+    <!-- GLOBAL STATS -->
+    <div class="global-stats">
+        <div class="stat-card">
+            <div class="stat-label">Stations actives</div>
+            <div class="stat-value">{{ devices_data|length }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Dernière mesure PM2.5</div>
+            <div class="stat-value">
+                {% for item in devices_data %}
+                    {% if forloop.first %}
+                        {{ item.latest_reading.payload.pm2p5|default:0 }}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Système</div>
+            <div class="stat-value" style="color:var(--success)">ONLINE</div>
         </div>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- 📊 GRAPHE ALERTES PAR CAPTEUR -->
-    <!-- ===================================================== -->
-    <div class="cyber-card">
-        <h3 style="color:#00d2ff">📊 Historique des alertes</h3>
-
-        <select id="sensorSelect">
-            {% for s in sensors_list %}
-                <option value="{{ s }}">{{ s|capfirst }}</option>
-            {% endfor %}
-        </select>
-
-        <canvas id="alertChart" height="120"></canvas>
-    </div>
-
-    <!-- ===================================================== -->
-    <!-- 📟 DEVICES -->
-    <!-- ===================================================== -->
-    <div class="device-grid">
-        {% for item in devices_data %}
-        <div class="cyber-card" data-device-id="{{ item.device.id }}">
-            <div class="card-header">
-                <h3>{{ item.device.name }}</h3>
-                <span style="color:#00ff99">{{ item.device.device_id }}</span>
-            </div>
-
-            {% comment %} Affichage diagnostique côté serveur : dernière lecture connue {% endcomment %}
-            {% if item.data_points %}
-            <div style="padding:8px 0;color:#aab2cd;font-size:0.9rem">
-                <strong>Dernière lecture :</strong>
-                {% with last=item.data_points|last %}
-                    {{ last.received_at }} — {{ last.payload }}
-                {% endwith %}
-            </div>
-            {% else %}
-            <div style="padding:8px 0;color:#777;font-size:0.9rem">Aucune donnée reçue côté serveur.</div>
-            {% endif %}
-            {% for sensor in sensors_list %}
-            <div class="pro-chart-container">
-                <canvas id="chart-{{ item.device.id }}-{{ sensor }}"></canvas>
-            </div>
-            {% endfor %}
-
-            <div id="logs-{{ item.device.id }}"></div>
+    <!-- ALERTS -->
+    <div class="alert-card">
+        🚨 <b>Alertes système</b>
+        <div id="alerts-live" style="margin-top:10px; font-size:0.9rem;">
+            Surveillance active...
         </div>
-        {% endfor %}
     </div>
+
+    <!-- DEVICES -->
+    {% for item in devices_data %}
+    <div class="device-section" id="device-{{ item.device.id }}">
+
+        <!-- HEADER DEVICE -->
+        <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+            <div>
+                <h2 style="margin:0;">{{ item.device.name }}</h2>
+                <small style="color:var(--secondary)">{{ item.device.device_id }}</small>
+            </div>
+
+            <div style="background:{{ item.aqi_status.color }};
+                        color:white; padding:8px 15px;
+                        border-radius:10px; font-weight:bold;">
+                {{ item.aqi_status.icon }} {{ item.aqi_status.status }}
+            </div>
+        </div>
+
+        <!-- GRID -->
+        <div class="top-grid">
+
+            <div class="stats-subgrid">
+
+                <div class="stat-card" style="grid-column:span 2;">
+                    <div class="stat-label">GPS</div>
+                    <div class="stat-value" style="font-size:1.1rem;">
+                        {{ item.latest_reading.payload.latitude|default:"--" }},
+                        {{ item.latest_reading.payload.longitude|default:"--" }}
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">PM2.5</div>
+                    <div class="stat-value">{{ item.latest_reading.payload.pm2p5|default:0 }}</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">Moyenne 24h</div>
+                    <div class="stat-value">{{ item.stats.avg_pm25|default:0 }}</div>
+                </div>
+
+            </div>
+
+            <div id="map-{{ item.device.id }}" class="map-container"></div>
+
+        </div>
+
+        <!-- CHART -->
+        <div class="chart-container">
+            <canvas id="chart-{{ item.device.id }}"></canvas>
+        </div>
+
+        <!-- TABLE -->
+        <table>
+            <thead>
+                <tr>
+                    <th>Heure</th>
+                    <th>PM2.5</th>
+                    <th>PM10</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {% for r in item.chart_data reversed %}
+                <tr class="{% if r.is_anomaly %}anomaly{% endif %}">
+                    <td>{{ r.received_at|date:"H:i:s" }}</td>
+                    <td>{{ r.payload.pm2p5 }}</td>
+                    <td>{{ r.payload.pm10 }}</td>
+                    <td>
+                        {% if r.is_anomaly %}
+                            ⚠️ Anomalie
+                        {% else %}
+                            ✔ OK
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+    {% endfor %}
+
 </div>
 
 <script>
-/* ================= ALERTES LIVE ================= */
-function refreshAlerts(){
-    $.get("{% url 'latest_alerts' %}")
-    .done(function(alerts){
-        const box = $("#alerts-live");
-        box.empty();
+const selector = document.getElementById("deviceSelector");
+const sections = document.querySelectorAll(".device-section");
+const maps = {};
 
-        if(alerts.length === 0){
-            box.append('<div style="color:#00ff99">✔ Aucune alerte</div>');
-            return;
-        }
+function showDevice(){
+    const selected = selector.value;
 
-        alerts.forEach(a => {
-            box.append(`
-                <div class="log-entry anomaly">
-                    <span class="log-time">${a.created_at}</span>
-                    <span>
-                        🚨 ${a.message}<br>
-                        <small>🧠 ${a.sensor ?? '--'} → ${a.value ?? '--'}</small><br>
-                        <small>📟 ${a.device_name ?? ''}</small>
-                    </span>
-                </div>
-            `);
-        });
-    })
-    .fail(function(xhr, status, err){
-        console.error('latest_alerts failed', status, err, xhr.responseText);
-        const box = $("#alerts-live");
-        box.empty().append(`<div style="color:#ff9500">Erreur chargement alertes (${xhr.status})</div>`);
+    sections.forEach(s=>{
+        s.style.display = (s.id === selected) ? "block" : "none";
     });
-}
-setInterval(refreshAlerts, 15000);
-refreshAlerts();
 
-/* ================= GRAPHE ALERTES ================= */
-let alertChart;
-
-const alertGraphUrlTemplate = "{% url 'alert_graph' 'SENSOR' %}";
-
-function loadAlertGraph(sensor){
-    const url = alertGraphUrlTemplate.replace('SENSOR', sensor);
-    $.get(url)
-    .done(function(data){
-        try{ if(alertChart) alertChart.destroy(); }catch(e){}
-        alertChart = new Chart(
-            document.getElementById("alertChart"),
-            {
-                type:"line",
-                data:{
-                    labels:data.labels,
-                    datasets:[{
-                        label:sensor,
-                        data:data.values,
-                        borderColor:"#00d2ff",
-                        fill:false
-                    }]
-                }
-            }
-        );
-    })
-    .fail(function(xhr, status, err){
-        console.error('alert_graph failed', sensor, status, err, xhr && xhr.responseText);
-    });
-}
-
-// bind change once and load initial graph
-$("#sensorSelect").change(function(){ loadAlertGraph(this.value); });
-loadAlertGraph("temperature");
-
-/* ================= DEVICES DATA ================= */
-const charts = {};
-const apiUrls = {
     {% for item in devices_data %}
-    "{{ item.device.id }}": "{% url 'device_last10' item.device.id %}",
-    {% endfor %}
-};
+    if(selected === "device-{{ item.device.id }}"){
+        const lat = {{ item.latest_reading.payload.latitude|default:0 }};
+        const lng = {{ item.latest_reading.payload.longitude|default:0 }};
 
-// rendre accessible depuis la console pour debug (window.apiUrls)
-window.apiUrls = apiUrls;
-console.log('apiUrls', apiUrls);
-
-function renderChart(deviceId, sensor, data){
-    const ctx = document.getElementById(`chart-${deviceId}-${sensor}`);
-    if(!ctx) return;
-
-    // Préparer labels lisibles (heure:minute:second) et valeurs
-    const labels = (data || []).map(d => {
-        try{ const dt = new Date(d.received_at); return dt.toLocaleTimeString(); }catch(e){ return (d.received_at||'').replace('T',' ').split('.')[0]; }
-    }).reverse();
-    const values = (data || []).map(d => d.payload && (d.payload[sensor] !== undefined) ? d.payload[sensor] : 0).reverse();
-
-    if(charts[deviceId+sensor]){
-        try{ charts[deviceId+sensor].destroy(); }catch(e){}
-    }
-
-    // Si pas de données, on affiche un message dans le canvas parent
-    if(values.length === 0){
-        ctx.getContext('2d').clearRect(0,0,ctx.width,ctx.height);
-        return;
-    }
-
-    charts[deviceId+sensor] = new Chart(ctx,{
-        type:"line",
-        data:{ labels, datasets:[{
-            label: sensor,
-            data: values,
-            borderColor: '#00ff99',
-            backgroundColor: 'rgba(0,255,153,0.08)',
-            tension: 0.2,
-            pointRadius: 3
-        }] },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#e0e6ff' } } },
-            scales: {
-                x: { ticks: { color: '#aab2cd' }, grid: { color: 'rgba(255,255,255,0.03)' } },
-                y: { ticks: { color: '#aab2cd' }, grid: { color: 'rgba(255,255,255,0.03)' } }
-            }
+        if(!maps["{{ item.device.id }}"]){
+            const map = L.map("map-{{ item.device.id }}").setView([lat,lng],13);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+            L.marker([lat,lng]).addTo(map);
+            maps["{{ item.device.id }}"] = map;
         }
-    });
+    }
+    {% endfor %}
 }
 
-function refreshData(){
-    $(".cyber-card[data-device-id]").each(function(){
-        const deviceId = $(this).data("device-id");
-        $.get(apiUrls[deviceId], function(data){
-            debugLog(deviceId, data);
-            {% for sensor in sensors_list %}
-            renderChart(deviceId,"{{ sensor }}",data);
-            {% endfor %}
-            // affiche logs et badge d'anomalie
-            const card = $(`.cyber-card[data-device-id="${deviceId}"]`);
-            const logsEl = $(`#logs-${deviceId}`);
-            logsEl.empty();
+selector.addEventListener("change", showDevice);
+window.onload = showDevice;
 
-            const anomalies = (data || []).filter(d => d.is_anomaly);
-            if(anomalies.length > 0){
-                if(card.find('.anomaly-badge').length === 0){
-                    card.find('.card-header').append('<span class="anomaly-badge" style="margin-left:10px">ANOMALIE</span>');
-                }
-                card.addClass('has-anomaly');
-            } else {
-                card.find('.anomaly-badge').remove();
-                card.removeClass('has-anomaly');
-            }
+/* CHARTS */
+{% for item in devices_data %}
+new Chart(document.getElementById("chart-{{ item.device.id }}"), {
+    type: "line",
+    data: {
+        labels: [{% for r in item.chart_data %}"{{ r.received_at|date:'H:i' }}",{% endfor %}],
+        datasets: [{
+            label: "PM2.5",
+            data: [{% for r in item.chart_data %}{{ r.payload.pm2p5|default:0 }},{% endfor %}],
+            borderColor: "#2563eb",
+            fill: true
+        }]
+    }
+});
+{% endfor %}
 
-            // Afficher jusqu'à 10 derniers points
-            (data || []).slice().reverse().slice(0,10).forEach(d => {
-                const time = (d.received_at || '').replace('T',' ');
-                const cls = d.is_anomaly ? 'log-entry anomaly' : 'log-entry';
-                const payloadText = JSON.stringify(d.payload);
-                logsEl.append(`<div class="${cls}"><span class="log-time">${time}</span><span>${payloadText}</span></div>`);
-            });
-        }).fail(function(xhr, status, err){
-            console.error('device_last10 failed', deviceId, status, err, xhr.responseText);
-            const logsEl = $(`#logs-${deviceId}`);
-            logsEl.empty().append(`<div class="log-entry" style="color:#ff9500">Erreur ${xhr.status} lors du chargement des données</div>`);
+/* ALERTS */
+function loadAlerts(){
+    $.get("{% url 'latest_alerts' %}", function(data){
+        let box = $("#alerts-live");
+        box.html("");
+        data.forEach(a=>{
+            box.append(`<div>⚠️ ${a.device_name} : ${a.message}</div>`);
         });
     });
 }
+setInterval(loadAlerts,10000);
+loadAlerts();
 
-refreshData();
-setInterval(refreshData,10000); // polling toutes les 10s pour debug
-
-// debug: log quand l'API renvoie des données
-function debugLog(deviceId, data){
-    try{ console.log('device_last10', deviceId, data && data.length ? data.length+' points' : 'no-data'); }catch(e){}
-}
 </script>
+
 {% endblock %}

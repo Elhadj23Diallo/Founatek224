@@ -23,9 +23,17 @@ from rest_framework_simplejwt.views import (
 )
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
+from django.conf import settings
+import os
 
 
 urlpatterns = [
+    # ── PWA Service Worker ──
+    path('sw.js', serve, {
+        'path': 'sw.js',
+        'document_root': os.path.join(settings.BASE_DIR, 'static')
+    }, name='sw'),
     path('admin/', admin.site.urls),
         # Authentification JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -39,6 +47,9 @@ urlpatterns = [
     path('techfeed/', include('techfeed.urls', namespace='techfeed')),
     path("product_transparency/", include('product_transparency.urls', namespace='product_transparency')),
     path('oscilloscope/', include('oscilloscope_app.urls', namespace='oscilloscope')),
+    path('shop/', include('founatekapp.urls', namespace='founatekapp')),
+    path('api/v1/', include('founatekapp.api_urls')),
+
 ]
 
 if settings.DEBUG:  # Assurer que cela n'est ajouté qu'en mode développement

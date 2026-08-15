@@ -1,0 +1,113 @@
+/* ═══════════════════════════════════════════
+   FOUNATEK SHOP — Styles globaux + responsive
+   ═══════════════════════════════════════════ */
+
+/* ── Variables ── */
+:root {
+  --ft-dark:   #1a1a2e;
+  --ft-accent: #e94560;
+  --ft-gold:   #ffc107;
+}
+
+/* ── Base ── */
+body { font-size: 15px; }
+
+pre { white-space: pre-wrap; word-break: break-word; }
+
+/* ── Navbar ── */
+.navbar-brand {
+  letter-spacing: .5px;
+  font-size: 1.1rem;
+}
+.navbar-brand img { border-radius: 6px; }
+@media (max-width: 400px) {
+  .navbar-brand span { display: none; }   /* cache le texte, garde le logo */
+}
+
+/* ── Cartes produit ── */
+.hover-card {
+  transition: transform .2s, box-shadow .2s;
+}
+.hover-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.12) !important;
+}
+
+/* ── Carousel vignettes ── */
+#thumb-list .thumb-item { transition: border-color .2s, transform .15s; }
+#thumb-list .thumb-item:hover { transform: scale(1.05); border-color: var(--ft-gold) !important; }
+.active-thumb { border-color: var(--ft-gold) !important; border-width: 2px !important; }
+.dot-indicator { border: none; transition: background .2s, transform .15s; }
+.dot-indicator:hover { transform: scale(1.4); }
+
+/* ── Panier : cards sur mobile ── */
+.cart-item-card {
+  border: 1px solid #dee2e6;
+  border-radius: .5rem;
+  padding: .75rem;
+  margin-bottom: .75rem;
+  background: #fff;
+}
+
+/* ── Tables responsive ── */
+@media (max-width: 767px) {
+  .table-mobile-stack thead { display: none; }
+  .table-mobile-stack tr {
+    display: block;
+    border: 1px solid #dee2e6;
+    border-radius: .5rem;
+    margin-bottom: .75rem;
+    padding: .5rem;
+  }
+  .table-mobile-stack td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .3rem .5rem;
+    border: none;
+    font-size: .875rem;
+  }
+  .table-mobile-stack td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #555;
+    flex-shrink: 0;
+    margin-right: .5rem;
+  }
+}
+
+/* ── Checkout ── */
+@media (max-width: 575px) {
+  .checkout-summary { order: -1; margin-bottom: 1rem; }
+}
+
+/* ── Fidélité ── */
+.loyalty-card {
+  background: linear-gradient(135deg, var(--ft-dark) 60%, #0f346044);
+  color: white;
+  border-radius: 1rem;
+}
+
+/* ── Footer ── */
+footer { font-size: .85rem; }
+
+/* ── Breadcrumb ── */
+@media (max-width: 575px) {
+  .breadcrumb { font-size: .8rem; }
+}
+
+/* ── Boutons pleine largeur sur XS ── */
+@media (max-width: 575px) {
+  .btn-xs-full { width: 100% !important; margin-bottom: .4rem; }
+}
+
+/* ── Texte tronqué ── */
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Ombre légère ── */
+.shadow-soft { box-shadow: 0 2px 12px rgba(0,0,0,.07); }

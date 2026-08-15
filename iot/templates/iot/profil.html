@@ -210,7 +210,63 @@
                 {% if api_token %}
                 <div class="api-token-container">
                     <span>{{ api_token }}</span>
-                    <button class="copy-btn" onclick="navigator.clipboard.writeText('{{ api_token }}')">Copier</button>
+                    <button class="copy-btn" id="copyTokenBtn" data-token="{{ api_token }}">
+    <i class="fas fa-copy"></i> Copier
+</button>
+<script>
+document.getElementById('copyTokenBtn').addEventListener('click', function() {
+    const token = this.getAttribute('data-token');
+    const btn = this;
+    const originalText = btn.innerHTML;
+    
+    navigator.clipboard.writeText(token).then(() => {
+        // Changement du bouton
+        btn.innerHTML = '<i class="fas fa-check"></i> Copié !';
+        btn.style.background = 'var(--neon-green)';
+        btn.style.color = '#050a1f';
+        
+        // Toast notification
+        const toast = document.createElement('div');
+        toast.textContent = '✅ Token copié dans le presse-papiers !';
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--neon-green);
+            color: #050a1f;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+        `;
+        document.body.appendChild(toast);
+        
+        // Supprimer le toast après 3 secondes
+        setTimeout(() => toast.remove(), 3000);
+        
+        // Restaurer le bouton après 2 secondes
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.background = '';
+            btn.style.color = '';
+        }, 2000);
+    }).catch(err => {
+        console.error('Erreur:', err);
+        alert('❌ Impossible de copier le token');
+    });
+});
+
+// Animation CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+`;
+document.head.appendChild(style);
+</script>
                 </div>
                 {% endif %}
             </div>
