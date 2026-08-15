@@ -1,0 +1,267 @@
+{% extends "iot/base.html" %}
+{% load static %}
+
+{% block title %}Mon profil Founatek{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- STYLES GLOBAUX (Rappel du thème dashboard) --- */
+    :root {
+        --neon-blue: #00d2ff;
+        --neon-green: #00ff99;
+        --dark-bg: #050a1f;
+        --card-bg: rgba(13, 18, 41, 0.6);
+        --text-primary: #e0e6ff;
+        --text-secondary: #aab2cd;
+    }
+
+    body {
+        font-family: 'Roboto', sans-serif;
+        background-color: var(--dark-bg);
+        background-image: radial-gradient(circle at 50% 30%, #0d1229 0%, #050a1f 100%);
+        color: var(--text-primary);
+    }
+
+    .profile-container-wrapper {
+        max-width: 1000px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+
+    h1.orbitron-title, h2.orbitron-title, h3.orbitron-title {
+        font-family: 'Orbitron', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #fff;
+    }
+
+    h1.orbitron-title {
+        text-align: center; margin-bottom: 40px;
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+    }
+
+    .cyber-card {
+        background: var(--card-bg);
+        border: 1px dashed rgba(0, 210, 255, 0.3);
+        border-radius: 20px;
+        padding: 30px;
+        position: relative;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(5px);
+        margin-bottom: 30px;
+    }
+
+    .profile-header-content {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        position: relative;
+    }
+
+    .profile-photo-container {
+        position: relative;
+    }
+
+    .profile-photo-glow {
+        width: 140px; height: 140px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid var(--neon-blue);
+        box-shadow: 0 0 25px rgba(0, 210, 255, 0.4);
+    }
+
+    .user-details h2 { margin-top: 0; margin-bottom: 5px; font-size: 1.8rem; color: var(--neon-blue); }
+    .user-username { color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 20px; display: block; }
+
+    .info-badge-container { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; }
+    .info-badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: rgba(0, 210, 255, 0.1);
+        border: 1px solid var(--neon-blue);
+        padding: 8px 15px; border-radius: 12px;
+        font-size: 0.9rem; color: var(--text-primary);
+    }
+    .info-badge.role-formateur { background: rgba(255, 215, 0, 0.1); border-color: #ffd700; color: #ffd700; }
+    .info-badge.role-apprenant { background: rgba(0, 255, 153, 0.1); border-color: var(--neon-green); color: var(--neon-green); }
+
+    .edit-profile-btn {
+        position: absolute; top: 30px; right: 30px;
+        background: transparent; color: var(--neon-blue);
+        border: 1px solid var(--neon-blue);
+        padding: 8px 15px; border-radius: 8px;
+        text-decoration: none; transition: all 0.3s ease;
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 0.9rem;
+    }
+    .edit-profile-btn:hover { background: var(--neon-blue); color: #050a1f; box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
+
+    /* Section Token API */
+    .api-token-container {
+        display: flex; align-items: center; justify-content: space-between;
+        background: rgba(0, 210, 255, 0.1);
+        border: 1px solid var(--neon-blue);
+        border-radius: 12px;
+        padding: 12px 20px;
+        margin-top: 15px;
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+    }
+    .copy-btn {
+        background: var(--neon-blue);
+        color: #050a1f;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+    }
+    .copy-btn:hover { background: var(--neon-green); color: #050a1f; }
+
+    .section-mt { margin-top: 50px; }
+    .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid rgba(0, 210, 255, 0.2); padding-bottom: 10px; }
+    .section-header i { color: var(--neon-green); }
+
+    .cert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+
+    .cert-card-modern {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid transparent;
+        border-radius: 18px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        display: flex; flex-direction: column;
+        height: 100%;
+    }
+    .cert-card-modern:hover {
+        border-color: var(--neon-green);
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 255, 153, 0.2);
+        background: rgba(0, 255, 153, 0.05);
+    }
+
+    .cert-icon { font-size: 2.5rem; color: var(--neon-green); margin-bottom: 15px; text-align: center; }
+    .cert-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; color: var(--text-primary); flex-grow: 1; }
+    .cert-details { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px; }
+    .cert-details i { width: 20px; color: var(--neon-blue); }
+    .cert-score { color: var(--neon-green); font-weight: bold; }
+
+    .cert-actions { display: flex; gap: 10px; margin-top: auto; }
+    .btn-cert {
+        flex: 1; text-align: center; padding: 8px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; transition: all 0.2s; border: 1px solid; display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .btn-download { border-color: var(--neon-blue); color: var(--neon-blue); }
+    .btn-download:hover { background: var(--neon-blue); color: #050a1f; }
+    .btn-verify { border-color: var(--neon-green); color: var(--neon-green); }
+    .btn-verify:hover { background: var(--neon-green); color: #050a1f; }
+
+    .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); font-style: italic; }
+
+    @media (max-width: 768px) {
+        .profile-header-content { flex-direction: column; text-align: center; gap: 20px; }
+        .edit-profile-btn { position: static; margin-top: 20px; width: 100%; justify-content: center; }
+        .info-badge-container { justify-content: center; }
+        .cert-grid { grid-template-columns: 1fr; }
+        .api-token-container { flex-direction: column; align-items: flex-start; gap: 10px; }
+    }
+</style>
+
+<div class="profile-container-wrapper">
+    <h1 class="orbitron-title"><i class="fas fa-user-astronaut me-2"></i> Mon Espace Profil</h1>
+
+    <div class="cyber-card">
+        <a href="{% url 'iot:edit_profil' %}" class="edit-profile-btn">
+            <i class="fas fa-cog"></i> Modifier le profil
+        </a>
+
+        <div class="profile-header-content">
+            <div class="profile-photo-container">
+                {% if is_formateur and user_obj.formateur_profile.photo %}
+                    <img src="{{ user_obj.formateur_profile.photo.url }}" class="profile-photo-glow" alt="Photo de profil">
+                {% endif %}
+            </div>
+
+            <div class="user-details">
+                <h2 class="orbitron-title">{{ user_obj.first_name }} {{ user_obj.last_name }}</h2>
+                <span class="user-username">@{{ user_obj.username }}</span>
+
+                <div class="info-badge-container">
+                    {% if is_formateur %}
+                        <div class="info-badge role-formateur">
+                            <i class="fas fa-chalkboard-teacher"></i> Formateur
+                        </div>
+                        <div class="info-badge">
+                            <i class="fas fa-building"></i> {{ user_obj.formateur_profile.organisation.nom }}
+                        </div>
+                    {% else %}
+                        <div class="info-badge role-apprenant">
+                            <i class="fas fa-user-graduate"></i> Apprenant
+                        </div>
+                    {% endif %}
+                    <div class="info-badge">
+                        <i class="fas fa-envelope"></i> {{ user_obj.email }}
+                    </div>
+                </div>
+
+                {% if api_token %}
+                <div class="api-token-container">
+                    <span>{{ api_token }}</span>
+                    <button class="copy-btn" onclick="navigator.clipboard.writeText('{{ api_token }}')">Copier</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if not is_formateur %}
+    <div class="section-mt">
+        <div class="section-header">
+            <i class="fas fa-award fa-2x"></i>
+            <h3 class="orbitron-title mb-0">Mes Certificats & Réussites</h3>
+        </div>
+
+        {% if certificats %}
+            <div class="cert-grid">
+                {% for cert in certificats %}
+                    <div class="cert-card-modern">
+                        <div class="cert-icon">
+                            <i class="fas fa-scroll"></i>
+                        </div>
+                        <div class="cert-title">
+                            {{ cert.parcours.titre }}
+                        </div>
+                        <div class="cert-details">
+                            <p><i class="fas fa-building"></i> {{ cert.parcours.organisation.nom }}</p>
+                            <p><i class="fas fa-star-half-alt"></i> Score final : <span class="cert-score">{{ cert.score_final }}%</span></p>
+                            <p><i class="far fa-calendar-alt"></i> Obtenu le : {{ cert.date_obtention|date:"d/m/Y" }}</p>
+                        </div>
+
+                        <div class="cert-actions">
+                            {% if cert.pdf %}
+                            <a href="{{ cert.pdf.url }}" target="_blank" class="btn-cert btn-download">
+                                <i class="fas fa-file-pdf"></i> Télécharger
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'iot:verifier_certificat' cert.uuid %}" class="btn-cert btn-verify">
+                                <i class="fas fa-check-circle"></i> Vérifier
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="cyber-card empty-state">
+                <i class="far fa-frown-open fa-3x mb-3" style="color: var(--text-secondary);"></i>
+                <p>Vous n'avez pas encore obtenu de certificat.</p>
+                <p>Continuez vos efforts sur la plateforme d'apprentissage !</p>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

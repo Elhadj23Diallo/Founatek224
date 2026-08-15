@@ -1,0 +1,407 @@
+{% extends "iot/base.html" %}
+{% load static %}
+
+{% block title %}Comment ça marche — Founatek Academy{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#050a1f;
+    --panel:rgba(13,18,41,.82);
+    --panel2:rgba(13,18,41,.62);
+    --stroke:rgba(0,210,255,.18);
+    --neon:#00d2ff;
+    --neon2:#00ff99;
+    --text:#e0e6ff;
+    --muted:#8892b0;
+    --gold:#ffd700;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 30%, #0d1229 0%, #050a1f 70%);
+    color:var(--text);
+    font-family:'Roboto',sans-serif;
+  }
+
+  .wrap{
+    max-width:1100px;
+    margin: 40px auto 70px;
+    padding: 0 16px;
+  }
+
+  .hero{
+    background: linear-gradient(120deg, rgba(0,210,255,.08), rgba(0,255,153,.05));
+    border:1px solid var(--stroke);
+    border-radius:24px;
+    padding:34px 26px;
+    box-shadow: 0 0 40px rgba(0,210,255,.10);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero:before{
+    content:"";
+    position:absolute;
+    right:-120px; top:-120px;
+    width:300px; height:300px;
+    background: radial-gradient(circle, rgba(0,210,255,.25), transparent 65%);
+    filter: blur(2px);
+  }
+  .hero h1{
+    font-family:'Orbitron',sans-serif;
+    font-size: clamp(1.6rem, 2.3vw, 2.3rem);
+    margin: 0 0 10px;
+    letter-spacing:.5px;
+  }
+  .hero p{
+    margin:0;
+    color:var(--muted);
+    font-size:1.05rem;
+    line-height:1.6;
+  }
+  .hero .pillrow{
+    display:flex; flex-wrap:wrap;
+    gap:10px;
+    margin-top:18px;
+  }
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px;
+    border-radius:999px;
+    border:1px solid var(--stroke);
+    background:rgba(13,18,41,.55);
+    color:var(--text);
+    font-size:.9rem;
+  }
+  .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--neon);
+    box-shadow:0 0 12px rgba(0,210,255,.6);
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:18px;
+    margin-top:22px;
+  }
+  @media(min-width: 900px){
+    .grid{ grid-template-columns: 1.2fr .8fr; align-items:start; }
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--stroke);
+    border-radius:22px;
+    padding:22px;
+    box-shadow: 0 0 28px rgba(0,210,255,.08);
+  }
+
+  .card h2{
+    font-family:'Orbitron',sans-serif;
+    font-size:1.05rem;
+    margin:0 0 10px;
+    letter-spacing:.5px;
+    color:var(--neon);
+    display:flex; align-items:center; gap:10px;
+  }
+  .badge{
+    font-size:.75rem;
+    padding:4px 10px;
+    border-radius:999px;
+    border:1px solid rgba(0,255,153,.25);
+    color:var(--neon2);
+    background:rgba(0,255,153,.05);
+    margin-left:auto;
+  }
+
+  .step{
+    border:1px solid rgba(255,255,255,.06);
+    background:var(--panel2);
+    border-radius:18px;
+    padding:18px;
+    margin-top:12px;
+  }
+  .step h3{
+    margin:0 0 8px;
+    font-size:1.05rem;
+    color:#fff;
+  }
+  .step p{
+    margin:0 0 12px;
+    color:var(--muted);
+    line-height:1.65;
+  }
+  .step ul{
+    margin:0;
+    padding-left:18px;
+    color:var(--text);
+    line-height:1.7;
+  }
+
+  .side{
+    position:sticky;
+    top:18px;
+  }
+  .side .mini{
+    padding:18px;
+  }
+  .mini h3{
+    margin:0 0 10px;
+    font-family:'Orbitron',sans-serif;
+    font-size:1rem;
+    color:#fff;
+  }
+  .mini p{ margin:0; color:var(--muted); line-height:1.65; }
+  .mini a{
+    display:inline-flex;
+    margin-top:14px;
+    gap:10px;
+    align-items:center;
+    text-decoration:none;
+    padding:10px 14px;
+    border-radius:14px;
+    border:1px solid rgba(0,210,255,.28);
+    background:rgba(0,210,255,.08);
+    color:#fff;
+    font-weight:600;
+    transition:.2s;
+  }
+  .mini a:hover{
+    transform: translateY(-1px);
+    box-shadow:0 0 20px rgba(0,210,255,.16);
+  }
+
+  .list{
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .item{
+    display:flex;
+    gap:12px;
+    padding:12px 14px;
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,.06);
+    background:rgba(13,18,41,.55);
+  }
+  .icon{
+    width:34px; height:34px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,210,255,.12);
+    border:1px solid rgba(0,210,255,.22);
+    color:var(--neon);
+    font-weight:900;
+  }
+  .item strong{ display:block; color:#fff; }
+  .item span{ display:block; color:var(--muted); font-size:.95rem; line-height:1.5; }
+
+  .cta{
+    margin-top:22px;
+    padding:22px;
+    border-radius:22px;
+    border:1px solid rgba(255,215,0,.18);
+    background: linear-gradient(120deg, rgba(255,215,0,.06), rgba(0,210,255,.05));
+  }
+  .cta h3{
+    margin:0 0 10px;
+    color:#fff;
+    font-family:'Orbitron',sans-serif;
+  }
+  .cta p{ margin:0 0 14px; color:var(--muted); line-height:1.65; }
+  .cta .btns{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .btn{
+    display:inline-flex;
+    gap:10px;
+    align-items:center;
+    padding:10px 14px;
+    border-radius:14px;
+    border:1px solid rgba(0,210,255,.28);
+    background:rgba(0,210,255,.08);
+    color:#fff;
+    text-decoration:none;
+    font-weight:700;
+  }
+  .btn.secondary{
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.03);
+    color:var(--text);
+    font-weight:600;
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="hero">
+    <h1>Comment ça marche — Founatek Academy</h1>
+    <p>
+      Une plateforme <strong>multi-organisation</strong> pour créer, suivre et certifier des formations.
+      Chaque organisation dispose de son espace, de ses formateurs, de ses parcours, et de certificats vérifiables.
+    </p>
+
+    <div class="pillrow">
+      <span class="pill"><span class="dot"></span> Multi-tenant (données isolées)</span>
+      <span class="pill"><span class="dot"></span> Parcours → Leçons → Blocs → Quiz</span>
+      <span class="pill"><span class="dot"></span> Certificats PDF + QR code</span>
+      <span class="pill"><span class="dot"></span> Vérification publique</span>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- MAIN -->
+    <div class="card">
+      <h2>Le parcours utilisateur <span class="badge">7 étapes</span></h2>
+
+      <div class="step">
+        <h3>🏢 1) Une organisation rejoint la plateforme</h3>
+        <p>
+          Université, entreprise ou centre de formation : l’organisation dispose d’un espace dédié avec son branding.
+        </p>
+        <ul>
+          <li>Espace organisation (logo / couleur)</li>
+          <li>Formateurs rattachés</li>
+          <li>Contenus et certificats isolés des autres organisations</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>👨‍🏫 2) Les formateurs créent les formations</h3>
+        <p>
+          Les formateurs structurent leurs cours dans des parcours complets avec progression pédagogique.
+        </p>
+        <ul>
+          <li>Création de parcours</li>
+          <li>Leçons ordonnées (ordre, résumé)</li>
+          <li>Blocs pédagogiques (texte, image, vidéo, code…)</li>
+          <li>Quiz avec explications de correction</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>📚 3) Les apprenants suivent les parcours</h3>
+        <p>
+          L’accès est progressif : l’apprenant valide une leçon avant de débloquer la suivante.
+        </p>
+        <ul>
+          <li>Progression par leçon</li>
+          <li>Quiz de validation</li>
+          <li>Suivi des scores</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>🎓 4) Certification (si activée sur le parcours)</h3>
+        <p>
+          Si le parcours est certifiant, un certificat PDF est généré automatiquement après validation.
+        </p>
+        <ul>
+          <li>Certificat PDF officiel</li>
+          <li>Branding organisation + mention Founatek</li>
+          <li>QR code + identifiant unique (UUID)</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>🔎 5) Vérification publique du certificat</h3>
+        <p>
+          Chaque certificat est vérifiable publiquement via QR code ou lien, pour garantir l’authenticité.
+        </p>
+        <ul>
+          <li>Vérification en ligne</li>
+          <li>Anti-fraude (UUID, QR code)</li>
+          <li>Affichage des infos clés (parcours, score, organisation)</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>📊 6) Dashboards et suivi</h3>
+        <p>
+          Organisation et formateurs disposent d’indicateurs clairs : contenu, apprenants, progressions, certificats.
+        </p>
+        <ul>
+          <li>Nombre de parcours, leçons, blocs, quiz</li>
+          <li>Progressions et résultats</li>
+          <li>Certificats délivrés</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>🔐 7) Sécurité et cloisonnement</h3>
+        <p>
+          La plateforme respecte les rôles, filtres d’accès et séparation des données par organisation.
+        </p>
+        <ul>
+          <li>Accès contrôlés (admin / formateur / apprenant)</li>
+          <li>Données cloisonnées par organisation</li>
+          <li>Traçabilité des certifications</li>
+        </ul>
+      </div>
+
+      <div class="cta">
+        <h3>Prêt à démarrer ?</h3>
+        <p>
+          Crée ton premier parcours de démonstration, ajoute quelques blocs et quiz,
+          puis teste la certification et la vérification par QR code.
+        </p>
+        <div class="btns">
+          <a class="btn" href="{% url 'iot:liste_parcours' %}">📚 Voir les parcours</a>
+          {% if user.is_authenticated %}
+            <a class="btn secondary" href="{% url 'iot:profil' %}">👤 Mon profil</a>
+          {% else %}
+            <a class="btn secondary" href="{% url 'login' %}">🔑 Se connecter</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDE -->
+    <div class="card side">
+      <div class="mini">
+        <h3>✅ Pour qui ?</h3>
+        <p>
+          Universités, entreprises, centres de formation, ONG, formateurs indépendants.
+          Toute formation peut être structurée et certifiée.
+        </p>
+
+        <div class="list">
+          <div class="item">
+            <div class="icon">🏛️</div>
+            <div>
+              <strong>Université</strong>
+              <span>Parcours, examens, certificats vérifiables.</span>
+            </div>
+          </div>
+          <div class="item">
+            <div class="icon">🏢</div>
+            <div>
+              <strong>Entreprise</strong>
+              <span>Formation interne, onboarding, reporting.</span>
+            </div>
+          </div>
+          <div class="item">
+            <div class="icon">🚀</div>
+            <div>
+              <strong>Centre / Coach</strong>
+              <span>Vendre ou délivrer des formations certifiantes.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

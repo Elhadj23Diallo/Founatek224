@@ -1,0 +1,132 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<script src='https://meet.jit.si/external_api.js'></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+    /* ... (Garde tes styles existants) ... */
+    html, body { background: #000; margin: 0; height: 100vh; overflow: hidden; color: #fff; font-family: 'Roboto', sans-serif; }
+    #meet-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+    
+    /* --- CONSOLE INTERACTIVE IOT --- */
+    .iot-console {
+        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+        width: 90%; max-width: 500px; z-index: 200;
+        display: flex; flex-direction: column; gap: 10px;
+    }
+    
+    /* Logs de l'IA */
+    .ai-logs {
+        background: rgba(0, 0, 0, 0.7); border: 1px solid #00d2ff;
+        border-radius: 8px; padding: 10px; height: 100px; overflow-y: auto;
+        font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
+        backdrop-filter: blur(4px); display: flex; flex-direction: column-reverse; /* Nouveaux messages en bas */
+    }
+    .log-entry { margin-bottom: 5px; }
+    .log-success { color: #00ff99; }
+    .log-error { color: #ef233c; }
+    .log-info { color: #00d2ff; }
+
+    /* Input Commande */
+    .cmd-form {
+        display: flex; gap: 10px; background: rgba(20, 20, 20, 0.9);
+        padding: 5px; border-radius: 30px; border: 1px solid #333;
+    }
+    .cmd-input {
+        flex: 1; background: transparent; border: none; color: #fff;
+        padding: 10px 15px; font-family: 'Share Tech Mono'; font-size: 1rem; outline: none;
+    }
+    .cmd-btn {
+        background: #00d2ff; border: none; color: #000; width: 40px; height: 40px;
+        border-radius: 50%; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center;
+    }
+    .cmd-btn:active { transform: scale(0.9); }
+    
+    /* Animations */
+    .glitch-effect { animation: glitch 0.3s linear; }
+    @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); } 40% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(2px, -2px); } 100% { transform: translate(0); } }
+</style>
+
+<div id="meet-container"></div>
+
+<div class="live-overlay" style="position:absolute; top:20px; left:20px; z-index:100; display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.4); padding:5px 15px 5px 5px; border-radius:30px; border:1px solid rgba(255,255,255,0.1);">
+    {% if host_user.profile.avatar %} <img src="{{ host_user.profile.avatar.url }}" class="host-avatar" style="width:38px; height:38px; border-radius:50%; border:2px solid #ef233c;"> {% else %} <img src="{% static 'images/default-avatar.png' %}" class="host-avatar" style="width:38px; height:38px; border-radius:50%;"> {% endif %}
+    <div><div style="font-family:'Orbitron'; font-weight:bold; font-size:0.85rem;">@{{ host_user.username }}</div><div style="background:#ef233c; padding:2px 6px; border-radius:4px; font-size:0.6rem; font-weight:bold; display:inline-block; animation:pulse 1s infinite;">EN DIRECT</div></div>
+</div>
+<a href="{% url 'techfeed:feed' %}" class="leave-btn" style="position:absolute; top:20px; right:20px; z-index:100; background:rgba(0,0,0,0.5); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; text-decoration:none; border:1px solid rgba(255,255,255,0.2);"><i class="fas fa-times"></i></a>
+
+<div class="iot-console">
+    <div class="ai-logs" id="aiLogs">
+        <div class="log-entry log-info">> Système connecté. En attente d'ordres...</div>
+    </div>
+    <div class="cmd-form">
+        <input type="text" id="cmdInput" class="cmd-input" placeholder="Ex: Allume le salon...">
+        <button class="cmd-btn" onclick="sendCommand()"><i class="fas fa-bolt"></i></button>
+    </div>
+</div>
+
+<script>
+    /* --- JITSI CONFIG --- */
+    const domain = 'framatalk.org';
+    const options = {
+        roomName: "{{ room_name }}",
+        width: '100%', height: '100%',
+        parentNode: document.querySelector('#meet-container'),
+        configOverwrite: { startWithAudioMuted: true, startWithVideoMuted: true, disableDeepLinking: true, prejoinPageEnabled: false },
+        interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ['chat', 'raisehand', 'tileview', 'fullscreen', 'videoquality'], SHOW_JITSI_WATERMARK: false, MOBILE_APP_PROMO: false, DEFAULT_REMOTE_DISPLAY_NAME: 'Spectateur' },
+        userInfo: { displayName: "{{ user.username }} (Spectateur)" }
+    };
+    const api = new JitsiMeetExternalAPI(domain, options);
+    api.addEventListeners({ videoConferenceLeft: function () { window.location.href = "{% url 'techfeed:feed' %}"; } });
+
+    /* --- IOT INTERACTION --- */
+    function addLog(text, type='info') {
+        const logs = document.getElementById('aiLogs');
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${type}`;
+        entry.innerHTML = `> ${text}`;
+        logs.prepend(entry); // Ajoute au début
+    }
+
+    function sendCommand() {
+        const input = document.getElementById('cmdInput');
+        const cmd = input.value.trim();
+        if(!cmd) return;
+
+        addLog(`Envoi: "${cmd}"...`, 'info');
+        input.value = '';
+
+        fetch("{% url 'techfeed:send_live_command' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}" // Django template tag
+            },
+            body: JSON.stringify({ command: cmd })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                addLog(data.message, 'success');
+                // Petit effet visuel de succès
+                document.querySelector('.iot-console').classList.add('glitch-effect');
+                setTimeout(() => document.querySelector('.iot-console').classList.remove('glitch-effect'), 300);
+            } else {
+                addLog(data.message, 'error');
+            }
+        })
+        .catch(err => {
+            addLog("Erreur de connexion au laboratoire.", 'error');
+        });
+    }
+    
+    // Entrée pour envoyer
+    document.getElementById('cmdInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') sendCommand();
+    });
+</script>
+
+{% endblock %}

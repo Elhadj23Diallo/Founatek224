@@ -1,0 +1,407 @@
+{% extends 'espcontrol/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- STYLES GLOBAUX --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+        margin: 0; padding: 20px; min-height: 100vh; overflow-x: hidden;
+    }
+
+    .main-container { max-width: 1400px; margin: auto; }
+
+    /* Barre utilisateur */
+    .user-info-bar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 30px; padding: 10px 20px; background: rgba(13, 18, 41, 0.8); border-radius: 15px; border: 1px solid #1a243d; flex-wrap: wrap; }
+    .user-info-bar p { margin: 0 20px 0 0; font-size: 0.95rem; }
+    .user-info-bar strong { color: #00d2ff; }
+    .logout-btn { background: transparent; color: #00d2ff; border: 1px solid #00d2ff; padding: 6px 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; white-space: nowrap; }
+    .logout-btn:hover { background-color: #00d2ff; color: #050a1f; }
+
+    /* Titre Principal */
+    h1.main-title { font-family: 'Orbitron', sans-serif; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 40px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.7); }
+
+    /* --- LAYOUT PRINCIPAL (CSS GRID RESPONSIVE) --- */
+    /* Grands écrans (PC) */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 350px 1fr 450px;
+        gap: 40px;
+        align-items: start;
+        grid-template-areas: "phone hub controls";
+    }
+
+    .layout-left { grid-area: phone; display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .layout-center { grid-area: hub; display: flex; justify-content: center; align-items: center; height: 100%; padding-top: 60px; }
+    .layout-right { grid-area: controls; display: flex; flex-direction: column; gap: 40px; width: 100%; }
+
+    /* --- TÉLÉPHONE (CHAT) --- */
+    .device-phone {
+        width: 100%; max-width: 350px; height: 600px;
+        background: #000; border-radius: 35px; border: 4px solid #222;
+        padding: 12px; box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+        margin-bottom: 30px; position: relative;
+    }
+    .phone-screen { background: #1e293b; height: 100%; border-radius: 25px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #334155; }
+    .chatbox h3 { margin: 0; padding: 15px; background: #0f172a; color: #00d2ff; font-size: 1.1rem; text-align: left; border-bottom: 1px solid #334155; font-family: 'Orbitron'; }
+    #chat_history { flex-grow: 1; overflow-y: auto; padding: 15px; background: #1e293b; scrollbar-width: thin; scrollbar-color: #00d2ff #0f172a; }
+
+    /* Messages Chat */
+    .assistant-message, .user-message { margin-bottom: 10px; padding: 10px; border-radius: 8px; font-size: 0.9rem; line-height: 1.4; max-width: 85%; }
+    .assistant-message { background: #0f172a; border: 1px solid #00d2ff; color: #fff; align-self: flex-start; }
+    .user-message { background: #0056b3; color: white; align-self: flex-end; text-align: right; margin-left: auto; }
+    .chat-avatar { font-weight: bold; font-size: 0.7rem; color: #888; margin-bottom: 2px; }
+    .chat-img { max-width: 100%; border-radius: 8px; margin-top: 5px; border: 1px solid #00d2ff; display: block; }
+
+    /* Input Chat */
+    .input-area { padding: 10px; background: #0f172a; border-top: 1px solid #334155; display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; }
+    #commande { flex: 1; min-width: 0; padding: 10px 15px; font-size: 0.9rem; border-radius: 25px; border: 1px solid #334155; background: #1e293b; color: white; outline: none; }
+    .input-area button { flex-shrink: 0; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid #00d2ff; background: transparent; color: #00d2ff; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.2s; font-size: 1rem; }
+    .input-area button:hover { background: #00d2ff; color: #000; }
+    #listeningIcon { font-size: 1.2rem; display: none; color: #ef4444; animation: pulse 1s infinite; margin: 0 2px; }
+    @keyframes pulse { 50% { opacity: 0.5; } }
+
+    /* --- HUB CENTRAL --- */
+    .central-hub-ring { width: 250px; height: 250px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0%, #00d2ff 20%, transparent 40%, #00ff99 60%, transparent 80%, #00d2ff 100%); padding: 6px; box-shadow: 0 0 50px rgba(0, 210, 255, 0.4); animation: spin-hub 10s linear infinite; }
+    .central-hub-core { width: 100%; height: 100%; background: #0a1128; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px solid #00d2ff; z-index: 5; }
+    .hub-title { margin-top: 15px; font-family: 'Orbitron'; font-weight: 700; color: #fff; text-shadow: 0 0 5px #00d2ff; text-align: center; font-size: 1rem; }
+    @keyframes spin-hub { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* --- BLOCS DE CONTRÔLE --- */
+    .group-container { position: relative; padding: 30px 25px 25px 25px; border: 1px dashed rgba(0, 210, 255, 0.3); border-radius: 20px; background: rgba(13, 18, 41, 0.3); }
+    .group-label-title { position: absolute; top: -14px; left: 25px; background: #050a1f; padding: 0 15px; color: #00ff99; font-weight: bold; font-family: 'Orbitron'; letter-spacing: 1px; white-space: nowrap; font-size: 0.9rem; }
+
+    .nodes-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; width: 100%; }
+    .node-block-container .node-block, .nodes-row .node-block { flex: 1 1 calc(50% - 20px); min-width: 140px; }
+
+    .node-block { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 10px; text-decoration: none; transition: transform 0.3s ease, border 0.3s ease; width: 100%; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 18px; border: 1px solid transparent; }
+    .node-block:hover { transform: translateY(-5px); border-color: #00d2ff; background: rgba(255,255,255,0.05); }
+
+    /* Style des icônes et labels */
+    .icon-box { width: 65px; height: 65px; background: linear-gradient(145deg, #1a243d, #0d1221); border: 2px solid #00d2ff; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 2rem; color: #00d2ff; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); margin-bottom: 12px; position: relative; }
+    .node-green .icon-box { border-color: #00ff99; color: #00ff99; }
+    .node-gold .icon-box { border-color: #ffd700; color: #ffd700; }
+    .node-social .icon-box { border-color: #a855f7; color: #a855f7; }
+    .node-profil .icon-box { border-color: #ff6b81; color: #ff6b81; } /* Style pour le profil */
+
+    .node-label { font-size: 0.85rem; font-weight: 500; color: #cce; line-height: 1.3; }
+    .badge-live-mini { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); animation: pulse-red 1.5s infinite; }
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    .counter-text { font-family: 'Orbitron'; font-weight: bold; }
+
+    /* Mini-nœuds (Relais) */
+    .relais-mini-container { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+    .node-mini { width: 55px; height: 55px; background: #1a243d; border: 2px solid #00ff99; border-radius: 15px; display: flex; justify-content: center; align-items: center; color: #00ff99; font-size: 1.4rem; text-decoration: none; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .node-mini:hover { background: #00ff99; color: #0a1128; transform: scale(1.1); }
+
+    /* Grilles Capteurs et Groupes */
+    .sensors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; margin-top: 20px; }
+    .group-split { display: flex; flex-wrap: wrap; gap: 30px; }
+    .sub-group { flex: 1 1 300px; }
+
+    /* --- MEDIA QUERIES RESPONSIVES --- */
+
+    /* Tablettes (768px - 1200px) */
+    @media (max-width: 1200px) {
+        .dashboard-layout {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "hub hub" "phone controls";
+            gap: 30px;
+        }
+        .layout-center { padding-top: 20px; margin-bottom: 30px; }
+        .layout-left { width: auto; align-items: center; }
+        .device-phone { height: 550px; }
+        .nodes-row-left { max-width: 400px; }
+    }
+
+    /* Mobiles (< 768px) */
+    @media (max-width: 768px) {
+        body { padding: 15px 10px; }
+        .main-title { font-size: 1.3rem; margin-bottom: 25px; margin-top: 5px; }
+        .user-info-bar { flex-direction: column; gap: 10px; align-items: center; text-align: center; padding: 15px; }
+        .user-info-bar p { margin: 0; }
+
+        .dashboard-layout {
+            grid-template-columns: 1fr;
+            grid-template-areas: "hub" "controls" "phone";
+            gap: 30px;
+        }
+
+        /* Hub réduit */
+        .layout-center { padding-top: 0; margin-bottom: 5px; }
+        .central-hub-ring { width: 150px; height: 150px; padding: 4px; }
+        .hub-title { font-size: 0.8rem; margin-top: 8px; }
+        .central-hub-core i { font-size: 2.5rem; }
+
+        /* Téléphone ajusté */
+        .device-phone { height: 480px; max-width: 100%; border-width: 2px; border-radius: 25px; }
+        .input-area button { width: 35px; height: 35px; font-size: 0.9rem; }
+
+        /* Contrôles optimisés */
+        .group-container { padding: 25px 15px 20px 15px; }
+        .group-label-title { font-size: 0.8rem; left: 15px; top: -12px; }
+        .nodes-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .node-block-container .node-block, .nodes-row .node-block { width: auto; min-width: auto; margin-bottom: 0; }
+        .icon-box { width: 55px; height: 55px; font-size: 1.6rem; margin-bottom: 10px; }
+        .node-label { font-size: 0.8rem; }
+
+        .relais-mini-container { gap: 10px; }
+        .node-mini { width: 45px; height: 45px; font-size: 1.1rem; }
+        .sensors-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .sub-group { flex: 1 1 100%; }
+
+        /* Spécifique à la colonne de gauche sur mobile */
+        .nodes-row-left { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+        .nodes-row-left .node-block { min-width: auto; }
+        .nodes-row-left .icon-box { width: 50px; height: 50px; font-size: 1.4rem; }
+        .nodes-row-left .node-label { font-size: 0.7rem; }
+    }
+</style>
+
+<div class="main-container">
+    <div class="user-info-bar">
+        <p>👤 Connecté en tant que <strong>{{ request.user.username }}</strong></p>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="logout-btn">Se déconnecter</button></form>
+    </div>
+
+    <h1 class="main-title">Structure Founatek IoT - Powered by Gemini</h1>
+
+    <div class="dashboard-layout">
+
+        <div class="layout-left">
+            <div class="device-phone">
+                <div class="phone-screen">
+                    <div class="chatbox" style="height:100%; display:flex; flex-direction:column;">
+                        <h3><i class="fas fa-robot me-2"></i> Assistant IoT</h3>
+                        <div id="chat_history">
+                            <div class="assistant-message">
+                                <div class="chat-avatar">AI</div>
+                                <div class="message-content">Bonjour {{ request.user.username }} ! Dites "aide" ou "regarde la caméra".</div>
+                            </div>
+                        </div>
+                        <div class="input-area">
+                            <input id="commande" type="text" placeholder="Ordre...">
+                            <span id="listeningIcon">🔴</span>
+                            <button type="button" onclick="startDictation()" title="Dictée vocale"><i class="fas fa-microphone"></i></button>
+                            <button id="sendBtn" title="Envoyer"><i class="fas fa-paper-plane"></i></button>
+                            <button id="ttsToggleBtn" title="Activer/Désactiver la voix"><i class="fas fa-volume-up"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="layout-center">
+            <div class="central-hub-ring">
+                <div class="central-hub-core">
+                    <i class="fab fa-python fa-4x" style="color:#00d2ff;"></i>
+                    <div class="hub-title">Chatbot Controller<br>(Python/Django)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layout-right">
+            <div class="group-container">
+                <div class="group-label-title">Relais (Maison)</div>
+                <div class="relais-mini-container" style="margin-top: 20px;">
+                    <a href="{% url 'afficher_relais' %}" class="node-mini" title="Contrôle des Relais"><i class="fas fa-toggle-on"></i></a>
+                    <div class="node-mini" title="Salon"><i class="fas fa-lightbulb"></i></div>
+                    <div class="node-mini" title="Chambre"><i class="fas fa-plug"></i></div>
+                    <div class="node-mini" title="Garage"><i class="fas fa-fan"></i></div>
+                </div>
+            </div>
+
+            <div class="group-split">
+                <div class="sub-group group-container">
+                    <div class="group-label-title">LEDs</div>
+                    <div class="nodes-row" style="margin-top: 20px;">
+                        <a href="{% url 'afficher_relais' %}" class="node-block node-green">
+                             <div class="icon-box"><i class="far fa-lightbulb"></i></div>
+                             <div class="node-label">LED Simple</div>
+                        </a>
+                        <div class="node-block">
+                             <div class="icon-box"><i class="fas fa-circle-notch" style="background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); -webkit-background-clip: text; color: transparent;"></i></div>
+                             <div class="node-label">LED RGB</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sub-group group-container">
+                    <div class="group-label-title">Capteurs</div>
+                    <div class="sensors-grid">
+                         <a href="{% url 'dht-data' %}" class="node-block node-green">
+                             {% if is_abonne %}<span class="badge-live-mini">Data</span>{% endif %}
+                             <div class="icon-box"><i class="fas fa-thermometer-half"></i></div>
+                             <div class="node-label">Temp/Hum</div>
+                        </a>
+                         <a href="#" class="node-block node-green">
+                             <div class="icon-box"><i class="fas fa-seedling"></i></div>
+                             <div class="node-label">Irrigation</div>
+                        </a>
+                        <a href="{% url 'poubelle_intelligente' %}" class="node-block node-green">
+                             {% if is_abonne %}<span class="badge-live-mini">Live</span>{% endif %}
+                             <div class="icon-box"><i class="fas fa-trash-alt"></i></div>
+                             <div class="node-label">Poubelle</div>
+                        </a>
+                        <a href="{% url 'gas_data' %}" class="node-block node-green">
+                             <div class="icon-box"><i class="fas fa-smog"></i></div>
+                             <div class="node-label">Qualité Air</div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="group-container">
+                <div class="group-label-title">Sécurité</div>
+                <div class="nodes-row" style="margin-top: 25px;">
+                    <a href="{% url 'access-logs' %}" class="node-block">
+                        <div class="icon-box"><i class="fas fa-list-alt"></i></div>
+                        <div class="node-label">Logs Accès</div>
+                    </a>
+                    <a href="{% url 'surveillance' %}" class="node-block node-green">
+                        {% if is_abonne %}<span class="badge-live-mini">Live</span>{% endif %}
+                        <div class="icon-box"><i class="fas fa-camera"></i></div>
+                        <div class="node-label">Caméra</div>
+                    </a>
+                    <a href="{% url 'dashboard' %}" class="node-block">
+                        <div class="icon-box"><span class="counter-text">000</span></div>
+                        <div class="node-label">Compteur</div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let ttsEnabled = true;
+
+function toggleTTS() {
+    if(ttsEnabled){
+        if(synth.speaking) synth.cancel();
+        ttsEnabled=false;
+        document.getElementById('ttsToggleBtn').innerHTML='<i class="fas fa-volume-mute"></i>';
+    } else {
+        ttsEnabled=true;
+        document.getElementById('ttsToggleBtn').innerHTML='<i class="fas fa-volume-up"></i>';
+    }
+}
+
+function speakText(text){
+    if(!ttsEnabled || !text) return;
+    if(synth.speaking) synth.cancel();
+    let cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+    const utter = new SpeechSynthesisUtterance(cleanText);
+    utter.lang='fr-FR';
+    synth.speak(utter);
+}
+
+function appendMessage(text, who='assistant', buttons = [], imageUrl = null){
+    const el = document.getElementById('chat_history');
+    const msgContainer = document.createElement('div');
+    msgContainer.className = who === 'user' ? 'user-message' : 'assistant-message';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = who === 'user' ? 'Vous' : 'AI';
+
+    const content = document.createElement('div');
+    content.className = 'message-content';
+
+    if (imageUrl) {
+        const img = document.createElement('img');
+        img.src = imageUrl + "?t=" + Date.now();
+        img.className = 'chat-img';
+        content.appendChild(img);
+    }
+
+    const txtNode = document.createElement('div');
+    txtNode.innerHTML = text.replace(/\n/g, '<br>');
+    content.appendChild(txtNode);
+
+    msgContainer.appendChild(avatar);
+    msgContainer.appendChild(content);
+
+    el.appendChild(msgContainer);
+
+    if (buttons && buttons.length > 0 && who === 'assistant') {
+        const helpDiv = document.createElement('div');
+        helpDiv.style.marginTop = "10px";
+        helpDiv.style.display = "flex";
+        helpDiv.style.flexWrap = "wrap";
+        helpDiv.style.gap = "5px";
+        buttons.forEach(btn => {
+            const b = document.createElement('button');
+            b.textContent = btn.text;
+            b.className = 'logout-btn';
+            b.style.fontSize = "0.8rem";
+            b.style.padding = "4px 10px";
+            b.onclick = () => envoyer(btn.value);
+            helpDiv.appendChild(b);
+        });
+        el.appendChild(helpDiv);
+    }
+
+    el.scrollTop = el.scrollHeight;
+    if(who === 'assistant') speakText(text);
+}
+
+function envoyer(texteInput=null){
+    const input = document.getElementById('commande');
+    const texte = texteInput ?? input.value.trim();
+    if(!texte) return;
+
+    appendMessage(texte,'user');
+    input.value='';
+
+    fetch("{% url 'chatbot_view' %}",{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({message:texte})
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        appendMessage(data.reponse, 'assistant', data.buttons, data.image_url);
+    })
+    .catch(err=>{
+        console.error("Erreur chatbot:", err);
+        appendMessage("⚠️ Erreur de communication avec le serveur.",'assistant');
+    });
+}
+
+document.getElementById('sendBtn').addEventListener('click',()=>envoyer());
+document.getElementById('commande').addEventListener('keydown',e=>{if(e.key==='Enter') envoyer();});
+document.getElementById('ttsToggleBtn').addEventListener('click',toggleTTS);
+
+function startDictation(){
+    if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
+        alert("Votre navigateur ne supporte pas la reconnaissance vocale."); return;
+    }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new Recognition();
+    recognition.lang='fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    const icon = document.getElementById('listeningIcon');
+    recognition.onstart = () => { icon.style.display = 'inline-block'; };
+    recognition.onend = () => { icon.style.display = 'none'; };
+    recognition.onerror = (event) => { icon.style.display = 'none'; console.error("Erreur vocale:", event.error); };
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if(transcript) {
+            envoyer(transcript);
+        }
+    };
+    recognition.start();
+}
+</script>
+{% endblock %}

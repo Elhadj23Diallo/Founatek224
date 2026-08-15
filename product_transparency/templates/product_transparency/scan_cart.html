@@ -1,0 +1,244 @@
+{% extends "product_transparency/base.html" %}
+{% load static %}
+
+{% block title %}Scan Panier{% endblock %}
+
+{% block content %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+.cart-wrapper {
+    max-width: 520px;
+    margin: 40px auto;
+    background: #0d1229;
+    padding: 25px;
+    border-radius: 18px;
+    color: #e0e6ff;
+    box-shadow: 0 0 30px rgba(0,210,255,.3);
+}
+.cart-title {
+    text-align: center;
+    font-family: Orbitron;
+    margin-bottom: 15px;
+    color: #00d2ff;
+}
+.helper-text {
+    text-align: center;
+    font-size: .85rem;
+    color: #aab2cd;
+    margin-bottom: 10px;
+}
+#reader {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+.scan-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    margin-bottom: 15px;
+}
+.cart-list {
+    margin-bottom: 20px;
+}
+.cart-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(255,255,255,.15);
+}
+.cart-controls {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+.qty-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    background: rgba(255,255,255,.15);
+    color: white;
+    font-weight: bold;
+}
+.qty-btn:hover {
+    background: #00d2ff;
+    color: #050a1f;
+}
+.remove-btn {
+    background: none;
+    border: none;
+    color: #ff3366;
+    cursor: pointer;
+}
+.cart-total {
+    font-family: Orbitron;
+    font-size: 1.8rem;
+    color: #00ff99;
+    text-align: right;
+    margin-top: 15px;
+}
+.btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 30px;
+    border: none;
+    font-family: Orbitron;
+    cursor: pointer;
+    margin-top: 12px;
+}
+.btn-validate {
+    background: #00ff99;
+    color: #050a1f;
+}
+.btn-reset {
+    background: #ff3366;
+    color: white;
+}
+</style>
+
+<div class="cart-wrapper">
+
+    <h2 class="cart-title">🛒 Scan Panier</h2>
+
+    <div class="helper-text">📷 Scanner les QR codes produits</div>
+    <div id="reader"></div>
+
+    <input id="scanInput" class="scan-input" placeholder="Scanner ou coller le QR code" autofocus>
+
+    <div class="cart-list" id="cartList"></div>
+
+    <div class="cart-total">
+        TOTAL : <span id="total">0</span> GNF
+    </div>
+
+    <button class="btn btn-validate" onclick="validateCart()">Valider le panier</button>
+    <button class="btn btn-reset" onclick="resetCart()">Vider le panier</button>
+
+</div>
+
+<script>
+let cart = [];
+let antiSpam = [];
+
+/* ===== CSRF ===== */
+function getCookie(name) {
+    let value = null;
+    document.cookie.split(";").forEach(c => {
+        c = c.trim();
+        if (c.startsWith(name + "=")) {
+            value = decodeURIComponent(c.substring(name.length + 1));
+        }
+    });
+    return value;
+}
+
+/* ===== RENDER ===== */
+function renderCart() {
+    const list = document.getElementById("cartList");
+    const totalEl = document.getElementById("total");
+    list.innerHTML = "";
+    let total = 0;
+
+    cart.forEach((item, i) => {
+        const line = item.price * item.qty;
+        total += line;
+
+        list.innerHTML += `
+            <div class="cart-item">
+                <div>
+                    ${item.name}
+                    <div class="cart-controls">
+                        <button class="qty-btn" onclick="cart[${i}].qty++; renderCart()">+</button>
+                        <strong>${item.qty}</strong>
+                        <button class="qty-btn" onclick="cart[${i}].qty--; if(cart[${i}].qty<=0)cart.splice(${i},1); renderCart()">−</button>
+                        <button class="remove-btn" onclick="cart.splice(${i},1); renderCart()">✕</button>
+                    </div>
+                </div>
+                <strong>${line.toLocaleString()} ${item.currency}</strong>
+            </div>
+        `;
+    });
+
+    totalEl.innerText = total.toLocaleString();
+}
+
+/* ===== AJOUT ===== */
+function addProduct(uuid) {
+    if (!uuid || antiSpam.includes(uuid)) return;
+    antiSpam.push(uuid);
+
+    fetch(`/product_transparency/api/public/products/${uuid}/`)
+        .then(r => r.json())
+        .then(d => {
+            const existing = cart.find(p => p.uid === uuid);
+            if (existing) existing.qty++;
+            else cart.push({ uid: uuid, name: d.name, price: +d.price, currency: d.currency, qty: 1 });
+            renderCart();
+        })
+        .finally(() => setTimeout(() => antiSpam = [], 800));
+}
+
+/* ===== VALIDATION → API + PDF ===== */
+function validateCart() {
+    if (!cart.length) return alert("Panier vide");
+
+    fetch("/product_transparency/api/sales/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: JSON.stringify({
+            company_id: "{{ request.user.company.id }}",
+            items: cart.map(i => ({
+                product_id: i.uid,
+                quantity: i.qty
+            }))
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        window.open(`/product_transparency/api/sales/${data.sale_id}/pdf/`, "_blank");
+        cart = [];
+        renderCart();
+    })
+    .catch(() => alert("Erreur sauvegarde vente"));
+}
+
+/* ===== RESET ===== */
+function resetCart() {
+    cart = [];
+    renderCart();
+}
+
+/* ===== UUID ===== */
+function extractUUID(t) {
+    const m = t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    return m ? m[0] : null;
+}
+
+/* ===== SCAN ===== */
+function onScanSuccess(text) {
+    const uuid = extractUUID(text);
+    if (uuid) addProduct(uuid);
+}
+
+const reader = new Html5Qrcode("reader");
+Html5Qrcode.getCameras().then(c =>
+    c[0] && reader.start(c[0].id, { fps: 10, qrbox: 250 }, onScanSuccess)
+);
+
+document.getElementById("scanInput").addEventListener("change", e => {
+    const uuid = extractUUID(e.target.value);
+    if (uuid) addProduct(uuid);
+    e.target.value = "";
+});
+</script>
+
+{% endblock %}

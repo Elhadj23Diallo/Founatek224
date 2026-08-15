@@ -1,0 +1,109 @@
+{% extends "techfeed/base.html" %}
+{% block content %}
+
+<script type="module">
+import {
+  Room,
+  createLocalAudioTrack,
+  createLocalVideoTrack
+} from "https://unpkg.com/livekit-client/dist/livekit-client.esm.mjs";
+
+const LIVEKIT_URL = "{{ LIVEKIT_URL }}";
+const TOKEN_URL = "{% url 'techfeed:group_live_token' live.room_name %}";
+
+let room;
+let joined = false;
+
+window.startLive = async function () {
+  if (joined) return;
+  joined = true;
+
+  // 🔑 TOKEN
+  const res = await fetch(TOKEN_URL);
+  const data = await res.json();
+  if (!data.token) {
+    alert("Erreur LiveKit");
+    return;
+  }
+
+  // 🔗 CONNEXION
+  room = new Room();
+  await room.connect(LIVEKIT_URL, data.token);
+
+  // ============================
+  // 🔴 HOST UNIQUEMENT
+  // ============================
+  {% if request.user == live.host %}
+    const audioTrack = await createLocalAudioTrack();
+    const videoTrack = await createLocalVideoTrack();
+
+    await room.localParticipant.publishTrack(audioTrack);
+    await room.localParticipant.publishTrack(videoTrack);
+
+    // aperçu caméra host
+    const localVideo = document.getElementById("localVideo");
+    localVideo.srcObject = new MediaStream([videoTrack.mediaStreamTrack]);
+    localVideo.muted = true;
+    await localVideo.play();
+  {% endif %}
+
+  // ============================
+  // 👀 TRACKS DISTANTS (VIEWERS)
+  // ============================
+  room.on("trackSubscribed", (track) => {
+
+    if (track.kind === "video") {
+      const video = document.createElement("video");
+      video.autoplay = true;
+      video.playsInline = true;
+      video.srcObject = new MediaStream([track.mediaStreamTrack]);
+      document.getElementById("videos").appendChild(video);
+      video.play().catch(()=>{});
+    }
+
+    if (track.kind === "audio") {
+      const audio = document.createElement("audio");
+      audio.autoplay = true;
+      audio.srcObject = new MediaStream([track.mediaStreamTrack]);
+      document.body.appendChild(audio);
+      audio.play().catch(()=>{});
+    }
+  });
+};
+
+window.leaveLive = () => {
+  window.location.href = "{% url 'techfeed:group_chat' live.group.id %}";
+};
+</script>
+
+<style>
+body{background:#000;color:#fff;font-family:system-ui}
+.wrap{max-width:1100px;margin:20px auto;padding:10px}
+.header{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:15px}
+video{width:100%;height:260px;background:#111;border-radius:14px;object-fit:cover}
+.btn{padding:10px 16px;border-radius:999px;border:none;font-weight:800;cursor:pointer}
+.btn-green{background:#00ff99;color:#000}
+.btn-red{background:#ff0050;color:#fff}
+</style>
+
+<div class="wrap">
+
+  <div class="header">
+    <h3>📺 Live — {{ live.group.name }}</h3>
+    <button class="btn btn-red" onclick="leaveLive()">⛔ Quitter</button>
+  </div>
+
+  <button class="btn btn-green" onclick="startLive()">▶️ Rejoindre le live</button>
+
+  {% if request.user == live.host %}
+    <div style="margin-top:10px">
+      <video id="localVideo" autoplay playsinline></video>
+    </div>
+  {% endif %}
+
+  <div id="videos" class="grid"></div>
+
+</div>
+
+{% endblock %}

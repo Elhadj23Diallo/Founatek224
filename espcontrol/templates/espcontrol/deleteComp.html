@@ -1,0 +1,134 @@
+{% extends "espcontrol/base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- DESIGN GLOBAL --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+        margin: 0; padding: 20px; min-height: 100vh;
+        display: flex; flex-direction: column; align-items: center;
+    }
+
+    .main-container { 
+        width: 100%; max-width: 600px; margin-top: 50px; text-align: center; 
+    }
+
+    /* Titre */
+    h1.main-title { 
+        font-family: 'Orbitron', sans-serif; 
+        letter-spacing: 3px; 
+        color: #fff; 
+        text-shadow: 0 0 15px rgba(255, 0, 60, 0.6); 
+        margin-bottom: 40px;
+    }
+
+    /* --- CARTE DANGER --- */
+    .danger-card {
+        background: rgba(20, 5, 10, 0.8);
+        border: 2px solid #ff003c;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 0 30px rgba(255, 0, 60, 0.2), inset 0 0 20px rgba(255, 0, 60, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Effet de hachures en arrière-plan */
+    .danger-card::before {
+        content: "";
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(255, 0, 60, 0.05) 10px,
+            rgba(255, 0, 60, 0.05) 20px
+        );
+        pointer-events: none;
+    }
+
+    /* Icône d'alerte */
+    .alert-icon {
+        font-size: 4rem;
+        color: #ff003c;
+        margin-bottom: 20px;
+        animation: pulse-red 2s infinite;
+    }
+
+    @keyframes pulse-red {
+        0% { transform: scale(1); text-shadow: 0 0 10px #ff003c; }
+        50% { transform: scale(1.1); text-shadow: 0 0 30px #ff003c; }
+        100% { transform: scale(1); text-shadow: 0 0 10px #ff003c; }
+    }
+
+    .warning-text {
+        font-family: 'Consolas', monospace;
+        color: #ffaaaa;
+        margin-bottom: 30px;
+        font-size: 1.1rem;
+    }
+
+    /* --- BOUTON DESTRUCTION --- */
+    .btn-nuke {
+        background: transparent;
+        border: 2px solid #ff003c;
+        color: #ff003c;
+        padding: 15px 30px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex; align-items: center; gap: 10px;
+        box-shadow: 0 0 15px rgba(255, 0, 60, 0.3);
+    }
+
+    .btn-nuke:hover {
+        background: #ff003c;
+        color: #fff;
+        box-shadow: 0 0 40px rgba(255, 0, 60, 0.8);
+        transform: scale(1.05);
+    }
+    
+    .btn-cancel {
+        display: block; margin-top: 20px;
+        color: #64748b; text-decoration: none; font-size: 0.9rem;
+        transition: 0.3s;
+    }
+    .btn-cancel:hover { color: #fff; }
+
+</style>
+
+<div class="main-container">
+    <h1 class="main-title">MAINTENANCE SYSTÈME</h1>
+
+    <div class="danger-card">
+        <div class="alert-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+
+        <h2 style="font-family:'Orbitron'; color:#fff;">ZONE CRITIQUE</h2>
+        <p class="warning-text">
+            Vous êtes sur le point de réinitialiser le compteur principal.<br>
+            Toutes les données associées seront perdues.
+        </p>
+
+        <form method="POST">
+            {% csrf_token %}
+            <button type="submit" name="reset" class="btn-nuke">
+                <i class="fas fa-sync-alt"></i> PURGER LE SYSTÈME
+            </button>
+        </form>
+        
+        <a href="{% url 'dashboard' %}" class="btn-cancel">ANNULER / RETOUR DASHBOARD</a>
+    </div>
+</div>
+{% endblock %}

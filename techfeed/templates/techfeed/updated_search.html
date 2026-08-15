@@ -1,0 +1,209 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+  /* --- BASE --- */
+  body {
+    background-color: #000;
+    color: #fff;
+    font-family: 'Roboto', sans-serif;
+    margin: 0; padding: 0;
+    padding-top: 80px;
+    padding-bottom: 70px;
+  }
+
+  /* --- HEADER RECHERCHE FIXE --- */
+  .search-header {
+    position: fixed;
+    top: 0; left: 0; width: 100%;
+    background-color: #000;
+    padding: 15px;
+    z-index: 90;
+    border-bottom: 1px solid #111;
+    display: flex;
+    justify-content: center;
+  }
+
+  .search-form {
+    width: 100%;
+    max-width: 600px;
+    position: relative;
+  }
+
+  .search-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-input {
+    width: 100%;
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    /* AJOUT : padding-right 50px pour ne pas écrire sous le bouton */
+    padding: 12px 50px 12px 45px; 
+    border-radius: 25px; /* Plus arrondi style app */
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  .search-input:focus {
+    border-color: #00d2ff;
+  }
+
+  /* ICÔNE LOUPE (Gauche) */
+  .search-icon-input {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    font-size: 1.1rem;
+    pointer-events: none;
+  }
+
+  /* BOUTON VALIDER (Droite - Style amélioré) */
+  .search-submit-btn {
+      position: absolute;
+      right: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      
+      /* Nouveau Style pour ressortir */
+      background: #00d2ff; 
+      color: #000;
+      border: none;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      
+      cursor: pointer;
+      font-size: 1rem;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+      transition: transform 0.2s;
+  }
+  .search-submit-btn:active {
+      transform: translateY(-50%) scale(0.9);
+  }
+
+  /* --- RESTE DU CSS (Identique) --- */
+  .section-title { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: #00d2ff; padding: 0 15px; margin: 20px 0 10px 0; text-transform: uppercase; letter-spacing: 1px; border-left: 3px solid #ef233c; padding-left: 10px; }
+  .user-results { display: flex; flex-direction: column; gap: 10px; padding: 0 15px; max-width: 600px; margin: 0 auto; }
+  .user-card { display: flex; align-items: center; justify-content: space-between; background: #111; padding: 10px; border-radius: 8px; transition: background 0.2s; }
+  .user-card:active { background: #222; }
+  .user-info { display: flex; align-items: center; gap: 12px; text-decoration: none; flex-grow: 1; }
+  .avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 1px solid #333; }
+  .username-text { color: #fff; font-weight: 600; font-size: 0.95rem; }
+  .sub-text { display: block; font-size: 0.8rem; color: #888; }
+  
+  .btn-action { padding: 6px 16px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; }
+  .btn-follow { background-color: #ef233c; color: white; }
+  .btn-unfollow { background-color: transparent; border: 1px solid #444; color: #aaa; }
+
+  .video-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding: 0 5px; max-width: 800px; margin: 0 auto; }
+  .grid-item { position: relative; padding-top: 150%; background: #111; border-radius: 6px; overflow: hidden; }
+  .grid-item video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+  .video-overlay { position: absolute; bottom: 0; left: 0; width: 100%; padding: 10px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); color: white; font-size: 0.8rem; pointer-events: none; }
+
+  .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #000; border-top: 1px solid #222; display: flex; justify-content: space-around; align-items: center; z-index: 100; }
+  .nav-item { color: #888; text-decoration: none; display: flex; flex-direction: column; align-items: center; font-size: 10px; gap: 4px; }
+  .nav-item i { font-size: 22px; } .nav-item.active { color: #fff; }
+  .upload-btn { width: 45px; height: 30px; background: linear-gradient(to right, #00d2ff, #ef233c); border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; }
+  .upload-btn::after { content: '+'; color: black; font-weight: bold; font-size: 20px; background: white; width: 38px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+</style>
+
+<div class="search-header">
+  <form method="get" action="" class="search-form">
+    <div class="search-wrapper">
+      <i class="fas fa-search search-icon-input"></i>
+      
+      <input type="text" name="q" class="search-input" placeholder="Chercher..." value="{{ query }}" autocomplete="off">
+      
+      <button type="submit" class="search-submit-btn">
+          <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+  </form>
+</div>
+
+{% if users %}
+  <h3 class="section-title">Comptes</h3>
+  <div class="user-results">
+    {% for u in users %}
+    <div class="user-card">
+      <a href="{% url 'techfeed:profile' u.username %}" class="user-info">
+        {% if u.profile.avatar %}
+          <img class="avatar" src="{{ u.profile.avatar.url }}">
+        {% else %}
+          <img class="avatar" src="{% static 'images/default-avatar.png' %}">
+        {% endif %}
+        <div>
+          <span class="username-text">@{{ u.username }}</span>
+          <span class="sub-text">Fan de Tech 🚀</span>
+        </div>
+      </a>
+
+      {% if u != request.user %}
+        {% if u.id in following_ids %}
+          <form action="{% url 'techfeed:toggle_follow' u.id %}" method="post">
+            {% csrf_token %}
+            <button class="btn-action btn-unfollow">Abonné</button>
+          </form>
+        {% else %}
+          <form action="{% url 'techfeed:toggle_follow' u.id %}" method="post">
+            {% csrf_token %}
+            <button class="btn-action btn-follow">Suivre</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+{% elif query %}
+  <p style="text-align:center; color:#666; margin-top:20px;">Aucun utilisateur trouvé.</p>
+{% endif %}
+
+<h3 class="section-title">Vidéos Tech</h3>
+<div class="video-grid">
+  {% for v in videos %}
+    <a href="{% url 'techfeed:video_detail' v.id %}" class="grid-item">
+      <video src="{{ v.video.url }}#t=0.1" preload="metadata" muted></video>
+      <div class="video-overlay">
+        <i class="fas fa-play"></i> {{ v.view_count|default:"0" }} vues
+      </div>
+    </a>
+  {% empty %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #444;">
+      <i class="fas fa-satellite-dish fa-3x" style="margin-bottom: 15px;"></i>
+      <p>Aucune vidéo ne correspond à ta recherche.</p>
+    </div>
+  {% endfor %}
+</div>
+
+<footer class="bottom-nav">
+  <a href="{% url 'techfeed:feed' %}" class="nav-item">
+    <i class="fa-solid fa-house"></i>
+    <span>Accueil</span>
+  </a>
+  <a href="{% url 'techfeed:friends' %}" class="nav-item">
+    <i class="fa-solid fa-user-friends"></i>
+    <span>Amis</span>
+  </a>
+  <a href="{% url 'techfeed:uploader_video' %}" class="upload-btn"></a>
+  <a href="{% url 'techfeed:notifications' %}" class="nav-item">
+    <i class="fa-regular fa-bell"></i>
+    <span>Boîte</span>
+  </a>
+  <a href="{% url 'techfeed:profile' request.user.username %}" class="nav-item">
+    <i class="fa-regular fa-user"></i>
+    <span>Profil</span>
+  </a>
+</footer>
+
+{% endblock %}

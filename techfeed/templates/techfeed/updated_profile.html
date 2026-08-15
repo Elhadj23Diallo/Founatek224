@@ -1,0 +1,168 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+  /* --- BASE & LAYOUT --- */
+  body {
+    background-color: #000; color: #fff; font-family: 'Roboto', sans-serif;
+    margin: 0; padding: 0; padding-bottom: 70px;
+  }
+
+  .profile-header { text-align: center; padding: 30px 20px 10px 20px; background: radial-gradient(circle at top, #111 0%, #000 100%); border-bottom: 1px solid #222; }
+  .avatar-wrapper { position: relative; display: inline-block; margin-bottom: 15px; }
+  .avatar { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid #000; box-shadow: 0 0 20px rgba(0, 210, 255, 0.4), inset 0 0 10px rgba(0, 210, 255, 0.2); transition: transform 0.3s ease; }
+  .edit-avatar-badge { position: absolute; bottom: 5px; right: 5px; background: #00d2ff; color: #000; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #000; cursor: pointer; }
+  
+  .username { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; margin: 5px 0; letter-spacing: 1px; }
+  
+  /* --- NOUVEAU : STYLE DE LA BIO --- */
+  .user-bio {
+      color: #ccc; font-size: 0.9rem; margin: 5px auto 15px auto; max-width: 400px; line-height: 1.4;
+      white-space: pre-wrap; /* Garde les retours à la ligne */
+  }
+  
+  .stats-bar { display: flex; justify-content: center; gap: 30px; margin: 20px 0; }
+  .stat-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; cursor: pointer; transition: transform 0.2s; }
+  .stat-number { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #fff; }
+  .stat-label { font-size: 0.8rem; color: #888; text-transform: uppercase; margin-top: 4px; }
+  .actions-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+  .btn { padding: 10px 25px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.9rem; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+  .btn-follow { background: #ef233c; color: white; } 
+  .btn-unfollow { background: #333; color: #ccc; border: 1px solid #444; }
+  .btn-message { background: rgba(0, 210, 255, 0.1); color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.3); }
+  .btn-edit { background: #222; color: #fff; border: 1px solid #444; }
+  
+  .content-tabs { display: flex; justify-content: center; border-top: 1px solid #222; margin-top: 10px; }
+  .tab-item { flex: 1; text-align: center; padding: 12px; font-size: 1.2rem; color: #555; cursor: pointer; }
+  .tab-item.active { color: #fff; border-bottom: 2px solid #00d2ff; }
+  
+  .video-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: #000; }
+  .grid-item { position: relative; padding-top: 133%; background: #111; overflow: hidden; }
+  .grid-item video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+  .play-count { position: absolute; bottom: 5px; left: 5px; font-size: 0.75rem; color: #fff; text-shadow: 1px 1px 2px #000; display: flex; align-items: center; gap: 4px; }
+
+  .video-actions {
+      position: absolute; top: 5px; right: 5px;
+      display: flex; flex-direction: column; gap: 5px;
+      opacity: 0; transition: opacity 0.3s; 
+  }
+  .grid-item:hover .video-actions { opacity: 1; }
+
+  .mini-btn {
+      width: 25px; height: 25px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: white; text-decoration: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5); cursor: pointer;
+  }
+  .edit-v { background: #00d2ff; }
+  .del-v { background: #ef233c; }
+
+  /* --- NAV --- */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #000; border-top: 1px solid #222; display: flex; justify-content: space-around; align-items: center; z-index: 100; }
+  .nav-item { color: #888; text-decoration: none; display: flex; flex-direction: column; align-items: center; font-size: 10px; gap: 4px; }
+  .nav-item i { font-size: 22px; }
+  .nav-item.active { color: #fff; }
+  .upload-btn { width: 45px; height: 30px; background: linear-gradient(to right, #00d2ff, #ef233c); border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; }
+  .upload-btn::after { content: '+'; color: black; font-weight: bold; font-size: 20px; background: white; width: 38px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+</style>
+
+<div class="profile-header">
+  <div class="avatar-wrapper">
+    {% if profile.avatar %} <img src="{{ profile.avatar.url }}" class="avatar" alt="Avatar"> {% else %} <img src="{% static 'images/default-avatar.png' %}" class="avatar" alt="Avatar"> {% endif %}
+    {% if user == user_profile %}
+      <a href="{% url 'techfeed:upload_avatar' %}" class="edit-avatar-badge" title="Changer l'avatar"><i class="fas fa-camera"></i></a>
+    {% endif %}
+  </div>
+
+  <h2 class="username">@{{ user_profile.username }}</h2>
+
+  <div class="user-bio">
+      {{ profile.bio|default:"Pas encore de bio." }}
+  </div>
+
+  <div class="stats-bar">
+    <a href="{% url 'techfeed:profile_following' user_profile.username %}" class="stat-item"><span class="stat-number">{{ following_count }}</span><span class="stat-label">Suivis</span></a>
+    <a href="{% url 'techfeed:profile_followers' user_profile.username %}" class="stat-item"><span class="stat-number">{{ followers_count }}</span><span class="stat-label">Abonnés</span></a>
+    <div class="stat-item"><span class="stat-number">{{ likes_count }}</span><span class="stat-label">J'aime</span></div>
+  </div>
+
+  <div class="actions-row">
+    {% if user != user_profile %}
+      <form action="{% url 'techfeed:toggle_follow' user_profile.id %}" method="post">
+        {% csrf_token %}
+        {% if is_following %}
+          <button type="submit" class="btn btn-unfollow">Abonné</button>
+        {% else %}
+          <button type="submit" class="btn btn-follow">Suivre</button>
+        {% endif %}
+      </form>
+      <a href="{% url 'techfeed:conversation' user_profile.id %}" class="btn btn-message">Message</a>
+    {% else %}
+      <a href="{% url 'techfeed:upload_avatar' %}" class="btn btn-edit">Éditer le profil</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="content-tabs">
+    <a href="{% url 'techfeed:profile' user_profile.username %}" class="tab-item {% if not request.GET.tab %}active{% endif %}">
+        <i class="fas fa-th"></i>
+    </a>
+
+    {% if user == user_profile %}
+        <a href="{% url 'techfeed:profile' user_profile.username %}?tab=likes" class="tab-item {% if request.GET.tab == 'likes' %}active{% endif %}">
+            <i class="fas fa-heart"></i>
+        </a>
+    {% else %}
+        <div class="tab-item" style="color:#333; cursor: not-allowed;"><i class="fas fa-heart"></i></div>
+    {% endif %}
+
+    {% if user == user_profile %}
+        <a href="{% url 'techfeed:profile' user_profile.username %}?tab=private" class="tab-item {% if request.GET.tab == 'private' %}active{% endif %}">
+            <i class="fas fa-lock"></i>
+        </a>
+    {% else %}
+        <div class="tab-item" style="color:#333; cursor: not-allowed;"><i class="fas fa-lock"></i></div>
+    {% endif %}
+</div>
+
+<div class="video-grid">
+  {% for v in videos %}
+    <div class="grid-item">
+      <a href="{% url 'techfeed:video_detail' v.id %}">
+        <video src="{{ v.video.url }}#t=0.1" preload="metadata" muted></video>
+      </a>
+      
+      <div class="play-count"><i class="fas fa-play"></i> {{ v.vues|default:"0" }}</div>
+
+      {% if user == user_profile %}
+          <div class="video-actions">
+              <a href="{% url 'techfeed:edit_video' v.id %}" class="mini-btn edit-v" title="Modifier">
+                  <i class="fas fa-pen"></i>
+              </a>
+              <a href="{% url 'techfeed:delete_video' v.id %}" class="mini-btn del-v" onclick="return confirm('Supprimer cette vidéo ?');" title="Supprimer">
+                  <i class="fas fa-trash"></i>
+              </a>
+          </div>
+      {% endif %}
+    </div>
+  {% empty %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #444;">
+        <i class="fas fa-video-slash fa-2x"></i>
+        <p style="margin-top:10px;">Aucune vidéo publiée.</p>
+    </div>
+  {% endfor %}
+</div>
+
+<footer class="bottom-nav">
+  <a href="{% url 'techfeed:feed' %}" class="nav-item"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
+  <a href="{% url 'techfeed:friends' %}" class="nav-item"><i class="fa-solid fa-user-friends"></i><span>Amis</span></a>
+  <a href="{% url 'techfeed:uploader_video' %}" class="upload-btn"></a>
+  <a href="{% url 'techfeed:notifications' %}" class="nav-item"><i class="fa-regular fa-bell"></i><span>Boîte</span></a>
+  <a href="{% url 'techfeed:profile' request.user.username %}" class="nav-item active"><i class="fa-regular fa-user"></i><span>Profil</span></a>
+</footer>
+
+{% endblock %}

@@ -1,0 +1,286 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<!-- LiveKit Client -->
+<script src="https://cdn.livekit.io/livekit-client-v0.17.1.min.js"></script>
+
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    color: #fff;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .live-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+  }
+
+  @media (min-width: 900px) {
+    .live-wrapper { flex-direction: row; }
+  }
+
+  /* === Zone Vidéo === */
+  .live-video-area {
+    flex: 3;
+    position: relative;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .live-video-box {
+    width: 100%;
+    max-width: 900px;
+    height: 100%;
+    background: #111;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #live-video-container {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #555;
+    font-size: 15px;
+  }
+
+  .live-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: #ff0050;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .live-host-info {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .live-host-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .live-title {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    right: 15px;
+    font-size: 14px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+    padding-top: 40px;
+  }
+
+  /* === Chat === */
+  .live-chat-panel {
+    flex: 1.5;
+    background: #050505;
+    border-left: 1px solid #181818;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chat-header {
+    padding: 10px;
+    border-bottom: 1px solid #181818;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .chat-messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    font-size: 13px;
+  }
+
+  .chat-message { margin-bottom: 6px; }
+  .chat-message .user { font-weight: bold; color: #fff; }
+
+  .chat-input-area {
+    display: flex;
+    padding: 10px;
+    gap: 7px;
+    border-top: 1px solid #181818;
+  }
+
+  .chat-input-area input {
+    flex: 1;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: none;
+    background: #181818;
+    color: #fff;
+  }
+
+  .chat-input-area button {
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: #ff0050;
+    color: #fff;
+    border: none;
+  }
+
+  .back-link {
+    color: #aaa;
+    text-decoration: none;
+    font-size: 13px;
+  }
+</style>
+
+<div class="live-wrapper">
+
+  <!-- === VIDEO === -->
+  <div class="live-video-area">
+    <div class="live-video-box">
+
+      <div class="live-badge">EN DIRECT 🔴</div>
+
+      <div class="live-host-info">
+        {% if session.host.profile.avatar %}
+          <img src="{{ session.host.profile.avatar.url }}" class="live-host-avatar">
+        {% else %}
+          <img src="{% static 'images/default-avatar.png' %}" class="live-host-avatar">
+        {% endif %}
+        <div>
+          <div style="font-size:13px;">@{{ session.host.username }}</div>
+          {% if is_host %}
+            <small style="color:#00ff9a;">🎥 Vous êtes l’hôte du live</small>
+          {% endif %}
+        </div>
+      </div>
+
+      <div id="live-video-container">
+        <p>Chargement du live…</p>
+      </div>
+
+      <div class="live-title">
+        <strong>{{ session.title|default:"Live Founatek IoT" }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- === CHAT === -->
+  <div class="live-chat-panel">
+
+    <div class="chat-header">
+      <a href="{% url 'techfeed:live_home' %}" class="back-link">← Retour</a>
+      <span>Chat en direct</span>
+    </div>
+
+    <div class="chat-messages" id="chat-messages">
+      {% for msg in messages %}
+        <div class="chat-message">
+          <span class="user">@{{ msg.user.username }} :</span>
+          <span>{{ msg.message }}</span>
+        </div>
+      {% empty %}
+        <p style="color:#777;">Aucun message encore.</p>
+      {% endfor %}
+    </div>
+
+    <form class="chat-input-area">
+      {% csrf_token %}
+      <input type="text" name="message" placeholder="Envoyer un message…" autocomplete="off">
+      <button type="submit">Envoyer</button>
+    </form>
+
+  </div>
+</div>
+
+<!-- === WEBSOCKET CHAT === -->
+
+<script>
+const roomName = "{{ session.room_name }}";
+const username = "{{ request.user.username }}";
+
+const chatSocket = new WebSocket(
+    "wss://" + window.location.host + "/ws/live/" + roomName + "/"
+);
+
+chatSocket.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    const box = document.getElementById("chat-messages");
+
+    box.innerHTML += `
+      <div class="chat-message">
+          <span class="user">@${data.username} :</span>
+          <span>${data.message}</span>
+      </div>
+    `;
+    box.scrollTop = box.scrollHeight;
+};
+
+document.querySelector(".chat-input-area").onsubmit = (e) => {
+    e.preventDefault();
+    const input = document.querySelector("input[name='message']");
+    if (input.value.trim() === "") return;
+
+    chatSocket.send(JSON.stringify({
+        "username": username,
+        "message": input.value
+    }));
+
+    input.value = "";
+};
+</script>
+
+<!-- === LIVEKIT WEBRTC === -->
+
+<script>
+async function startLiveKit() {
+
+    let container = document.getElementById("live-video-container");
+    container.innerHTML = "<p style='color:#999'>Connexion au live…</p>";
+
+    const response = await fetch("{% url 'techfeed:livekit_token' session.room_name %}");
+    const data = await response.json();
+
+    const room = new Livekit.Room();
+
+    try {
+        await room.connect("{{ LIVEKIT_URL }}", data.token);
+        container.innerHTML = "";
+    } catch (err) {
+        container.innerHTML = "<p style='color:red'>Erreur LiveKit ❌</p>";
+        console.error(err);
+        return;
+    }
+
+    {% if is_host %}
+        const track = await Livekit.createLocalVideoTrack();
+        await room.localParticipant.publishTrack(track);
+        container.appendChild(track.attach());
+    {% endif %}
+
+    room.on("trackSubscribed", (track) => {
+        container.appendChild(track.attach());
+    });
+}
+
+startLiveKit();
+</script>
+
+{% endblock %}

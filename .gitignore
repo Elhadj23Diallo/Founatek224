@@ -1,0 +1,40 @@
+# --- Python / venv ---
+venv/
+bin/
+lib/
+lib64/
+include/
+pyvenv.cfg
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# --- Django ---
+db.sqlite3
+db_backup.sqlite3
+staticfiles/
+media/
+django_cache_folder/
+
+# --- Secrets / env ---
+.env
+*.env.local
+
+# --- Flutter / mobile build artifacts ---
+founatek_mobile/build/
+founatek_mobile/.dart_tool/
+founatek_mobile/.idea/
+founatek_mobile/.flutter-plugins-dependencies
+founatek_mobile/**/generated_plugin_registrant.dart
+
+# --- Misc / large or temp files ---
+video_capture.avi
+espcontrol/tmp*
+*.log
+.vscode/
+.idea/
+
+# --- OS ---
+Thumbs.db
+.DS_Store

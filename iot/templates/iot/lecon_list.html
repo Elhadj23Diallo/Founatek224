@@ -1,0 +1,39 @@
+{% extends "iot/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold">Leçons</h1>
+    <a class="btn btn-success" href="{% url 'iot:formateur_lecon_create' %}">+ Nouvelle</a>
+  </div>
+
+  <div class="card mt-3">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Parcours</th>
+            <th>Ordre</th>
+            <th>Titre</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in items %}
+          <tr>
+            <td>{{ l.parcours.titre }}</td>
+            <td>{{ l.ordre }}</td>
+            <td>{{ l.titre }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'iot:formateur_lecon_update' l.id %}">Modifier</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-muted">Aucune leçon.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

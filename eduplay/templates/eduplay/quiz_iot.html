@@ -1,0 +1,320 @@
+{% extends "eduplay/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Quiz interactif - {{ domain }}</h2>
+
+    <!-- Score -->
+    <div class="mb-4 d-flex align-items-center gap-3">
+        <h5 class="mb-0">Score actuel: <span id="current_score">0</span></h5>
+        <button type="button" class="btn btn-outline-danger btn-sm" id="reset-score-btn">Réinitialiser</button>
+    </div>
+
+    <!-- Compte à rebours -->
+    <div class="mb-4">
+        <h5>Temps restant : <span id="timer">600</span> secondes</h5>
+        <div class="progress">
+            <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+    </div>
+
+    <div class="mb-2">
+        <h5 id="question-number">Question : 1 / {{ questions|length }}</h5>
+    </div>
+
+    <form id="quiz-form" method="post">
+        {% csrf_token %}
+        <div id="question-container" class="mb-4"></div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <button type="button" class="btn btn-secondary" id="prev-btn">Précédent</button>
+            <button type="button" class="btn btn-primary" id="next-btn" disabled>Suivant</button>
+        </div>
+
+        <button type="submit" class="btn btn-success mt-4 d-none" id="submit-btn" disabled>Soumettre</button>
+    </form>
+
+    <div id="message-area" class="mt-3"></div>
+    <div id="feedback-message" class="mt-3"></div>
+    <div id="final-message" class="mt-4 alert d-none"></div>
+
+    <!-- Bouton rejouer, caché par défaut -->
+    <button type="button" id="replay-btn" class="btn btn-info mt-3 d-none">Rejouer le quiz</button>
+
+    <!-- Lien correction -->
+    <ul id="post-submit-links" class="mt-4 d-none">
+        <li><a href="{% url 'eduplay:answers_page' %}" class="nav-link"><i class="fas fa-network-wired me-2"></i>Voir la correction</a></li>
+    </ul>
+
+    <!-- Correction -->
+    <div id="correction-container" class="mt-5 d-none"></div>
+</div>
+
+<script>
+const questions = [
+    {% for q in questions %}
+    {
+        id: {{ q.id }},
+        text: `{{ q.question_text|escapejs }}`,
+        multiple: {{ q.multiple_answers|yesno:"true,false" }},
+        answers: [
+            {% for a in q.answers.all %}
+            { id: {{ a.id }}, text: `{{ a.answer_text|escapejs }}`, correct: {{ a.is_correct|yesno:"true,false" }} },
+            {% endfor %}
+        ]
+    },
+    {% endfor %}
+];
+
+let currentIndex = 0, score = 0, submitted = false;
+let userAnswers = {}, evaluatedQuestions = {};
+let timeLeft = 600, timerInterval;
+let attempt = 1;  // 1ère tentative
+
+// Timer
+function startTimer() {
+    const timerEl = document.getElementById("timer");
+    const progressBar = document.getElementById("progress-bar");
+    const totalTime = timeLeft;
+
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        progressBar.style.width = (timeLeft / totalTime) * 100 + "%";
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            if (!submitted) {
+                submitted = true;
+                showMessage("⏳ Temps écoulé ! Quiz terminé automatiquement.", "danger");
+                saveAnswer(true);
+                showFinalMessage();
+                showUserAnswers();
+                renderQuestion(currentIndex);
+                sendAnswersToServer();
+            }
+        }
+    }, 1000);
+}
+
+// Message d'alerte
+function showMessage(text, type="info") {
+    document.getElementById("message-area").innerHTML = `<div class="alert alert-${type}">${text}</div>`;
+}
+
+// Affichage question
+function renderQuestion(index) {
+    const q = questions[index];
+    const container = document.getElementById("question-container");
+    document.getElementById("question-number").innerText = `Question : ${index + 1} / ${questions.length}`;
+
+    let html = `<h5>${q.text}</h5>`;
+    q.answers.forEach(a => {
+        const inputType = q.multiple ? "checkbox" : "radio";
+        const nameAttr = q.multiple ? `answers_${q.id}[]` : `answers_${q.id}`;
+        const checked = userAnswers[q.id]?.includes(a.id) ? "checked" : "";
+        const disabled = submitted ? "disabled" : "";
+
+        html += `<div class="form-check">
+                    <input class="form-check-input answer-option" type="${inputType}"
+                           name="${nameAttr}" value="${a.id}" id="answer_${a.id}" ${checked} ${disabled}>
+                    <label class="form-check-label" for="answer_${a.id}">${a.text}</label>
+                 </div>`;
+    });
+
+    container.innerHTML = html;
+    document.getElementById("prev-btn").disabled = submitted || index === 0;
+    document.getElementById("next-btn").classList.toggle("d-none", index === questions.length - 1);
+    document.getElementById("submit-btn").classList.toggle("d-none", index !== questions.length - 1);
+    toggleNextButton();
+
+    if (!submitted) {
+        document.querySelectorAll(".answer-option").forEach(input =>
+            input.addEventListener("change", () => {
+                saveAnswer(false);
+                evaluateCurrentQuestion(); // << mise à jour optimisée score
+                toggleNextButton();
+            })
+        );
+    }
+}
+
+// Activation du bouton suivant
+function toggleNextButton() {
+    const selected = document.querySelectorAll('.answer-option:checked');
+    document.getElementById("next-btn").disabled = selected.length === 0 || submitted;
+    if (currentIndex === questions.length - 1) {
+        document.getElementById("submit-btn").disabled = selected.length === 0 || submitted;
+    }
+}
+
+// Sauvegarder la réponse utilisateur
+function saveAnswer(evaluate=false) {
+    const q = questions[currentIndex];
+    const name = q.multiple ? `answers_${q.id}[]` : `answers_${q.id}`;
+    userAnswers[q.id] = Array.from(document.querySelectorAll(`[name="${name}"]:checked`)).map(i => parseInt(i.value));
+    if (evaluate) evaluateAllAnswers();
+}
+
+// Évaluation complète du score (toutes questions)
+function evaluateAllAnswers() {
+    score = 0;
+    evaluatedQuestions = {};
+    for (let q of questions) {
+        const selected = userAnswers[q.id] || [];
+        const correctAnswers = q.answers.filter(a => a.correct).map(a => a.id).sort();
+        const userSorted = [...selected].sort();
+        // L'utilisateur doit cocher *exactement* toutes les bonnes réponses,
+        // sans en cocher de mauvaises (égalité stricte entre tableaux triés)
+        const isCorrect = JSON.stringify(correctAnswers) === JSON.stringify(userSorted);
+        evaluatedQuestions[q.id] = isCorrect;
+        score += isCorrect ? 1 : 0;
+    }
+    document.getElementById("current_score").innerText = score;
+}
+
+// Évaluation optimisée : ne recalculer que la question courante
+function evaluateCurrentQuestion() {
+    const q = questions[currentIndex];
+    const selected = userAnswers[q.id] || [];
+    const correctAnswers = q.answers.filter(a => a.correct).map(a => a.id).sort();
+    const userSorted = [...selected].sort();
+    // Même logique stricte pour validation
+    const isCorrect = JSON.stringify(correctAnswers) === JSON.stringify(userSorted);
+
+    evaluatedQuestions[q.id] = isCorrect;
+
+    // Score = nombre total de questions correctes
+    score = Object.values(evaluatedQuestions).filter(v => v).length;
+
+    document.getElementById("current_score").innerText = score;
+}
+
+// Message final et gestion du bouton rejouer
+function showFinalMessage() {
+    evaluateAllAnswers();
+    const total = questions.length;
+    const msg = document.getElementById("final-message");
+    let message = score === total ? "🎉 Excellent ! Toutes les réponses sont correctes." :
+                  score >= total-3 ? `👍 Bien joué ! Vous avez fait ${total-score} erreur(s).` :
+                  score >= total-5 ? `😌 Pas mal, vous avez fait ${total-score} erreur(s).` :
+                                     `💪 Continuez à réviser. Vous avez fait ${total-score} erreur(s).`;
+    msg.className = "alert mt-4 " + (score === total ? "alert-success" :
+                   score >= total-3 ? "alert-primary" :
+                   score >= total-5 ? "alert-warning" : "alert-danger");
+    msg.innerText = message + ` Votre score : ${score} / ${total}.`;
+    msg.classList.remove("d-none");
+
+    document.getElementById("post-submit-links").classList.remove("d-none");
+
+    if (attempt === 1) {
+        document.getElementById("replay-btn").classList.remove("d-none");
+    } else {
+        document.getElementById("replay-btn").classList.add("d-none");
+    }
+}
+
+// Affichage correction
+function showUserAnswers() {
+    const container = document.getElementById("correction-container");
+    container.innerHTML = "<h4>Vos réponses et les bonnes réponses :</h4>";
+    questions.forEach((q, idx) => {
+        const userSelected = userAnswers[q.id] || [];
+        const correctAnswers = q.answers.filter(a => a.correct).map(a => a.id);
+        let html = `<div class="mb-3 p-3 border rounded"><h5>Q${idx+1}. ${q.text}</h5><ul>`;
+        q.answers.forEach(a => {
+            const isUser = userSelected.includes(a.id), isCorrect = correctAnswers.includes(a.id);
+            let color = isCorrect ? "text-success" : (isUser ? "text-danger" : "text-muted");
+            let icon = isCorrect ? "✔️" : (isUser ? "❌" : "");
+            html += `<li class="${color}">${icon} ${a.text}</li>`;
+        });
+        html += "</ul></div>";
+        container.innerHTML += html;
+    });
+    container.classList.remove("d-none");
+}
+
+// Envoi des réponses au serveur avec tentative
+function sendAnswersToServer() {
+    const formData = new FormData();
+    formData.append('attempt', attempt);
+    formData.append('userAnswers', JSON.stringify(userAnswers));
+
+    fetch("", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+        },
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success){
+            console.log("Réponses enregistrées.");
+        } else {
+            showMessage("Erreur lors de l'enregistrement des réponses.", "danger");
+        }
+    })
+    .catch(() => showMessage("Erreur réseau lors de l'enregistrement.", "danger"));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    renderQuestion(currentIndex);
+    startTimer();
+
+    document.getElementById("next-btn").addEventListener("click", () => {
+        if (currentIndex < questions.length - 1) {
+            currentIndex++;
+            renderQuestion(currentIndex);
+        }
+    });
+
+    document.getElementById("prev-btn").addEventListener("click", () => {
+        if (currentIndex > 0) {
+            currentIndex--;
+            renderQuestion(currentIndex);
+        }
+    });
+
+    document.getElementById("quiz-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!submitted) {
+            submitted = true;
+            clearInterval(timerInterval);
+            saveAnswer(true);
+            showMessage("Quiz soumis. Voici vos résultats.", "success");
+            showFinalMessage();
+            showUserAnswers();
+            sendAnswersToServer();
+        }
+    });
+
+    document.getElementById("reset-score-btn").addEventListener("click", () => {
+        score = 0;
+        evaluatedQuestions = {};
+        userAnswers = {};
+        document.getElementById("current_score").innerText = score;
+        showMessage("Score réinitialisé.", "info");
+    });
+
+    document.getElementById("replay-btn").addEventListener("click", () => {
+        attempt++;
+        submitted = false;
+        userAnswers = {};
+        evaluatedQuestions = {};
+        score = 0;
+        timeLeft = 600;
+        clearInterval(timerInterval);
+        document.getElementById("final-message").classList.add("d-none");
+        document.getElementById("post-submit-links").classList.add("d-none");
+        document.getElementById("correction-container").classList.add("d-none");
+        document.getElementById("replay-btn").classList.add("d-none");
+        document.getElementById("message-area").innerHTML = "";
+        document.getElementById("current_score").innerText = 0;
+        renderQuestion(0);
+        startTimer();
+    });
+});
+</script>
+{% endblock %}

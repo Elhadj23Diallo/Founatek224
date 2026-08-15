@@ -1,0 +1,199 @@
+{% extends "iot/base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- STYLES FUTURISTES --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+        margin: 0; padding: 20px; min-height: 100vh; overflow-x: hidden;
+    }
+
+    .main-container { max-width: 1400px; margin: auto; }
+
+    /* Titre */
+    h1.main-title { font-family: 'Orbitron', sans-serif; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 40px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.7); }
+    
+    /* Sous-titre */
+    .sub-title { text-align: center; color: #8892b0; margin-top: -30px; margin-bottom: 50px; font-size: 0.9rem; }
+
+    /* Layout Principal (PC) */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 1fr 2fr; /* 1/3 Stats, 2/3 Actions */
+        gap: 40px;
+        align-items: start;
+    }
+
+    /* Conteneurs de groupes */
+    .group-container { 
+        position: relative; padding: 30px 25px 25px 25px; 
+        border: 1px dashed rgba(0, 210, 255, 0.3); border-radius: 20px; 
+        background: rgba(13, 18, 41, 0.3); height: 100%; 
+    }
+    .group-label-title { 
+        position: absolute; top: -14px; left: 25px; 
+        background: #050a1f; padding: 0 15px; 
+        color: #00ff99; font-weight: bold; font-family: 'Orbitron'; 
+        letter-spacing: 1px; white-space: nowrap; font-size: 0.9rem; 
+    }
+
+    /* Blocs (Grid interne) */
+    .nodes-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+        gap: 20px; 
+    }
+    
+    .node-block { 
+        display: flex; flex-direction: column; align-items: center; text-align: center; 
+        text-decoration: none; transition: transform 0.3s ease, border 0.3s ease; 
+        width: 100%; background: rgba(255,255,255,0.03); padding: 20px 15px; 
+        border-radius: 18px; border: 1px solid transparent; 
+        cursor: pointer;
+    }
+    .node-block:hover { transform: translateY(-5px); border-color: #00d2ff; background: rgba(255,255,255,0.05); }
+
+    /* Variantes de couleurs */
+    .node-primary:hover { border-color: #00d2ff; }
+    .node-gold:hover { border-color: #ffd700; }
+    .node-purple:hover { border-color: #a855f7; }
+    .node-green:hover { border-color: #00ff99; }
+
+    /* Icônes */
+    .icon-box { 
+        width: 65px; height: 65px; 
+        background: linear-gradient(145deg, #1a243d, #0d1221); 
+        border: 2px solid #00d2ff; border-radius: 18px; 
+        display: flex; justify-content: center; align-items: center; 
+        font-size: 2rem; color: #00d2ff; 
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); margin-bottom: 12px; 
+    }
+    
+    .node-gold .icon-box { border-color: #ffd700; color: #ffd700; }
+    .node-purple .icon-box { border-color: #a855f7; color: #a855f7; }
+    .node-green .icon-box { border-color: #00ff99; color: #00ff99; }
+
+    /* Textes */
+    .node-label { font-size: 0.9rem; font-weight: 500; color: #cce; line-height: 1.3; margin-top: 5px; }
+    .stat-value { font-family: 'Orbitron'; font-size: 1.8rem; font-weight: bold; color: #fff; margin-top: 5px; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+
+    /* User Bar */
+    .user-actions { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+    .btn-back { background: transparent; color: #00d2ff; border: 1px solid #00d2ff; padding: 6px 15px; border-radius: 8px; text-decoration: none; transition: 0.3s; }
+    .btn-back:hover { background: #00d2ff; color: #050a1f; }
+
+    /* --- RESPONSIVE MOBILE OPTIMISÉ --- */
+    @media (max-width: 900px) {
+        .dashboard-layout { grid-template-columns: 1fr; gap: 30px; }
+        .group-container { margin-bottom: 0; }
+    }
+
+    @media (max-width: 600px) {
+        .main-container { padding: 10px; }
+        .main-title { font-size: 1.5rem; margin-bottom: 30px; }
+        .sub-title { margin-bottom: 30px; }
+        
+        /* Grille plus serrée sur mobile */
+        .nodes-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        
+        /* Ajustement taille icônes */
+        .icon-box { width: 50px; height: 50px; font-size: 1.5rem; }
+        .node-block { padding: 15px 10px; }
+        .node-label { font-size: 0.8rem; }
+        .stat-value { font-size: 1.4rem; }
+    }
+</style>
+
+<div class="main-container">
+
+    <div class="user-actions">
+        <a href="/" class="btn-back"><i class="fas fa-home"></i> Retour Accueil</a>
+    </div>
+
+    <h1 class="main-title">COMMAND CENTER <span style="color:#00ff99">FORMATEUR</span></h1>
+    <p class="sub-title">Gestion des Parcours, Leçons, Blocs et Projets</p>
+
+    <div class="dashboard-layout">
+
+        <div class="group-container">
+            <div class="group-label-title">Données Système</div>
+            
+            <div class="nodes-grid"> 
+                <div class="node-block node-primary">
+                    <div class="icon-box"><i class="fas fa-road"></i></div>
+                    <div class="node-label">Parcours</div>
+                    <div class="stat-value">{{ nb_parcours }}</div>
+                </div>
+
+                <div class="node-block node-green">
+                    <div class="icon-box"><i class="fas fa-chalkboard-teacher"></i></div>
+                    <div class="node-label">Leçons</div>
+                    <div class="stat-value">{{ nb_lecons }}</div>
+                </div>
+
+                <div class="node-block node-purple">
+                    <div class="icon-box"><i class="fas fa-cubes"></i></div>
+                    <div class="node-label">Blocs</div>
+                    <div class="stat-value">{{ nb_blocs }}</div>
+                </div>
+
+                <div class="node-block node-gold">
+                    <div class="icon-box"><i class="fas fa-question-circle"></i></div>
+                    <div class="node-label">Quiz</div>
+                    <div class="stat-value">{{ nb_quiz }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="group-container">
+            <div class="group-label-title">Modules de Gestion</div>
+            
+            <div class="nodes-grid" style="margin-top: 10px;">
+                
+                <a href="{% url 'iot:formateur_parcours_list' %}" class="node-block node-primary">
+                    <div class="icon-box"><i class="fas fa-map-signs"></i></div>
+                    <div class="node-label">Gérer les<br>Parcours</div>
+                </a>
+
+                <a href="{% url 'iot:formateur_lecon_list' %}" class="node-block node-green">
+                    <div class="icon-box"><i class="fas fa-book-open"></i></div>
+                    <div class="node-label">Gérer les<br>Leçons</div>
+                </a>
+
+                <a href="{% url 'iot:formateur_bloc_list' %}" class="node-block node-purple">
+                    <div class="icon-box"><i class="fas fa-layer-group"></i></div>
+                    <div class="node-label">Gérer les<br>Blocs</div>
+                </a>
+
+                <a href="{% url 'iot:formateur_quiz_list' %}" class="node-block node-gold">
+                    <div class="icon-box"><i class="fas fa-graduation-cap"></i></div>
+                    <div class="node-label">Gérer les<br>Quiz</div>
+                </a>
+
+                <a href="{% url 'iot:formateur_project_list' %}" class="node-block">
+                    <div class="icon-box" style="border-color: #ff4757; color: #ff4757;"><i class="fas fa-project-diagram"></i></div>
+                    <div class="node-label">Gérer les<br>Projets</div>
+                </a>
+
+                <a href="{% url 'iot:formateur_progressions' %}" class="node-block node-green">
+                    <div class="icon-box"><i class="fas fa-chart-line"></i></div>
+                    <div class="node-label">Suivi des<br>Étudiants</div>
+                </a>
+
+                <div class="node-block" style="opacity: 0.5; cursor: default;">
+                    <div class="icon-box" style="border-color: #555; color: #555;"><i class="fas fa-lock"></i></div>
+                    <div class="node-label">Module<br>Bientôt</div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

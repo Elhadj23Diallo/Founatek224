@@ -1,0 +1,331 @@
+{% extends "espcontrol/base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ===== VARIABLES ===== */
+:root {
+    --neon-blue: #00d2ff;
+    --neon-green: #00ff99;
+    --neon-red: #ff4757;
+    --neon-orange: #ff9500;
+    --neon-yellow: #ffe600;
+    --bg-dark: #050a1f;
+    --card-bg: rgba(13,18,41,0.85);
+    --text-primary: #e0e6ff;
+    --text-secondary: #aab2cd;
+}
+
+/* ===== GLOBAL ===== */
+.iot-dashboard-wrapper {
+    max-width:1600px;
+    margin:30px auto;
+    padding:20px;
+    font-family:'Roboto',sans-serif;
+    color:var(--text-primary);
+}
+
+.cyber-title {
+    text-align:center;
+    font-family:'Orbitron',sans-serif;
+    color:var(--neon-blue);
+    margin-bottom:30px;
+    text-transform:uppercase;
+    letter-spacing:2px;
+    text-shadow:0 0 20px rgba(0,210,255,0.5);
+    font-size:2rem;
+}
+
+/* ===== CARDS ===== */
+.cyber-card {
+    background:var(--card-bg);
+    border-radius:20px;
+    padding:25px;
+    border:1px solid rgba(0,210,255,.3);
+    box-shadow:0 0 20px rgba(0,210,255,0.1);
+    backdrop-filter:blur(10px);
+    margin-bottom:30px;
+}
+
+.device-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(400px,1fr));
+    gap:30px;
+}
+
+.card-header {
+    display:flex;
+    justify-content:space-between;
+    border-bottom:1px solid rgba(0,210,255,.2);
+    margin-bottom:10px;
+}
+
+/* ===== LOGS ===== */
+.log-entry {
+    font-family:'Courier New',monospace;
+    font-size:0.85rem;
+    border-bottom:1px dashed rgba(0,210,255,.1);
+    padding:8px 5px;
+    display:flex;
+    justify-content:space-between;
+}
+
+.log-entry.anomaly {
+    background:rgba(255,71,87,0.15);
+    border-left:3px solid var(--neon-red);
+}
+
+.log-time {
+    font-weight:bold;
+    margin-right:10px;
+}
+
+/* ===== CHART ===== */
+.pro-chart-container {
+    height:300px;
+    margin-bottom:20px;
+}
+.anomaly-badge { background: var(--neon-red); color: white; padding: 4px 8px; border-radius: 12px; font-size:0.8rem; font-weight:bold; }
+.cyber-card.has-anomaly { box-shadow: 0 0 30px rgba(255,71,87,0.12); border-color: rgba(255,71,87,0.25); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="iot-dashboard-wrapper">
+
+    <h2 class="cyber-title">📡 Dashboard IoT Analytique</h2>
+
+    <!-- ===================================================== -->
+    <!-- 🚨 ALERTES LIVE (API latest_alerts) -->
+    <!-- ===================================================== -->
+    <div class="cyber-card">
+        <h3 style="color:#ff4757">🚨 Alertes récentes (temps réel)</h3>
+        <div id="alerts-live">
+            <div style="color:#00ff99">Chargement…</div>
+        </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 📊 GRAPHE ALERTES PAR CAPTEUR -->
+    <!-- ===================================================== -->
+    <div class="cyber-card">
+        <h3 style="color:#00d2ff">📊 Historique des alertes</h3>
+
+        <select id="sensorSelect">
+            {% for s in sensors_list %}
+                <option value="{{ s }}">{{ s|capfirst }}</option>
+            {% endfor %}
+        </select>
+
+        <canvas id="alertChart" height="120"></canvas>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 📟 DEVICES -->
+    <!-- ===================================================== -->
+    <div class="device-grid">
+        {% for item in devices_data %}
+        <div class="cyber-card" data-device-id="{{ item.device.id }}">
+            <div class="card-header">
+                <h3>{{ item.device.name }}</h3>
+                <span style="color:#00ff99">{{ item.device.device_id }}</span>
+            </div>
+
+            {% comment %} Affichage diagnostique côté serveur : dernière lecture connue {% endcomment %}
+            {% if item.data_points %}
+            <div style="padding:8px 0;color:#aab2cd;font-size:0.9rem">
+                <strong>Dernière lecture :</strong>
+                {% with last=item.data_points|last %}
+                    {{ last.received_at }} — {{ last.payload }}
+                {% endwith %}
+            </div>
+            {% else %}
+            <div style="padding:8px 0;color:#777;font-size:0.9rem">Aucune donnée reçue côté serveur.</div>
+            {% endif %}
+            {% for sensor in sensors_list %}
+            <div class="pro-chart-container">
+                <canvas id="chart-{{ item.device.id }}-{{ sensor }}"></canvas>
+            </div>
+            {% endfor %}
+
+            <div id="logs-{{ item.device.id }}"></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+/* ================= ALERTES LIVE ================= */
+function refreshAlerts(){
+    $.get("{% url 'latest_alerts' %}")
+    .done(function(alerts){
+        const box = $("#alerts-live");
+        box.empty();
+
+        if(alerts.length === 0){
+            box.append('<div style="color:#00ff99">✔ Aucune alerte</div>');
+            return;
+        }
+
+        alerts.forEach(a => {
+            box.append(`
+                <div class="log-entry anomaly">
+                    <span class="log-time">${a.created_at}</span>
+                    <span>
+                        🚨 ${a.message}<br>
+                        <small>🧠 ${a.sensor ?? '--'} → ${a.value ?? '--'}</small><br>
+                        <small>📟 ${a.device_name ?? ''}</small>
+                    </span>
+                </div>
+            `);
+        });
+    })
+    .fail(function(xhr, status, err){
+        console.error('latest_alerts failed', status, err, xhr.responseText);
+        const box = $("#alerts-live");
+        box.empty().append(`<div style="color:#ff9500">Erreur chargement alertes (${xhr.status})</div>`);
+    });
+}
+setInterval(refreshAlerts, 15000);
+refreshAlerts();
+
+/* ================= GRAPHE ALERTES ================= */
+let alertChart;
+
+const alertGraphUrlTemplate = "{% url 'alert_graph' 'SENSOR' %}";
+
+function loadAlertGraph(sensor){
+    const url = alertGraphUrlTemplate.replace('SENSOR', sensor);
+    $.get(url)
+    .done(function(data){
+        try{ if(alertChart) alertChart.destroy(); }catch(e){}
+        alertChart = new Chart(
+            document.getElementById("alertChart"),
+            {
+                type:"line",
+                data:{
+                    labels:data.labels,
+                    datasets:[{
+                        label:sensor,
+                        data:data.values,
+                        borderColor:"#00d2ff",
+                        fill:false
+                    }]
+                }
+            }
+        );
+    })
+    .fail(function(xhr, status, err){
+        console.error('alert_graph failed', sensor, status, err, xhr && xhr.responseText);
+    });
+}
+
+// bind change once and load initial graph
+$("#sensorSelect").change(function(){ loadAlertGraph(this.value); });
+loadAlertGraph("temperature");
+
+/* ================= DEVICES DATA ================= */
+const charts = {};
+const apiUrls = {
+    {% for item in devices_data %}
+    "{{ item.device.id }}": "{% url 'device_last10' item.device.id %}",
+    {% endfor %}
+};
+
+// rendre accessible depuis la console pour debug (window.apiUrls)
+window.apiUrls = apiUrls;
+console.log('apiUrls', apiUrls);
+
+function renderChart(deviceId, sensor, data){
+    const ctx = document.getElementById(`chart-${deviceId}-${sensor}`);
+    if(!ctx) return;
+
+    // Préparer labels lisibles (heure:minute:second) et valeurs
+    const labels = (data || []).map(d => {
+        try{ const dt = new Date(d.received_at); return dt.toLocaleTimeString(); }catch(e){ return (d.received_at||'').replace('T',' ').split('.')[0]; }
+    }).reverse();
+    const values = (data || []).map(d => d.payload && (d.payload[sensor] !== undefined) ? d.payload[sensor] : 0).reverse();
+
+    if(charts[deviceId+sensor]){
+        try{ charts[deviceId+sensor].destroy(); }catch(e){}
+    }
+
+    // Si pas de données, on affiche un message dans le canvas parent
+    if(values.length === 0){
+        ctx.getContext('2d').clearRect(0,0,ctx.width,ctx.height);
+        return;
+    }
+
+    charts[deviceId+sensor] = new Chart(ctx,{
+        type:"line",
+        data:{ labels, datasets:[{
+            label: sensor,
+            data: values,
+            borderColor: '#00ff99',
+            backgroundColor: 'rgba(0,255,153,0.08)',
+            tension: 0.2,
+            pointRadius: 3
+        }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#e0e6ff' } } },
+            scales: {
+                x: { ticks: { color: '#aab2cd' }, grid: { color: 'rgba(255,255,255,0.03)' } },
+                y: { ticks: { color: '#aab2cd' }, grid: { color: 'rgba(255,255,255,0.03)' } }
+            }
+        }
+    });
+}
+
+function refreshData(){
+    $(".cyber-card[data-device-id]").each(function(){
+        const deviceId = $(this).data("device-id");
+        $.get(apiUrls[deviceId], function(data){
+            debugLog(deviceId, data);
+            {% for sensor in sensors_list %}
+            renderChart(deviceId,"{{ sensor }}",data);
+            {% endfor %}
+            // affiche logs et badge d'anomalie
+            const card = $(`.cyber-card[data-device-id="${deviceId}"]`);
+            const logsEl = $(`#logs-${deviceId}`);
+            logsEl.empty();
+
+            const anomalies = (data || []).filter(d => d.is_anomaly);
+            if(anomalies.length > 0){
+                if(card.find('.anomaly-badge').length === 0){
+                    card.find('.card-header').append('<span class="anomaly-badge" style="margin-left:10px">ANOMALIE</span>');
+                }
+                card.addClass('has-anomaly');
+            } else {
+                card.find('.anomaly-badge').remove();
+                card.removeClass('has-anomaly');
+            }
+
+            // Afficher jusqu'à 10 derniers points
+            (data || []).slice().reverse().slice(0,10).forEach(d => {
+                const time = (d.received_at || '').replace('T',' ');
+                const cls = d.is_anomaly ? 'log-entry anomaly' : 'log-entry';
+                const payloadText = JSON.stringify(d.payload);
+                logsEl.append(`<div class="${cls}"><span class="log-time">${time}</span><span>${payloadText}</span></div>`);
+            });
+        }).fail(function(xhr, status, err){
+            console.error('device_last10 failed', deviceId, status, err, xhr.responseText);
+            const logsEl = $(`#logs-${deviceId}`);
+            logsEl.empty().append(`<div class="log-entry" style="color:#ff9500">Erreur ${xhr.status} lors du chargement des données</div>`);
+        });
+    });
+}
+
+refreshData();
+setInterval(refreshData,10000); // polling toutes les 10s pour debug
+
+// debug: log quand l'API renvoie des données
+function debugLog(deviceId, data){
+    try{ console.log('device_last10', deviceId, data && data.length ? data.length+' points' : 'no-data'); }catch(e){}
+}
+</script>
+{% endblock %}

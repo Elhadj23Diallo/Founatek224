@@ -1,0 +1,242 @@
+{% extends "iot/base.html" %}
+{% load static %}
+
+{% block title %}Modifier mon profil{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- VARIABLES ET STYLES GLOBAUX --- */
+    :root {
+        --neon-blue: #00d2ff;
+        --neon-green: #00ff99;
+        --dark-bg: #050a1f;
+        --input-bg: #1a243d;
+        --text-primary: #e0e6ff;
+        --text-secondary: #aab2cd;
+    }
+
+    body {
+        font-family: 'Roboto', sans-serif;
+        background-color: var(--dark-bg);
+        background-image: radial-gradient(circle at 50% 30%, #0d1229 0%, #050a1f 100%);
+        color: var(--text-primary);
+        padding: 20px 10px;
+    }
+
+    /* --- CONTENEUR PRINCIPAL --- */
+    .cyber-form-wrapper {
+        max-width: 600px;
+        margin: 40px auto;
+    }
+
+    /* Titre futuriste */
+    h2.orbitron-title {
+        font-family: 'Orbitron', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #fff;
+        text-align: center;
+        margin-bottom: 30px;
+        text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+    }
+
+    /* Boîte du formulaire */
+    .cyber-form-box {
+        background: rgba(13, 18, 41, 0.7);
+        border: 1px dashed rgba(0, 210, 255, 0.3);
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(5px);
+    }
+
+    /* --- STYLES DES CHAMPS DE FORMULAIRE --- */
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    /* Labels */
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--neon-blue);
+        font-weight: 500;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.9rem;
+    }
+
+    /* Inputs classiques (texte) générés par Django */
+    .cyber-form-box input[type="text"],
+    .cyber-form-box input[type="email"] {
+        width: 100%;
+        padding: 12px 15px;
+        background: var(--input-bg);
+        border: 1px solid rgba(0, 210, 255, 0.3);
+        border-radius: 10px;
+        color: var(--text-primary);
+        font-family: 'Roboto', sans-serif;
+        transition: all 0.3s ease;
+        box-sizing: border-box; /* Important pour le padding */
+    }
+
+    .cyber-form-box input:focus {
+        outline: none;
+        border-color: var(--neon-blue);
+        box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
+        background: #1e293b;
+    }
+
+    /* Style spécifique pour l'input fichier (Photo) */
+    .file-input-wrapper {
+        background: var(--input-bg);
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px dashed rgba(0, 210, 255, 0.3);
+        text-align: center;
+    }
+    .cyber-form-box input[type="file"] {
+        color: var(--text-secondary);
+        width: 100%;
+    }
+    /* Petit hack pour styliser le bouton "Choisir un fichier" sur Chrome/Edge */
+    .cyber-form-box input[type="file"]::file-selector-button {
+        background: var(--neon-blue);
+        border: none;
+        color: #050a1f;
+        padding: 8px 12px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        margin-right: 10px;
+        transition: all 0.2s;
+    }
+    .cyber-form-box input[type="file"]::file-selector-button:hover {
+        background: #33e1ff;
+    }
+
+    /* Aide ou erreurs Django sous les champs */
+    .helptext, .errorlist {
+        font-size: 0.8rem;
+        margin-top: 5px;
+        color: var(--text-secondary);
+    }
+    .errorlist { color: #ff4757; list-style: none; padding: 0; }
+
+    /* --- BOUTONS D'ACTION --- */
+    .form-actions {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 35px;
+    }
+
+    .btn-cyber-submit {
+        flex: 1;
+        background: var(--neon-blue);
+        color: #050a1f;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-family: 'Orbitron', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex; justify-content: center; align-items: center; gap: 10px;
+    }
+
+    .btn-cyber-submit:hover {
+        background: #33e1ff;
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.5);
+        transform: translateY(-2px);
+    }
+
+    .btn-cyber-cancel {
+        padding: 12px 25px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-family: 'Roboto', sans-serif;
+        color: var(--text-secondary);
+        text-decoration: none;
+        border: 1px solid rgba(0, 210, 255, 0.3);
+        transition: all 0.3s ease;
+        display: flex; justify-content: center; align-items: center; gap: 8px;
+    }
+
+    .btn-cyber-cancel:hover {
+        border-color: var(--neon-blue);
+        color: var(--neon-blue);
+        background: rgba(0, 210, 255, 0.1);
+    }
+
+    /* --- RESPONSIVE : PETITS ÉCRANS --- */
+    @media (max-width: 768px) {
+        .cyber-form-wrapper { margin: 20px auto; }
+        .cyber-form-box { padding: 25px 20px; }
+        h2.orbitron-title { font-size: 1.5rem; }
+        
+        .form-actions {
+            flex-direction: column-reverse; /* Annuler en bas sur mobile */
+            gap: 15px;
+        }
+        .btn-cyber-submit, .btn-cyber-cancel {
+            width: 100%; /* Pleine largeur sur mobile */
+            padding: 15px;
+        }
+    }
+</style>
+
+<div class="cyber-form-wrapper">
+    <h2 class="orbitron-title"><i class="fas fa-user-edit me-2"></i> Modifier le profil</h2>
+
+    <div class="cyber-form-box">
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+
+            {% if user_form.non_field_errors or formateur_form.non_field_errors %}
+                <div style="background: rgba(255, 71, 87, 0.1); border: 1px solid #ff4757; padding: 10px; border-radius: 10px; margin-bottom: 20px; color: #ff4757;">
+                    {{ user_form.non_field_errors }}
+                    {{ formateur_form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ user_form.first_name.id_for_label }}"> Let's Go : <i class="fas fa-user-tag"></i> Prénom</label>
+                {{ user_form.first_name }}
+                {{ user_form.first_name.errors }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ user_form.last_name.id_for_label }}"><i class="far fa-user"></i> Nom</label>
+                {{ user_form.last_name }}
+                {{ user_form.last_name.errors }}
+            </div>
+
+            {% if is_formateur %}
+                <div class="form-group">
+                    <label for="{{ formateur_form.photo.id_for_label }}"><i class="fas fa-camera-retro"></i> Photo de profil</label>
+                    <div class="file-input-wrapper">
+                        <i class="fas fa-cloud-upload-alt fa-2x mb-2" style="color: var(--neon-blue);"></i><br>
+                        {{ formateur_form.photo }}
+                    </div>
+                    <div class="helptext mt-2"><small><i class="fas fa-info-circle"></i> Formats acceptés : JPG, PNG. Max 5Mo.</small></div>
+                    {{ formateur_form.photo.errors }}
+                </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <a href="{% url 'iot:profil' %}" class="btn-cyber-cancel">
+                    <i class="fas fa-times"></i> Annuler
+                </a>
+                <button type="submit" class="btn-cyber-submit">
+                    <i class="fas fa-save"></i> Enregistrer les modifications
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

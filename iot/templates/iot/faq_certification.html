@@ -1,0 +1,71 @@
+{% extends "iot/base.html" %}
+{% block title %}FAQ — Certification & QR Code{% endblock %}
+
+{% block content %}
+<style>
+.faq{
+  max-width:900px;
+  margin:60px auto;
+  padding:0 20px;
+}
+.faq h1{
+  font-family:'Orbitron';
+  color:#00d2ff;
+  margin-bottom:40px;
+}
+.question{
+  background:#0d1229;
+  border-radius:18px;
+  padding:20px;
+  margin-bottom:18px;
+  border:1px solid rgba(0,210,255,.2);
+}
+.question h3{color:#fff;}
+.question p{color:#8892b0;line-height:1.7;}
+</style>
+
+<div class="faq">
+  <h1>FAQ — Certification & QR Code</h1>
+
+  <div class="question">
+    <h3>🎓 Quand un certificat est-il délivré ?</h3>
+    <p>
+      Un certificat est généré uniquement si le parcours est marqué
+      comme <strong>certifiant</strong> et que l’apprenant valide toutes
+      les leçons avec le score requis.
+    </p>
+  </div>
+
+  <div class="question">
+    <h3>📄 Que contient le certificat PDF ?</h3>
+    <p>
+      Le nom de l’apprenant, le parcours, le score final, l’organisation,
+      la mention Founatek, un identifiant unique et un QR code de vérification.
+    </p>
+  </div>
+
+  <div class="question">
+    <h3>🔳 À quoi sert le QR code ?</h3>
+    <p>
+      Le QR code permet à n’importe qui de vérifier l’authenticité du certificat
+      via une page publique sécurisée.
+    </p>
+  </div>
+
+  <div class="question">
+    <h3>🔐 Peut-on falsifier un certificat ?</h3>
+    <p>
+      Non. Chaque certificat est lié à un UUID unique stocké en base de données.
+      Toute tentative de falsification échoue à la vérification.
+    </p>
+  </div>
+
+  <div class="question">
+    <h3>🏢 Qui est mentionné sur le certificat ?</h3>
+    <p>
+      L’organisation créatrice du parcours est mise en avant,
+      avec la mention <em>“via Founatek Academy”</em>.
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+<div class="comment-item">
+
+  <div class="comment-avatar">
+    {% if comment.auteur.profile.avatar %}
+      <img src="{{ comment.auteur.profile.avatar.url }}">
+    {% else %}
+      <img src="{% static 'images/default-avatar.png' %}">
+    {% endif %}
+  </div>
+
+  <div class="comment-body">
+
+    <!-- TEXTE -->
+    <div>
+      <span class="comment-user">{{ comment.auteur.username }}</span>
+      <span class="comment-text">{{ comment.contenu }}</span>
+    </div>
+
+    <!-- META -->
+    <div class="comment-meta">
+      {{ comment.date_pub|timesince }}
+      <span class="reply-btn"
+            onclick="toggleReply('{{ comment.id }}')">
+        Répondre
+      </span>
+    </div>
+
+    <!-- FORMULAIRE RÉPONSE -->
+    <form method="post"
+          action="{% url 'techfeed:repondre_commentaire' comment.id %}"
+          class="reply-form"
+          id="reply-form-{{ comment.id }}"
+          style="display:none;">
+      {% csrf_token %}
+      <input type="text"
+             name="contenu"
+             placeholder="Écrire une réponse…"
+             required>
+      <button type="submit">Valider</button>
+    </form>
+
+    <!-- 🔁 RÉCURSION PROPRE -->
+    {% if comment.reponses.exists %}
+      <div class="replies">
+        {% for reply in comment.reponses.all %}
+          {% include "techfeed/partials/comment_item.html" with comment=reply %}
+        {% endfor %}
+      </div>
+    {% endif %}
+
+  </div>
+</div>

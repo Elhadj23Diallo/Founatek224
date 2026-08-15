@@ -1,0 +1,67 @@
+{% extends "espcontrol/base.html" %}
+{% block content %}
+
+<div style="padding: 40px; text-align:center; color:white;">
+
+    <div style="
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 20px;
+        padding: 30px;
+        max-width: 450px;
+        margin: auto;
+        box-shadow: 0 0 40px rgba(0,255,255,0.2);
+    ">
+
+        <h1 style="color: cyan; margin-bottom:25px;">
+            Paiement de votre abonnement
+        </h1>
+
+        <p style="font-size: 26px; margin-bottom: 25px; color: #00ffea;">
+            Montant : <strong>{{ amount }} €</strong>
+        </p>
+
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% endif %}
+
+        <div id="paypal-button-container"></div>
+
+    </div>
+</div>
+
+<script src="https://www.paypal.com/sdk/js?client-id={{ PAYPAL_CLIENT_ID }}&currency=EUR"></script>
+
+<script>
+    paypal.Buttons({
+
+        // ⚠️ On utilise l’order_id déjà généré côté serveur
+        createOrder: function(data, actions) {
+            return "{{ order_id }}";
+        },
+
+        onApprove: function(data, actions) {
+            return fetch("{% url 'monetisation:wallet_paypal_capture' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    order_id: data.orderID
+                })
+            })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success) {
+                    window.location.href = "{% url 'monetisation:payment_success' %}";
+                } else {
+                    alert("Erreur: " + data.error);
+                }
+            });
+        }
+
+    }).render('#paypal-button-container');
+</script>
+
+{% endblock %}

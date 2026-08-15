@@ -1,0 +1,319 @@
+{% extends "iot/base.html" %}
+{% load static %}
+
+{% block title %}Founatek Academy — Plateforme de formation certifiante{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+    /* --- VARIABLES LOCALES --- */
+    :root {
+        --neon-blue: #00d2ff;
+        --neon-green: #00ff99;
+        --bg-dark: #0d1229;
+        --bg-darker: #050a1f;
+        --text-muted: #8892b0;
+        --border-glow: rgba(0,210,255,.2);
+    }
+
+    /* --- HERO SECTION --- */
+    .hero {
+        /* Padding réduit sur mobile pour gagner de la place */
+        padding: 60px 20px;
+        text-align: center;
+        background: radial-gradient(circle at top, var(--bg-dark), var(--bg-darker));
+        /* Bordure subtile en bas pour délimiter */
+        border-bottom: 1px solid rgba(0, 210, 255, 0.1);
+    }
+
+    .hero h1 {
+        font-family: 'Orbitron', sans-serif;
+        /* Utilisation de clamp() pour une taille de police fluide entre mobile et desktop */
+        font-size: clamp(1.8rem, 5vw, 3rem);
+        color: #fff;
+        margin-bottom: 20px;
+        text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+    }
+
+    .hero p {
+        max-width: 700px;
+        margin: 0 auto 30px auto;
+        color: var(--text-muted);
+        /* Taille de police légèrement plus petite sur mobile */
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+
+    .hero .cta {
+        margin-top: 40px;
+    }
+
+    .btn-glow {
+        display: inline-block;
+        padding: 14px 32px;
+        border-radius: 50px; /* Boutons plus arrondis */
+        background: var(--neon-blue);
+        color: var(--bg-darker);
+        font-weight: 700;
+        font-family: 'Orbitron', sans-serif;
+        text-decoration: none;
+        box-shadow: 0 0 20px rgba(0,210,255,.4);
+        transition: all 0.3s ease;
+    }
+
+    .btn-glow:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0 30px rgba(0,210,255,.7);
+        background: #33e1ff;
+        color: #000;
+    }
+
+    /* --- SECTIONS GÉNÉRALES --- */
+    .section {
+        max-width: 1200px; /* Un peu plus large sur grand écran */
+        /* Marges verticales réduites sur mobile */
+        margin: 50px auto;
+        padding: 0 20px;
+    }
+
+    .section h2 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.8rem;
+        color: var(--neon-blue);
+        margin-bottom: 40px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* --- GRILLE DE FONCTIONNALITÉS --- */
+    .features {
+        display: grid;
+        /* Ajustement du minmax : sur petits écrans, les cartes prendront toute la largeur.
+           Dès qu'il y a de la place pour deux cartes de 220px, elles se mettent côte à côte. */
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 25px;
+    }
+
+    .feature-card {
+        background: rgba(13, 18, 41, 0.6); /* Fond légèrement transparent */
+        backdrop-filter: blur(5px);
+        padding: 30px 25px;
+        border-radius: 20px;
+        border: 1px solid var(--border-glow);
+        transition: transform 0.3s ease, border-color 0.3s ease;
+        text-align: center; /* Centrer le contenu sur mobile fait souvent plus propre */
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--neon-blue);
+    }
+
+    .feature-icon {
+        font-size: 2.5rem;
+        color: var(--neon-blue);
+        margin-bottom: 20px;
+        display: inline-block;
+    }
+
+    .feature-card h3 {
+        color: #fff;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        font-family: 'Orbitron', sans-serif;
+    }
+
+    .feature-card p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin-bottom: 0;
+    }
+
+    /* --- GRILLE DE TARIFICATION --- */
+    .pricing {
+        display: grid;
+        /* Cartes un peu plus larges minimum pour le pricing */
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+    }
+
+    .price-card {
+        background: var(--bg-dark);
+        border-radius: 24px;
+        padding: 40px 30px;
+        border: 1px solid var(--border-glow);
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Mise en avant de la carte "Pro" */
+    .price-card.popular {
+        border-color: var(--neon-green);
+        box-shadow: 0 0 20px rgba(0, 255, 153, 0.2);
+        transform: scale(1.02); /* Légèrement plus grande */
+    }
+
+    .popular-badge {
+        position: absolute;
+        top: 15px;
+        right: -30px;
+        background: var(--neon-green);
+        color: var(--bg-darker);
+        padding: 5px 30px;
+        transform: rotate(45deg);
+        font-weight: bold;
+        font-size: 0.8rem;
+        font-family: 'Orbitron';
+    }
+
+    .price-card h3 {
+        color: #fff;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.4rem;
+    }
+
+    .price-card .price {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--neon-green);
+        margin: 25px 0;
+        font-family: 'Orbitron';
+    }
+
+    .price-card .price small {
+        font-size: 1rem;
+        color: var(--text-muted);
+        font-weight: normal;
+    }
+
+    .price-card ul {
+        list-style: none;
+        padding: 0;
+        color: var(--text-muted);
+        text-align: left; /* Alignement à gauche pour les listes, plus lisible */
+        display: inline-block; /* Permet de centrer le bloc de liste tout en gardant le texte à gauche */
+        margin-top: 20px;
+    }
+
+    .price-card li {
+        margin: 12px 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .price-card li i {
+        color: var(--neon-blue);
+        margin-right: 10px;
+    }
+
+    /* --- MEDIA QUERIES POUR LES GRANDS ÉCRANS --- */
+    @media (min-width: 992px) {
+        .hero {
+            padding: 120px 20px; /* Plus d'espace vertical sur PC */
+        }
+
+        .hero p {
+            font-size: 1.25rem; /* Texte plus grand sur PC */
+        }
+
+        .section {
+            margin: 100px auto; /* Marges plus importantes entre sections */
+        }
+
+        .section h2 {
+            font-size: 2.2rem;
+        }
+
+        /* Sur grand écran, on force l'alignement à gauche pour les features si on préfère */
+        /*
+        .feature-card {
+            text-align: left;
+            padding: 35px;
+        }
+        */
+    }
+</style>
+
+<div class="hero">
+    <h1>Former. Certifier. Vérifier.</h1>
+    <p>
+        Founatek Academy est la plateforme de formation nouvelle génération.
+        Gérez vos parcours, certifiez vos apprenants avec des PDF sécurisés par QR code.
+    </p>
+    <div class="cta">
+        <a href="{% url 'iot:comment_ca_marche' %}" class="btn-glow">
+            <i class="fas fa-play-circle me-2"></i>Comment ça marche
+        </a>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Pourquoi Founatek Academy ?</h2>
+    <div class="features">
+        <div class="feature-card">
+            <div class="feature-icon"><i class="fas fa-building"></i></div>
+            <h3>Multi-organisation</h3>
+            <p>Chaque structure dispose de son espace privé, son branding et ses données isolées.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><i class="fas fa-graduation-cap"></i></div>
+            <h3>Parcours Pédagogiques</h3>
+            <p>Créez des leçons structurées, des blocs de contenu riches et des quiz interactifs.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><i class="fas fa-qrcode"></i></div>
+            <h3>Certification Vérifiable</h3>
+            <p>Génération automatique de certificats PDF sécurisés avec vérification publique par QR code.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><i class="fas fa-user-shield"></i></div>
+            <h3>Sécurité & Rôles</h3>
+            <p>Gestion fine des permissions : Administrateurs, Formateurs et Apprenants.</p>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Nos Offres</h2>
+    <div class="pricing">
+        <div class="price-card">
+            <h3>Starter</h3>
+            <div class="price">Gratuit</div>
+            <ul>
+                <li><i class="fas fa-check"></i> 1 Organisation</li>
+                <li><i class="fas fa-check"></i> Parcours illimités</li>
+                <li><i class="fas fa-times" style="color:#ff4757;"></i> Pas de certification PDF</li>
+                <li><i class="fas fa-check"></i> Suivi de progression</li>
+            </ul>
+        </div>
+
+        <div class="price-card popular">
+            <div class="popular-badge">POPULAIRE</div>
+            <h3>Pro</h3>
+            <div class="price">Sur devis <small>/mois</small></div>
+            <ul>
+                <li><i class="fas fa-check"></i> Tout du Starter</li>
+                <li><i class="fas fa-check"></i> <strong>Certificats PDF + QR Code</strong></li>
+                <li><i class="fas fa-check"></i> Branding personnalisé</li>
+                <li><i class="fas fa-check"></i> Exports de données</li>
+            </ul>
+        </div>
+
+        <div class="price-card">
+            <h3>Enterprise</h3>
+            <div class="price">Sur mesure</div>
+            <ul>
+                <li><i class="fas fa-check"></i> Tout du Pro</li>
+                <li><i class="fas fa-check"></i> Multi-organisations</li>
+                <li><i class="fas fa-check"></i> API & Intégrations</li>
+                <li><i class="fas fa-check"></i> Support dédié prioritaire</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

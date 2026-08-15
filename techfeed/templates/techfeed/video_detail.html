@@ -1,0 +1,271 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+body {
+  background: #000;
+  color: #fff;
+  font-family: 'Roboto', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+.reply-btn {
+  display: inline-block;
+  margin-left: 8px;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #00d2ff;
+  cursor: pointer;
+  user-select: none;
+}
+
+.reply-btn:hover {
+  text-decoration: underline;
+}
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.comment-avatar img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  opacity: 0.9;
+}
+
+.replies {
+  margin-left: 36px;
+  margin-top: 8px;
+  border-left: 2px solid #333;
+  padding-left: 10px;
+}
+
+.reply-form {
+  display: none;
+  margin-top: 6px;
+  gap: 6px;
+}
+
+.detail-container {
+  display: flex;
+  height: 100vh;
+}
+
+/* VIDEO */
+.video-section {
+  flex: 1;
+  background: radial-gradient(circle, #111, #000);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.video-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.main-video {
+  max-width: 100%;
+  max-height: 100%;
+  box-shadow: 0 0 30px rgba(0,210,255,.15);
+}
+
+.back-btn-overlay {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 40px;
+  height: 40px;
+  background: rgba(0,0,0,.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+/* INTERACTION */
+.interaction-section {
+  width: 400px;
+  background: #111;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #222;
+}
+
+/* Auteur */
+.author-header {
+  padding: 15px;
+  display: flex;
+  gap: 10px;
+  border-bottom: 1px solid #222;
+}
+
+.author-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #00d2ff;
+  object-fit: cover;
+}
+
+.author-name {
+  font-family: Orbitron;
+  font-size: .9rem;
+  font-weight: bold;
+  color: #fff;
+  text-decoration: none;
+}
+
+/* Description */
+.video-caption {
+  padding: 15px;
+  background: #161616;
+  border-bottom: 1px solid #222;
+  font-size: .9rem;
+}
+
+/* COMMENTS */
+.comments-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Input */
+.input-footer {
+  padding: 15px;
+  border-top: 1px solid #222;
+}
+
+.comment-form {
+  display: flex;
+  gap: 10px;
+  background: #222;
+  padding: 8px 15px;
+  border-radius: 25px;
+}
+
+.comment-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: white;
+}
+
+.post-btn {
+  background: none;
+  border: none;
+  color: #00d2ff;
+  font-weight: bold;
+}
+</style>
+
+<div class="detail-container">
+
+  <!-- VIDEO -->
+  <div class="video-section">
+    <a href="{% url 'techfeed:feed' %}" class="back-btn-overlay">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+
+    <div class="video-wrapper">
+      <video class="main-video"
+             src="{{ video.video.url }}"
+             controls
+             autoplay
+             loop>
+      </video>
+    </div>
+  </div>
+
+  <!-- INTERACTION -->
+  <div class="interaction-section">
+
+    <!-- Auteur -->
+    <div class="author-header">
+      {% if video.auteur.profile.avatar %}
+        <img src="{{ video.auteur.profile.avatar.url }}" class="author-avatar">
+      {% else %}
+        <img src="{% static 'images/default-avatar.png' %}" class="author-avatar">
+      {% endif %}
+
+      <div>
+        <a href="{% url 'techfeed:profile' video.auteur.username %}" class="author-name">
+          @{{ video.auteur.username }}
+        </a>
+        <div style="font-size:.7rem;color:#666">
+          {{ video.date_pub|date:"d M Y" }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="video-caption">
+      {{ video.description }}
+    </div>
+
+    <!-- COMMENTAIRES -->
+    <div class="comments-list">
+
+      {% if commentaires %}
+        {% for comment in commentaires %}
+          {% include "techfeed/partials/comment_item.html" with comment=comment %}
+        {% endfor %}
+      {% else %}
+        <div style="text-align:center;color:#444;margin-top:40px">
+          <i class="far fa-comment-dots fa-2x"></i>
+          <p>Aucun commentaire</p>
+        </div>
+      {% endif %}
+
+    </div>
+
+    <!-- INPUT COMMENTAIRE -->
+    <div class="input-footer">
+      <form method="post"
+            action="{% url 'techfeed:ajouter_commentaire' video.id %}"
+            class="comment-form">
+        {% csrf_token %}
+        <input type="text"
+               name="contenu"
+               class="comment-input"
+               placeholder="Ajouter un commentaire…"
+               required>
+        <button class="post-btn">Publier</button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function toggleReply(id) {
+  const form = document.getElementById("reply-form-" + id);
+  if (!form) return;
+
+  form.style.display =
+    form.style.display === "flex" ? "none" : "flex";
+}
+</script>
+
+
+{% endblock %}

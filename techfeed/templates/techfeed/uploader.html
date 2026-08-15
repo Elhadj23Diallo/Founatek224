@@ -1,0 +1,485 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<script src='https://meet.jit.si/external_api.js'></script>
+
+<style>
+  /* --- LAYOUT GLOBAL --- */
+  body {
+    background-color: #050505; color: #00f3ff;
+    font-family: 'Share Tech Mono', monospace;
+    margin: 0; padding: 0;
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    display: flex; justify-content: center; align-items: center;
+  }
+
+  /* --- APP WRAPPER --- */
+  .app-wrapper {
+    width: 100%; height: 100%;
+    background-color: #000;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  @media (min-width: 768px) {
+    .app-wrapper {
+      width: 480px; height: 92vh;
+      border: 1px solid #333; border-radius: 12px;
+      box-shadow: 0 0 40px rgba(0, 243, 255, 0.1);
+    }
+  }
+
+  /* --- PREVIEW --- */
+  .preview-area {
+    flex: 1; position: relative; background: #000;
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden;
+  }
+  #videoPreview { width: 100%; height: 100%; object-fit: cover; }
+  #videoPreview.selfie { transform: scaleX(-1); }
+
+  /* Conteneur LIVE Jitsi (Plein écran) */
+  #liveContainer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #111; z-index: 15; display: none;
+  }
+
+  /* HUD */
+  .hud-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to right, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+    background-size: 100px 100px; z-index: 10;
+  }
+
+  /* --- UI --- */
+  .sidebar-tools {
+    position: absolute; top: 40px; right: 20px; z-index: 20;
+    display: flex; flex-direction: column; gap: 25px;
+  }
+  .tool-btn {
+    display: flex; flex-direction: column; align-items: center; color: #fff; cursor: pointer; gap: 5px; font-size: 0.7rem; text-shadow: 0 0 5px #000;
+  }
+  .tool-btn i { font-size: 1.4rem; color: #00f3ff; }
+  .tool-btn.active i { color: #ef233c; text-shadow: 0 0 10px #ef233c; }
+
+  /* --- BADGE LIVE --- */
+  .live-invite-badge {
+    position: absolute; top: 40px; left: 20px; z-index: 20;
+    background: rgba(0, 0, 0, 0.6); border: 1px solid #00f3ff; padding: 8px 15px;
+    border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; backdrop-filter: blur(4px);
+  }
+  .live-dot { width: 8px; height: 8px; background: red; border-radius: 50%; box-shadow: 0 0 8px red; }
+
+  /* --- CONTROLES --- */
+  .bottom-controls {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    background: linear-gradient(to top, #000 20%, transparent 100%);
+    padding: 20px 0 30px 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .mode-selector { display: flex; gap: 30px; margin-bottom: 25px; font-family: 'Orbitron'; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; }
+  .mode-item { color: #555; cursor: pointer; transition: 0.3s; }
+  .mode-item.active { color: #00f3ff; text-shadow: 0 0 10px #00f3ff; }
+
+  /* Bouton Déclencheur */
+  .action-trigger {
+    width: 80px; height: 80px; border: 2px solid #fff; background: rgba(255,255,255,0.1);
+    clip-path: polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .inner-rec { width: 50px; height: 50px; background: #ef233c; transition: 0.3s; clip-path: inherit; }
+  .action-trigger.recording { transform: scale(1.1); border-color: #ef233c; }
+  .action-trigger.recording .inner-rec { transform: scale(0.6); background: #fff; }
+  
+  .action-trigger.live-mode { border-color: #00f3ff; }
+  .action-trigger.live-mode .inner-rec { background: #00f3ff; width: 60px; height: 25px; clip-path: none; border-radius: 4px; }
+  
+  .action-trigger.live-active { border-color: #ef233c; }
+  .action-trigger.live-active .inner-rec::after { content: "STOP"; color: #ef233c; font-weight:bold; font-family:sans-serif; font-size:0.7rem; }
+  .action-trigger.live-active .inner-rec { background: #fff; width: 30px; height: 30px; clip-path: none; border-radius: 4px; display:flex; align-items:center; justify-content:center;}
+
+  .action-trigger.photo-mode { border-color: #fff; }
+  .action-trigger.photo-mode .inner-rec { background: #fff; width: 60px; height: 60px; border: 2px solid #000; clip-path: circle(50%); }
+
+  .upload-trigger { position: absolute; right: 40px; bottom: 50px; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; font-size: 0.7rem; color: #aaa; }
+  .upload-box { width: 36px; height: 36px; border: 1px solid #00f3ff; background: rgba(0,243,255,0.1); display: flex; align-items: center; justify-content: center; }
+
+  /* --- MODALS --- */
+  .share-modal, .bottom-sheet {
+      position: absolute; bottom: 0; left: 0; width: 100%; z-index: 150;
+      background: #111; border-top: 2px solid #00f3ff; padding: 20px;
+      transform: translateY(100%); transition: 0.3s; display: flex; flex-direction: column; gap: 15px;
+      max-height: 50%; overflow-y: auto;
+  }
+  .share-modal.open, .bottom-sheet.open { transform: translateY(0); }
+  .share-title, .sheet-title { text-align: center; font-family: 'Orbitron'; color: #fff; }
+  .share-grid { display: flex; justify-content: space-around; margin-top: 10px; }
+  .share-btn { display: flex; flex-direction: column; align-items: center; gap: 5px; color: #ccc; text-decoration: none; cursor: pointer;}
+  .share-icon { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+  .wa { background: #25D366; color: white; } .fb { background: #1877F2; color: white; } .lnk { background: #333; border: 1px solid #555; color: white; }
+
+  /* Publish Overlay */
+  .publish-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #050505; z-index: 100;
+    display: none; flex-direction: column; padding: 30px; overflow-y: auto;
+  }
+  .publish-header { display: flex; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #222; padding-bottom: 10px; }
+  .form-group label { display: block; color: #00f3ff; margin-bottom: 10px; font-size: 0.9rem; letter-spacing: 1px; }
+  input, textarea, select { width: 100%; background: #111; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 4px; box-sizing: border-box; }
+  .btn-publish { width: 100%; padding: 15px; border: none; background: #00f3ff; color: #000; font-weight: bold; font-family: 'Orbitron'; letter-spacing: 2px; margin-top: 20px; cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+
+  /* Filters */
+  .filter-grid { display: flex; gap: 15px; overflow-x: auto; }
+  .filter-item { min-width: 90px; height: 60px; background: #000; border: 1px solid #333; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; color: #aaa; font-family: 'Orbitron'; }
+  .filter-item.active { border-color: #00f3ff; color: #fff; }
+  .filter-thermal { filter: contrast(1.5) hue-rotate(180deg) saturate(2); }
+  .filter-night { filter: sepia(100%) hue-rotate(90deg) saturate(1.5) brightness(0.8); }
+  .filter-blueprint { filter: invert(100%) grayscale(100%) brightness(0.8) sepia(100%) hue-rotate(190deg) saturate(300%); }
+
+  #fileInput { display: none; }
+</style>
+
+<div class="app-wrapper">
+
+  <div class="preview-area">
+    <video id="videoPreview" autoplay playsinline muted></video>
+    
+    <div id="liveContainer"></div>
+
+    <div class="hud-overlay"></div>
+    
+    <div class="live-invite-badge" id="liveBadge" onclick="openShareModal()">
+        <div class="live-dot"></div>
+        <span id="liveStatus">OFFLINE</span>
+        <i class="fas fa-user-plus" style="margin-left:10px;"></i>
+    </div>
+
+    <div class="sidebar-tools">
+      <div class="tool-btn" onclick="rotateCamera()"><i class="fas fa-sync"></i><span>FLIP</span></div>
+      <div class="tool-btn" id="flashBtn" onclick="toggleFlash()"><i class="fas fa-bolt"></i><span>FLASH</span></div>
+      <div class="tool-btn" onclick="openSheet('filtersSheet')"><i class="fas fa-adjust"></i><span>MODE</span></div>
+      <div class="tool-btn" onclick="startScreenShare()"><i class="fas fa-desktop"></i><span>SCREEN</span></div>
+      <div class="tool-btn"><i class="fas fa-clock"></i><span>TIMER</span></div>
+    </div>
+  </div>
+
+  <div class="bottom-controls">
+    <div class="mode-selector">
+      <span class="mode-item" onclick="switchMode('live')">Live</span>
+      <span class="mode-item active" onclick="switchMode('camera')">Record</span>
+      <span class="mode-item" onclick="switchMode('photo')">Photo</span>
+    </div>
+    
+    <div class="action-trigger" id="mainActionBtn">
+        <div class="inner-rec"></div>
+    </div>
+    
+    <div class="upload-trigger" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-box"><i class="fas fa-upload"></i></div><span>Upload</span>
+    </div>
+  </div>
+
+  <div class="share-modal" id="shareModal">
+      <div class="share-title">INVITER UN COLLABORATEUR</div>
+      <div class="share-grid">
+          <div class="share-btn" onclick="shareLink('whatsapp')">
+              <div class="share-icon wa"><i class="fab fa-whatsapp"></i></div><span>WhatsApp</span>
+          </div>
+          <div class="share-btn" onclick="shareLink('facebook')">
+              <div class="share-icon fb"><i class="fab fa-facebook-f"></i></div><span>Facebook</span>
+          </div>
+          <div class="share-btn" onclick="copyInviteLink()">
+              <div class="share-icon lnk"><i class="fas fa-link"></i></div><span>Copier</span>
+          </div>
+      </div>
+      <div style="text-align:center; margin-top:10px; cursor:pointer; color:#555;" onclick="closeSheets()">ANNULER</div>
+  </div>
+
+  <div class="publish-overlay" id="publishUI">
+    <div class="publish-header">
+      <i class="fas fa-arrow-left" style="font-size:1.5rem; cursor:pointer;" onclick="cancelPublish()"></i>
+      <div style="font-family:'Orbitron'; font-size:1.2rem;">INITIALISATION</div>
+    </div>
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+      {% csrf_token %}
+      <input type="file" name="video" id="finalVideoInput" style="display:none;">
+      <input type="hidden" name="filter_name" id="filterInput">
+      
+      <div class="form-group"><label>RAPPORT D'ANALYSE</label><textarea name="description" rows="4" placeholder="Description tech..."></textarea></div>
+      <div class="form-group"><label>CLASSIFICATION</label><select name="categorie_id">{% for cat in categories %}<option value="{{ cat.id }}">{{ cat.nom }}</option>{% endfor %}</select></div>
+      <button type="submit" class="btn-publish">LANCER</button>
+    </form>
+  </div>
+
+  <div class="bottom-sheet" id="filtersSheet">
+    <div style="text-align:center; margin-bottom:15px; color:#00f3ff;">MODES VISUELS</div>
+    <div class="filter-grid">
+      <div class="filter-item active" onclick="applyFilter('')">STANDARD</div>
+      <div class="filter-item" onclick="applyFilter('filter-thermal')">THERMIQUE</div>
+      <div class="filter-item" onclick="applyFilter('filter-night')">NOCTURNE</div>
+      <div class="filter-item" onclick="applyFilter('filter-blueprint')">BLUEPRINT</div>
+    </div>
+    <div style="text-align:center; margin-top:15px; cursor:pointer; color:#555;" onclick="closeSheets()">FERMER</div>
+  </div>
+
+</div>
+
+<input type="file" id="fileInput" accept="video/*" onchange="handleFileUpload(this)" style="display:none;">
+
+<script>
+  let stream = null;
+  let mediaRecorder;
+  let recordedChunks = [];
+  let isRecording = false;
+  let isLive = false;
+  let track; 
+  let currentFacingMode = 'user'; 
+  let currentMode = 'camera'; 
+  let jitsiApi = null;
+  let liveRoomName = "";
+
+  const videoPreview = document.getElementById('videoPreview');
+  const mainActionBtn = document.getElementById('mainActionBtn');
+  const liveContainer = document.getElementById('liveContainer');
+  const liveBadge = document.getElementById('liveBadge');
+
+  // --- 1. INITIALISATION CAMÉRA ---
+  async function startCamera() {
+      if (jitsiApi) { jitsiApi.dispose(); jitsiApi = null; liveContainer.style.display = 'none'; }
+      if (stream) { stream.getTracks().forEach(t => t.stop()); }
+
+      const constraints = {
+          audio: true,
+          video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+      };
+
+      try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          videoPreview.srcObject = stream;
+          videoPreview.muted = true;
+          videoPreview.style.display = 'block';
+          videoPreview.onloadedmetadata = () => { videoPreview.play(); };
+
+          if (currentFacingMode === 'user') videoPreview.classList.add('selfie');
+          else videoPreview.classList.remove('selfie');
+          track = stream.getVideoTracks()[0];
+      } catch (err) { console.warn("Erreur caméra: " + err); }
+  }
+  startCamera();
+
+  // --- 2. SWITCH MODE ---
+  function switchMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-item').forEach(el => el.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // Reset bouton
+      mainActionBtn.className = 'action-trigger'; 
+      document.querySelector('.inner-rec').innerHTML = '';
+      
+      if (mode === 'live') {
+          mainActionBtn.classList.add('live-mode');
+      } else if (mode === 'photo') {
+          mainActionBtn.classList.add('photo-mode');
+      }
+      
+      if (isLive && mode !== 'live') stopLive();
+      if (!stream && mode !== 'live') startCamera();
+  }
+
+  // --- 3. ACTION PRINCIPALE ---
+  mainActionBtn.addEventListener('click', () => {
+      if (currentMode === 'camera') {
+          toggleRecording();
+      } else if (currentMode === 'photo') {
+          takePhoto();
+      } else if (currentMode === 'live') {
+          toggleLiveSession();
+      }
+  });
+
+  /* --- FONCTION : RECORDING --- */
+  function toggleRecording() {
+      if (!isRecording) {
+          if (!stream) return;
+          recordedChunks = [];
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+          mediaRecorder.onstop = () => {
+              const blob = new Blob(recordedChunks, { type: 'video/webm' });
+              preparePublish(blob, "tech_record.webm");
+          };
+          mediaRecorder.start();
+          isRecording = true;
+          mainActionBtn.classList.add('recording');
+      } else {
+          mediaRecorder.stop();
+          isRecording = false;
+          mainActionBtn.classList.remove('recording');
+      }
+  }
+
+  /* --- FONCTION : PHOTO --- */
+  function takePhoto() {
+      if (!stream) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = videoPreview.videoWidth;
+      canvas.height = videoPreview.videoHeight;
+      const ctx = canvas.getContext('2d');
+      
+      if (currentFacingMode === 'user') {
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+      }
+      ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+      
+      document.body.style.backgroundColor = "#fff";
+      setTimeout(() => { document.body.style.backgroundColor = "#050505"; }, 100);
+
+      canvas.toBlob(blob => {
+          preparePublish(blob, "tech_photo.png");
+      }, 'image/png');
+  }
+
+  /* --- FONCTION : LIVE (CORRIGÉE POUR SAUTER L'ÉCRAN) --- */
+  function toggleLiveSession() {
+      if (!isLive) {
+          // START
+          isLive = true;
+          mainActionBtn.classList.add('live-active'); 
+          
+          if(stream) stream.getTracks().forEach(t => t.stop());
+          videoPreview.style.display = 'none';
+          liveContainer.style.display = 'block';
+          
+          document.getElementById('liveStatus').textContent = "EN LIVE";
+          document.getElementById('liveStatus').style.color = "#ef233c";
+          liveBadge.style.display = 'flex';
+
+          liveRoomName = "FounatekLive_" + "{{ user.username }}";
+
+          // Notif Serveur
+          fetch("{% url 'techfeed:update_live_status' %}", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value },
+              body: JSON.stringify({ status: 'start', room_name: liveRoomName })
+          });
+
+          // ✅ SERVEUR OUVERT
+          const domain = 'meet.guifi.net'; 
+          
+          const options = {
+              roomName: liveRoomName,
+              width: '100%', height: '100%',
+              parentNode: liveContainer,
+              
+              // ✅ CONFIGURATION POUR SAUTER L'ÉCRAN DE PRÉ-SÉANCE
+              configOverwrite: { 
+                  startWithAudioMuted: false, 
+                  startWithVideoMuted: false, 
+                  
+                  // Ancienne syntaxe
+                  prejoinPageEnabled: false,
+                  
+                  // Nouvelle syntaxe (Jitsi 2024+)
+                  prejoinConfig: {
+                      enabled: false 
+                  },
+                  
+                  disableDeepLinking: true,
+                  enableLobby: false
+              },
+              
+              interfaceConfigOverwrite: { 
+                  TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'participants-pane'],
+                  SHOW_JITSI_WATERMARK: false, MOBILE_APP_PROMO: false 
+              },
+              
+              userInfo: { displayName: "{{ user.username }} (Hôte)" }
+          };
+          jitsiApi = new JitsiMeetExternalAPI(domain, options);
+          
+          // Force l'entrée si nécessaire
+          jitsiApi.executeCommand('displayName', "{{ user.username }}");
+          
+          setTimeout(openShareModal, 1500);
+
+      } else {
+          // STOP
+          stopLive();
+      }
+  }
+
+  function stopLive() {
+      isLive = false;
+      if(jitsiApi) { jitsiApi.dispose(); jitsiApi = null; }
+
+      fetch("{% url 'techfeed:update_live_status' %}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value },
+          body: JSON.stringify({ status: 'stop' })
+      });
+
+      liveContainer.style.display = 'none';
+      document.getElementById('liveStatus').textContent = "OFFLINE";
+      document.getElementById('liveStatus').style.color = "#fff";
+      mainActionBtn.classList.remove('live-active');
+      
+      startCamera(); 
+  }
+
+  /* --- AUTRES --- */
+  function rotateCamera() {
+      if(isLive && jitsiApi) { alert("Utilisez le bouton caméra de l'interface Live."); } 
+      else { currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user'; startCamera(); }
+  }
+  async function toggleFlash() {
+      if (!track) return;
+      const cap = track.getCapabilities();
+      if (!cap.torch) { alert("Flash indisponible"); return; }
+      try {
+          let mode = document.getElementById('flashBtn').classList.contains('active');
+          await track.applyConstraints({ advanced: [{ torch: !mode }] });
+          document.getElementById('flashBtn').classList.toggle('active');
+      } catch (e) { console.log(e); }
+  }
+  async function startScreenShare() {
+      if(isLive) { alert("Utilisez le bouton écran de l'interface Live."); return; }
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      try { stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }); videoPreview.srcObject = stream; videoPreview.style.display = 'block'; videoPreview.classList.remove('selfie'); } catch (err) { startCamera(); }
+  }
+  function handleFileUpload(input) {
+      const file = input.files[0];
+      if (file) {
+          const url = URL.createObjectURL(file);
+          if(stream) stream.getTracks().forEach(t => t.stop());
+          videoPreview.srcObject = null; videoPreview.src = url;
+          videoPreview.classList.remove('selfie'); videoPreview.play();
+          setTimeout(() => preparePublish(file, file.name), 1000);
+      }
+  }
+  function preparePublish(blob, name) {
+      const dt = new DataTransfer(); dt.items.add(new File([blob], name, { type: blob.type || 'video/webm' }));
+      document.getElementById('finalVideoInput').files = dt.files;
+      document.getElementById('publishUI').style.display = 'flex';
+  }
+  function cancelPublish() { document.getElementById('publishUI').style.display = 'none'; startCamera(); }
+  function openSheet(id) { document.getElementById(id).classList.add('open'); }
+  function closeSheets() { document.querySelectorAll('.bottom-sheet, .share-modal').forEach(el => el.classList.remove('open')); }
+  function openShareModal() { document.getElementById('shareModal').classList.add('open'); }
+  function shareLink(platform) { 
+      const link = window.location.origin + "/techfeed/live/join/{{ user.username }}/";
+      if(platform === 'whatsapp') window.open(`https://wa.me/?text=Rejoins mon live : ${link}`, '_blank');
+      if(platform === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${link}`, '_blank');
+  }
+  function copyInviteLink() { navigator.clipboard.writeText("https://founatek.com/live/invite/123"); alert("Lien copié !"); closeSheets(); }
+  function applyFilter(cls) { videoPreview.className = ''; if(currentFacingMode === 'user') videoPreview.classList.add('selfie'); if(cls) videoPreview.classList.add(cls); document.getElementById('filterInput').value = cls; closeSheets(); }
+</script>
+
+{% endblock %}

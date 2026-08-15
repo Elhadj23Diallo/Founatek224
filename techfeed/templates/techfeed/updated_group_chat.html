@@ -1,0 +1,473 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+  /* --- LAYOUT --- */
+  html, body { height: 100%; height: 100dvh; margin: 0; padding: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Roboto', sans-serif; display: flex; justify-content: center; }
+
+  .chat-wrapper { display: flex; flex-direction: column; height: 100%; width: 100%; position: relative; background-color: #000; }
+
+  @media (min-width: 768px) {
+      .chat-wrapper { max-width: 600px; border-left: 1px solid #222; border-right: 1px solid #222; }
+  }
+
+  /* --- HEADER --- */
+  .chat-header { flex: 0 0 60px; display: flex; align-items: center; padding: 0 10px; background: rgba(15, 15, 15, 0.95); border-bottom: 1px solid #222; z-index: 50; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; overflow: hidden; }
+  .back-link { color: #00d2ff; font-size: 1.2rem; margin-right: 10px; text-decoration: none; padding: 5px; }
+
+  .group-avatar { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #00d2ff; display:flex; align-items:center; justify-content:center; background:#222; color:#00d2ff; overflow:hidden; flex-shrink: 0; }
+  .group-avatar img { width:100%; height:100%; object-fit:cover; }
+
+  .header-info { margin-left: 10px; overflow: hidden; }
+  .header-name { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;}
+  .group-members-count { font-size: 0.7rem; color: #666; }
+
+  .settings-btn { color: #fff; font-size: 1.2rem; cursor: pointer; padding: 10px; transition: 0.2s; flex-shrink: 0; }
+  .settings-btn:hover { color: #00d2ff; transform: rotate(90deg); }
+
+  /* --- MESSAGES --- */
+  .chat-area { flex: 1; overflow-y: scroll; -webkit-overflow-scrolling: touch; padding: 15px; display: flex; flex-direction: column; gap: 12px; background-image: radial-gradient(circle at center, #0a0a0a 0%, #000 100%); }
+  .chat-area::-webkit-scrollbar { width: 4px; }
+  .chat-area::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+  .msg-row { display: flex; width: 100%; flex-direction: column; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 0.95rem; line-height: 1.4; word-wrap: break-word; position: relative; }
+
+  .delete-msg-btn { position: absolute; top: -8px; left: -8px; width: 20px; height: 20px; border-radius: 50%; background: #ef233c; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; opacity: 0; transition: 0.2s; text-decoration: none; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10; }
+  .bubble:hover .delete-msg-btn { opacity: 1; }
+  @media (max-width: 768px) { .delete-msg-btn { opacity: 0.5; } }
+
+  .msg-row.other { align-items: flex-start; }
+  .msg-row.other .sender-name { font-size: 0.7rem; color: #888; margin-bottom: 4px; margin-left: 10px; }
+  .msg-row.other .bubble { background-color: #1a1a1a; color: #e0e0e0; border-bottom-left-radius: 4px; border: 1px solid #333; }
+
+  .msg-row.me { align-items: flex-end; }
+  .msg-row.me .bubble { background: linear-gradient(135deg, #00d2ff, #0077ff); color: #000; font-weight: 500; border-bottom-right-radius: 4px; }
+
+  /* --- MEDIA --- */
+  .image-container { position: relative; display: inline-block; margin-top: 5px; max-width: 100%; }
+  .chat-image { max-width: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+  .download-overlay { position: absolute; bottom: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; width: 25px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .file-link { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; text-decoration: none; color: inherit; margin-top: 5px; font-weight: bold; font-size: 0.85rem; border: 1px solid #333; }
+  .audio-player { width: 100%; min-width: 150px; margin-top: 5px; height: 40px; border-radius: 20px; }
+  audio { filter: invert(100%) grayscale(100%) contrast(1.5); opacity: 0.8; }
+
+  /* --- INPUT (Optimisé Mobile) --- */
+  .chat-input-container {
+      flex: 0 0 auto;
+      padding: 8px 10px;
+      background-color: #000;
+      border-top: 1px solid #222;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
+      position: relative;
+  }
+
+  .chat-form {
+      display: flex;
+      align-items: center;
+      background: #1a1a1a;
+      border-radius: 25px;
+      padding: 5px 5px; /* Padding réduit */
+      border: 1px solid #333;
+      width: 100%;
+      box-sizing: border-box;
+      gap: 2px;
+  }
+
+  .chat-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #fff;
+      padding: 8px 5px;
+      font-size: 16px;
+      outline: none;
+      min-width: 0; /* Important pour éviter le débordement */
+  }
+
+  .icon-btn {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 1.2rem;
+      padding: 8px;
+      cursor: pointer;
+      flex-shrink: 0; /* Ne pas rétrécir */
+      display: flex; align-items: center; justify-content: center;
+  }
+
+  .send-btn { color: #00d2ff; margin-right: 2px; }
+  #fileInput { display: none; }
+
+  /* --- PREVIEWS & RECORDING --- */
+  #filePreview { display: none; position: absolute; bottom: 70px; left: 20px; background: #1a1a1a; padding: 8px; border-radius: 12px; border: 1px solid #00d2ff; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 90; }
+  #previewImg { max-width: 80px; max-height: 80px; border-radius: 6px; display: block; }
+  #previewFileName { font-size: 0.7rem; color: #ccc; margin-top: 5px; display: none; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .remove-file-btn { position: absolute; top: -8px; right: -8px; background: red; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; cursor: pointer; font-weight: bold; }
+
+  #recordingUI { display: none; align-items: center; justify-content: space-between; position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 20; padding: 0 15px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .rec-indicator { color: #ef233c; font-weight: bold; font-family: 'Orbitron'; display: flex; align-items: center; gap: 10px; }
+  .pulsing-dot { width: 12px; height: 12px; background: #ef233c; border-radius: 50%; animation: pulse-red 1s infinite; }
+  @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+  .stop-btn { background: #333; color: white; border: 1px solid #444; padding: 5px 15px; border-radius: 20px; cursor: pointer; }
+
+  #emojiContainer { position: absolute; bottom: 70px; left: 5px; z-index: 90; display: none; }
+  .picmo-picker { border: 1px solid #333 !important; background: #111 !important; width: 300px !important; }
+
+  /* --- MODAL PARAMÈTRES --- */
+  .settings-modal { position: fixed; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 200; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: flex-end; }
+  .settings-content { background: #111; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 20px; border-top: 2px solid #00d2ff; max-height: 85vh; overflow-y: auto; animation: slideUp 0.3s ease-out; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  .group-edit-form label { color: #00d2ff; font-size: 0.8rem; margin-bottom: 5px; display: block; font-weight: bold; }
+  .group-edit-form input[type="text"], .group-edit-form textarea { width: 100%; background: #222; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; }
+
+  .current-members-list { margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; }
+  .member-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222; }
+  .member-details { display: flex; align-items: center; gap: 10px; }
+  .admin-badge { color: #ffd700; font-size: 0.8rem; margin-left: 5px; }
+  .admin-actions { display: flex; gap: 5px; }
+  .action-mini-btn { width: 30px; height: 30px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; text-decoration: none; }
+  .btn-promote { background: rgba(0, 255, 153, 0.2); color: #00ff99; }
+  .btn-demote { background: rgba(255, 215, 0, 0.2); color: #ffd700; }
+  .btn-kick { background: rgba(239, 35, 60, 0.2); color: #ef233c; }
+  .add-members-list { max-height: 150px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #333; border-radius: 8px; padding: 10px; }
+  .member-option { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #222; cursor: pointer; }
+  .member-option:hover { background: #222; }
+  .member-check { margin-left: auto; display: none; color: #00ff99; }
+  .member-option input:checked + .member-info + .member-check { display: block; }
+  .readonly-info { color: #ccc; font-style: italic; margin-bottom: 15px; border: 1px solid #333; padding: 10px; border-radius: 8px;}
+  .save-btn { width: 100%; padding: 12px; background: #00d2ff; border: none; border-radius: 25px; color: #000; font-weight: bold; cursor: pointer; }
+
+  /* Bouton Quitter */
+  .leave-group-btn { display: block; width: 100%; text-align: center; padding: 12px; margin-top: 20px; border: 1px solid #ef233c; border-radius: 25px; color: #ef233c; text-decoration: none; font-weight: bold; }
+  .leave-group-btn:hover { background: #ef233c; color: white; }
+
+  /* Lightbox */
+  #imageLightbox { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+  #lightboxImg { max-width: 95%; max-height: 90vh; object-fit: contain; border: 2px solid #00d2ff; }
+  .close-lightbox { position: absolute; top: 20px; right: 25px; color: #f1f1f1; font-size: 40px; cursor: pointer; }
+</style>
+
+<div class="chat-wrapper">
+
+  <div class="chat-header">
+    <div class="header-left">
+        <a href="{% url 'techfeed:messages' %}" class="back-link">
+          <i class="fas fa-arrow-left"></i>
+        </a>
+        <div class="group-avatar">
+            {% if group.avatar %}
+              <img src="{{ group.avatar.url }}">
+            {% else %}
+              <i class="fas fa-users"></i>
+            {% endif %}
+        </div>
+        <div class="header-info">
+            <div class="header-name">{{ group.name }}</div>
+            <div class="group-members-count">{{ group.members.count }} membres</div>
+        </div>
+    </div>
+
+    <!-- ✅ PARTIE DROITE (LIVE + SETTINGS) -->
+    <div style="display:flex; align-items:center; gap:12px;">
+
+      {% if live_session %}
+        <a href="{% url 'techfeed:group_live_room' live_session.room_name %}"
+           title="Rejoindre le live"
+           style="color:#00d2ff; font-size:1.2rem;">
+          <i class="fas fa-video"></i>
+        </a>
+      {% endif %}
+
+      <i class="fas fa-cog settings-btn" onclick="openSettings()"></i>
+    </div>
+  </div>
+
+
+  <div class="chat-area" id="chatScroll">
+    <div style="text-align:center; margin: 20px 0; color:#666; font-size:0.8rem;">
+        <div class="group-avatar" style="width:80px; height:80px; font-size:2rem; margin:0 auto 10px auto;">
+            {% if group.avatar %} <img src="{{ group.avatar.url }}"> {% else %} <i class="fas fa-users"></i> {% endif %}
+        </div>
+        <h3>{{ group.name }}</h3>
+        <p>{{ group.description|default:"Pas de description." }}</p>
+    </div>
+
+    <!-- 🔴 APPEL AUDIO DE GROUPE -->
+    <form method="post"
+          action="{% url 'techfeed:start_group_audio_call' group.id %}"
+          style="display:inline;">
+      {% csrf_token %}
+      <button type="submit"
+              title="Appel audio de groupe"
+              style="
+                background:none;
+                border:none;
+                color:#00ff99;
+                font-size:1.1rem;
+                padding:8px;
+                cursor:pointer;">
+        <i class="fas fa-phone"></i>
+      </button>
+    </form>
+
+    <!-- 🎥 APPEL VIDÉO DE GROUPE -->
+    <form method="post"
+          action="{% url 'techfeed:start_group_video_call' group.id %}"
+          style="display:inline;">
+      {% csrf_token %}
+      <button type="submit"
+              title="Appel vidéo de groupe"
+              style="
+                background:none;
+                border:none;
+                color:#00d2ff;
+                font-size:1.1rem;
+                padding:8px;
+                cursor:pointer;">
+        <i class="fas fa-video"></i>
+      </button>
+    </form>
+
+
+
+    {% for m in messages %}
+      {% if m.sender == user %}
+        <div class="msg-row me">
+          <div class="bubble">
+            <a href="{% url 'techfeed:delete_group_message' m.id %}" class="delete-msg-btn" onclick="return confirm('Supprimer ?');" title="Supprimer"><i class="fas fa-trash"></i></a>
+            {% if m.attachment %}
+                {% if m.attachment.url|lower|slice:"-4:" == ".jpg" or m.attachment.url|lower|slice:"-4:" == ".png" %}
+                    <div class="image-container">
+                        <img src="{{ m.attachment.url }}" class="chat-image" onclick="openLightbox('{{ m.attachment.url }}')">
+                        <a href="{{ m.attachment.url }}" download class="download-overlay" onclick="event.stopPropagation()"><i class="fas fa-download"></i></a>
+                    </div>
+                {% elif m.attachment.url|lower|slice:"-4:" == ".mp3" or m.attachment.url|lower|slice:"-5:" == ".webm" %}
+                    <audio controls src="{{ m.attachment.url }}" class="audio-player"></audio>
+                {% else %}
+                    <a href="{{ m.attachment.url }}" download class="file-link" style="color:#000; background:rgba(0,0,0,0.2);">
+                        <i class="fas fa-file-download"></i> Fichier
+                    </a>
+                {% endif %}
+            {% endif %}
+            {% if m.content %}<div style="margin-top:4px;">{{ m.content }}</div>{% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="msg-row other">
+          <span class="sender-name">@{{ m.sender.username }}</span>
+          <div class="bubble">
+            {% if m.attachment %}
+                {% if m.attachment.url|lower|slice:"-4:" == ".jpg" or m.attachment.url|lower|slice:"-4:" == ".png" %}
+                    <div class="image-container">
+                        <img src="{{ m.attachment.url }}" class="chat-image" onclick="openLightbox('{{ m.attachment.url }}')">
+                        <a href="{{ m.attachment.url }}" download class="download-overlay" onclick="event.stopPropagation()"><i class="fas fa-download"></i></a>
+                    </div>
+                {% elif m.attachment.url|lower|slice:"-4:" == ".mp3" or m.attachment.url|lower|slice:"-5:" == ".webm" %}
+                    <audio controls src="{{ m.attachment.url }}" class="audio-player"></audio>
+                {% else %}
+                    <a href="{{ m.attachment.url }}" download class="file-link">
+                        <i class="fas fa-file-download"></i> Fichier
+                    </a>
+                {% endif %}
+            {% endif %}
+            {% if m.content %}<div style="margin-top:4px;">{{ m.content }}</div>{% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="chat-input-container">
+    <div id="emojiContainer"></div>
+    <div id="filePreview">
+        <div class="remove-file-btn" onclick="clearFile()">×</div>
+        <img id="previewImg" src="">
+        <div id="previewFileName"></div>
+    </div>
+    <div id="recordingUI">
+        <div class="rec-indicator"><div class="pulsing-dot"></div><span id="recTimer">00:00</span></div>
+        <div style="font-size:0.9rem; color:#888;">Enregistrement...</div>
+        <button type="button" class="stop-btn" onclick="stopRecording()"><i class="fas fa-stop"></i> Envoyer</button>
+    </div>
+
+    <form action="{% url 'techfeed:send_group_message' group.id %}" method="post" class="chat-form" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label for="fileInput" class="icon-btn" style="margin:0;"><i class="fas fa-paperclip"></i></label>
+      <input type="file" name="attachment" id="fileInput" style="display:none;" onchange="handleFileSelect(this)">
+
+      <button type="button" class="icon-btn" id="micBtn" onclick="toggleRecording()" style="color:#ef233c;"><i class="fas fa-microphone"></i></button>
+
+      <button type="button" class="icon-btn" id="emojiBtn"><i class="far fa-smile"></i></button>
+
+      <input type="text" name="content" id="msgInput" class="chat-input" placeholder="Message..." autocomplete="off">
+
+      <button type="submit" class="icon-btn send-btn"><i class="fas fa-paper-plane"></i></button>
+    </form>
+  </div>
+
+  <div id="settingsModal" class="settings-modal">
+      <div class="settings-content">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+              <h3 style="margin:0; font-family:'Orbitron';">{% if is_admin %}Gestion Groupe{% else %}Infos Groupe{% endif %}</h3>
+              <i class="fas fa-times" onclick="closeSettings()" style="font-size:1.5rem; cursor:pointer;"></i>
+          </div>
+          <form action="{% url 'techfeed:update_group_settings' group.id %}" method="post" enctype="multipart/form-data" class="group-edit-form">
+              {% csrf_token %}
+              {% if is_admin %}
+                  <label>PHOTO DU GROUPE</label><input type="file" name="avatar" accept="image/*">
+                  <label>NOM</label><input type="text" name="group_name" value="{{ group.name }}">
+                  <label>BIO</label><textarea name="description" rows="3">{{ group.description }}</textarea>
+                  <label style="margin-top:15px;">AJOUTER MEMBRES</label>
+                  {% if potential_members %}
+                      <div class="add-members-list">
+                          {% for friend in potential_members %}
+                            <label class="member-option">
+                                <input type="checkbox" name="new_members" value="{{ friend.id }}" style="display:none;">
+                                <div class="member-info" style="display:flex; align-items:center; gap:10px;">
+                                    {% if friend.profile.avatar %} <img src="{{ friend.profile.avatar.url }}" style="width:30px; height:30px; border-radius:50%;"> {% else %} <div style="width:30px; height:30px; background:#333; border-radius:50%;"></div> {% endif %}
+                                    <span>@{{ friend.username }}</span>
+                                </div>
+                                <i class="fas fa-check-circle member-check"></i>
+                            </label>
+                          {% endfor %}
+                      </div>
+                      <button type="submit" class="save-btn">ENREGISTRER</button>
+                  {% else %}
+                      <p style="color:#666; font-size:0.8rem;">Aucun ami à ajouter.</p>
+                      <button type="submit" class="save-btn">METTRE À JOUR INFO</button>
+                  {% endif %}
+              {% else %}
+                  <div class="readonly-info">
+                      <strong style="color:#00d2ff;">{{ group.name }}</strong><br>
+                      {{ group.description|default:"Pas de description" }}
+                  </div>
+              {% endif %}
+          </form>
+
+          <label style="color:#00d2ff; margin-top:20px; display:block; font-weight:bold;">MEMBRES ({{ group.members.count }})</label>
+          <div class="current-members-list">
+            {% for member in group.members.all %}
+            <div class="member-item">
+                <div class="member-details">
+                    {% if member.profile.avatar %} <img src="{{ member.profile.avatar.url }}" style="width:35px; height:35px; border-radius:50%;"> {% else %} <div style="width:35px; height:35px; background:#333; border-radius:50%;"></div> {% endif %}
+                    <div>
+                        <span style="font-weight:bold; font-size:0.9rem;">@{{ member.username }}</span>
+                        {% if member in group.admins.all %} <i class="fas fa-crown admin-badge" title="Admin"></i> {% endif %}
+                    </div>
+                </div>
+                {% if is_admin and member != request.user %}
+                <div class="admin-actions">
+                    {% if member in group.admins.all %}
+                        <a href="{% url 'techfeed:manage_group_member' group.id 'demote' member.id %}" class="action-mini-btn btn-demote" title="Retirer Admin"><i class="fas fa-arrow-down"></i></a>
+                    {% else %}
+                        <a href="{% url 'techfeed:manage_group_member' group.id 'promote' member.id %}" class="action-mini-btn btn-promote" title="Nommer Admin"><i class="fas fa-arrow-up"></i></a>
+                    {% endif %}
+                    <a href="{% url 'techfeed:manage_group_member' group.id 'kick' member.id %}" class="action-mini-btn btn-kick" title="Exclure" onclick="return confirm('Exclure ?');"><i class="fas fa-times"></i></a>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <a href="{% url 'techfeed:leave_group' group.id %}" class="leave-group-btn" onclick="return confirm('Voulez-vous vraiment quitter ?');"><i class="fas fa-sign-out-alt"></i> QUITTER LE GROUPE</a>
+      </div>
+  </div>
+
+</div>
+
+<div id="imageLightbox"><span class="close-lightbox" onclick="closeLightbox()">&times;</span><img id="lightboxImg" src=""></div>
+
+<script src="https://unpkg.com/picmo@latest/dist/umd/index.js"></script>
+<script>
+  function scrollToBottom() { var container = document.getElementById("chatScroll"); container.scrollTop = container.scrollHeight; }
+  window.onload = scrollToBottom;
+
+  function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; }
+  function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+
+  const lightbox = document.getElementById('imageLightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  function openLightbox(src) { lightbox.style.display = "flex"; lightboxImg.src = src; }
+  function closeLightbox() { lightbox.style.display = "none"; }
+  lightbox.addEventListener('click', e => { if(e.target!==lightboxImg) closeLightbox() });
+
+  function handleFileSelect(input) {
+      const file = input.files[0];
+      if(file) {
+          const previewBox = document.getElementById('filePreview');
+          const previewImg = document.getElementById('previewImg');
+          const previewFileName = document.getElementById('previewFileName');
+          if (file.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onload = function(e) { previewImg.src = e.target.result; previewImg.style.display = 'block'; previewFileName.style.display = 'none'; }
+              reader.readAsDataURL(file);
+          } else if (file.type.startsWith('audio/')) {
+              previewImg.style.display = 'none'; previewFileName.innerHTML = '<i class="fas fa-microphone"></i> Vocal prêt'; previewFileName.style.display = 'block';
+          } else {
+              previewImg.style.display = 'none'; previewFileName.textContent = "📄 " + file.name; previewFileName.style.display = 'block';
+          }
+          previewBox.style.display = 'block';
+      }
+  }
+  function clearFile() { document.getElementById('fileInput').value = ""; document.getElementById('filePreview').style.display = 'none'; }
+
+  let mediaRecorder; let audioChunks = []; let isRecording = false; let timerInterval;
+  const fileInput = document.getElementById('fileInput');
+  async function toggleRecording() {
+      if (!isRecording) {
+          try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              mediaRecorder = new MediaRecorder(stream);
+              audioChunks = []; mediaRecorder.start(); isRecording = true;
+              document.getElementById('recordingUI').style.display = 'flex';
+              let startTime = Date.now();
+              timerInterval = setInterval(() => {
+                  const diff = Math.floor((Date.now() - startTime) / 1000);
+                  const m = Math.floor(diff / 60).toString().padStart(2, '0');
+                  const s = (diff % 60).toString().padStart(2, '0');
+                  document.getElementById('recTimer').textContent = `${m}:${s}`;
+              }, 1000);
+              mediaRecorder.addEventListener("dataavailable", event => { audioChunks.push(event.data); });
+              mediaRecorder.addEventListener("stop", () => {
+                  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                  const audioFile = new File([audioBlob], "vocal_message.webm", { type: 'audio/webm' });
+                  const dataTransfer = new DataTransfer(); dataTransfer.items.add(audioFile);
+                  fileInput.files = dataTransfer.files;
+                  handleFileSelect(fileInput);
+                  stream.getTracks().forEach(track => track.stop());
+              });
+          } catch (err) { alert("Micro non accessible."); }
+      }
+  }
+  function stopRecording() {
+      if (isRecording && mediaRecorder) {
+          mediaRecorder.stop(); isRecording = false; clearInterval(timerInterval); document.getElementById('recordingUI').style.display = 'none';
+      }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+      const container = document.querySelector('#emojiContainer');
+      const input = document.querySelector('#msgInput');
+      const picker = picmo.createPicker({ rootElement: container, theme: 'dark', showPreview: false, visibleRows: 4 });
+      document.querySelector('#emojiBtn').addEventListener('click', () => {
+          container.style.display = (container.style.display === 'none' || container.style.display === '') ? 'block' : 'none';
+      });
+      picker.addEventListener('emoji:select', (selection) => { input.value += selection.emoji; input.focus(); });
+      document.querySelector('.chat-area').addEventListener('click', () => { container.style.display = 'none'; });
+  });
+
+  var input = document.querySelector('.chat-input');
+  input.addEventListener('focus', function() {
+      document.querySelector('#emojiContainer').style.display = 'none';
+      setTimeout(scrollToBottom, 300);
+  });
+  window.addEventListener('resize', scrollToBottom);
+</script>
+
+{% endblock %}

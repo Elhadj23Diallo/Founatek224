@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oscilloscope — Founatek</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#060e1a;font-family:'JetBrains Mono',monospace;color:#8ab4cc;min-height:100vh;padding:clamp(12px,4vw,24px);}
+
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0;
+}
+
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:clamp(20px,4vw,32px);
+  padding-bottom:clamp(12px,3vw,16px);
+  border-bottom:1px solid #0e2a4a;
+  position:relative;z-index:1;
+  flex-wrap:wrap;gap:12px;
+}
+
+.logo{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(1rem,4vw,1.4rem);
+  font-weight:900;color:#00d4ff;
+  letter-spacing:2px;
+  text-shadow:0 0 20px rgba(0,212,255,.4);
+}
+.logo span{color:#00ff88;}
+
+.new-btn{
+  padding:clamp(8px,2vw,10px) clamp(14px,3vw,22px);
+  background:rgba(0,255,136,.1);border:1px solid #00ff88;
+  color:#00ff88;font-family:'JetBrains Mono',monospace;
+  font-size:clamp(.65rem,2.5vw,.75rem);letter-spacing:1px;
+  cursor:pointer;border-radius:5px;text-decoration:none;
+  transition:.2s;white-space:nowrap;
+}
+.new-btn:hover{background:rgba(0,255,136,.2);box-shadow:0 0 15px rgba(0,255,136,.2);}
+
+/* Grid responsive */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));
+  gap:clamp(10px,3vw,16px);
+  position:relative;z-index:1;
+}
+
+.card{
+  background:#0a1628;border:1px solid #0e2a4a;
+  border-radius:8px;padding:clamp(14px,3vw,18px);
+  transition:.2s;text-decoration:none;display:block;
+  position:relative;overflow:hidden;
+}
+.card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:#00d4ff;}
+.card:hover{border-color:#00d4ff;box-shadow:0 0 20px rgba(0,212,255,.1);}
+/* Touch feedback */
+.card:active{transform:scale(.99);border-color:#00d4ff;}
+
+.card-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(.75rem,2.5vw,.85rem);
+  color:#d0e8f8;margin-bottom:8px;
+  padding-right:28px; /* space for del btn */
+}
+.card-meta{font-size:clamp(.58rem,2vw,.65rem);color:#3d6080;margin-bottom:12px;}
+.card-badges{display:flex;gap:6px;flex-wrap:wrap;}
+.badge{font-size:clamp(.52rem,1.8vw,.58rem);padding:2px 8px;border-radius:20px;letter-spacing:1px;}
+.badge-wifi{background:rgba(0,212,255,.1);color:#00d4ff;border:1px solid rgba(0,212,255,.3);}
+.badge-sim{background:rgba(255,204,0,.1);color:#ffcc00;border:1px solid rgba(255,204,0,.3);}
+.badge-serial{background:rgba(255,136,0,.1);color:#ff8800;border:1px solid rgba(255,136,0,.3);}
+
+.del-btn{
+  position:absolute;top:10px;right:10px;
+  background:none;border:1px solid #0e2a4a;
+  color:#3d6080;padding:4px 8px;
+  border-radius:3px;cursor:pointer;
+  font-size:clamp(.55rem,2vw,.6rem);
+  transition:.2s;
+  min-width:32px;min-height:28px; /* touch target */
+}
+.del-btn:hover{border-color:#ff4455;color:#ff4455;}
+
+/* Empty state */
+.empty{
+  text-align:center;padding:clamp(40px,10vw,60px) 20px;
+  color:#1e3a5f;position:relative;z-index:1;
+}
+.empty h2{font-family:'Orbitron',sans-serif;color:#2d5a7a;margin-bottom:12px;font-size:clamp(.8rem,3vw,1rem);}
+.empty p{margin-bottom:20px;font-size:clamp(.7rem,2.5vw,.8rem);}
+
+/* Mobile: single column hint */
+@media(max-width:400px){
+  .header{justify-content:center;text-align:center;}
+  .new-btn{width:100%;text-align:center;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">FOUNATEK<span>.</span>OSC</div>
+  <a href="{% url 'oscilloscope:create' %}" class="new-btn">+ Nouvelle Session</a>
+</div>
+
+{% if sessions %}
+<div class="grid">
+{% for s in sessions %}
+<a href="{% url 'oscilloscope:view' s.id %}" class="card">
+  <button class="del-btn" onclick="event.preventDefault();if(confirm('Supprimer ?'))window.location='{% url 'oscilloscope:delete' s.id %}'">✕</button>
+  <div class="card-title">{{ s.name }}</div>
+  <div class="card-meta">{{ s.created_at|date:"d/m/Y H:i" }} — {{ s.channels.count }} canal(aux)</div>
+  <div class="card-badges">
+    <span class="badge {% if s.source == 'wifi' %}badge-wifi{% elif s.source == 'serial' %}badge-serial{% else %}badge-sim{% endif %}">
+      {{ s.get_source_display }}
+    </span>
+    {% if s.snapshots.count %}
+    <span class="badge" style="background:rgba(0,255,136,.1);color:#00ff88;border:1px solid rgba(0,255,136,.2);">
+      {{ s.snapshots.count }} snapshots
+    </span>
+    {% endif %}
+  </div>
+</a>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="empty">
+  <h2>Aucune session</h2>
+  <p>Crée ta première session d'oscilloscope pour commencer.</p>
+  <a href="{% url 'oscilloscope:create' %}" class="new-btn">+ Créer une session</a>
+</div>
+{% endif %}
+
+</body>
+</html>

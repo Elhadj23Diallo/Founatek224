@@ -1,0 +1,45 @@
+{% extends "espcontrol/base.html" %}
+{% block content %}
+
+<div style="padding: 60px 20px; text-align:center; min-height: 80vh; color: #f1f5f9; display: flex; align-items: center; justify-content: center;">
+
+    <div style="
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        border-radius: 20px;
+        padding: 40px 30px;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+        text-align: center;
+    ">
+
+        <h1 style="color: #22d3ee; margin-bottom: 15px; font-size: 2.2rem;">
+            🎉 Paiement réussi !
+        </h1>
+
+        <p style="font-size: 1.1rem; color: #cbd5e1; margin-bottom: 30px;">
+            Votre transaction a été validée avec succès. Merci pour votre confiance !
+        </p>
+
+        <a href="{% url 'monetisation:monetisation_dashboard' %}"
+           style="
+                display:inline-block;
+                padding: 14px 28px;
+                background: #22d3ee;
+                color: #0f172a;
+                font-weight: 600;
+                border-radius: 12px;
+                text-decoration: none;
+                transition: all 0.3s ease;
+           "
+           onmouseover="this.style.background='#0ea5e9'; this.style.color='#fff';"
+           onmouseout="this.style.background='#22d3ee'; this.style.color='#0f172a';">
+            Retour au tableau de bord
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

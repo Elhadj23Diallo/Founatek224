@@ -1,0 +1,180 @@
+{% extends "product_transparency/base.html" %}
+{% load static %}
+
+{% block title %}Édition Produit{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+    /* --- VARIABLES & GLOBALS --- */
+    :root {
+        --neon-blue: #00d2ff;
+        --neon-green: #00ff99;
+        --bg-dark: #050a1f;
+        --card-bg: rgba(13, 18, 41, 0.8);
+        --input-bg: rgba(5, 10, 31, 0.8);
+        --text-primary: #e0e6ff;
+        --text-secondary: #aab2cd;
+    }
+
+    /* Conteneur principal centré */
+    .form-wrapper {
+        max-width: 600px; /* Largeur maximale pour grands écrans */
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+
+    /* --- TITRE PRINCIPAL --- */
+    h2.cyber-title {
+        font-family: 'Orbitron', sans-serif;
+        text-transform: uppercase;
+        color: var(--neon-blue);
+        font-size: 2rem;
+        margin-bottom: 30px;
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.6);
+        letter-spacing: 1px;
+        text-align: center;
+    }
+
+    /* --- CARTE DU FORMULAIRE --- */
+    .cyber-form-card {
+        background: var(--card-bg);
+        border: 1px solid rgba(0, 210, 255, 0.3);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+    }
+
+    /* --- STYLISATION DES CHAMPS DJANGO (form.as_p) --- */
+
+    /* Les paragraphes conteneurs */
+    .django-form-fields p {
+        margin-bottom: 20px;
+    }
+
+    /* Les Labels */
+    .django-form-fields label {
+        display: block; /* Force le label au-dessus de l'input sur mobile */
+        font-family: 'Orbitron', sans-serif;
+        color: var(--neon-blue);
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+    }
+
+    /* Les Inputs (Texte, Nombre, Select, Textarea, Date, etc.) */
+    .django-form-fields input[type="text"],
+    .django-form-fields input[type="number"],
+    .django-form-fields input[type="email"],
+    .django-form-fields input[type="date"],
+    .django-form-fields input[type="datetime-local"],
+    .django-form-fields select,
+    .django-form-fields textarea {
+        width: 100%; /* Pleine largeur */
+        box-sizing: border-box; /* Important pour que le padding ne dépasse pas */
+        padding: 12px 15px;
+        background: var(--input-bg);
+        border: 1px solid rgba(0, 210, 255, 0.3);
+        border-radius: 10px;
+        color: var(--text-primary);
+        font-family: 'Roboto', sans-serif;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        outline: none;
+    }
+
+    /* Effet au focus sur les inputs */
+    .django-form-fields input:focus,
+    .django-form-fields select:focus,
+    .django-form-fields textarea:focus {
+        border-color: var(--neon-blue);
+        box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+    }
+
+    /* Textes d'aide Django */
+    .helptext {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-top: 5px;
+        font-style: italic;
+    }
+
+    /* Gestion des erreurs Django */
+    .errorlist {
+        color: var(--neon-red);
+        list-style: none;
+        padding: 0;
+        margin: 5px 0 15px 0;
+        font-size: 0.9rem;
+    }
+
+    /* --- BOUTON DE SOUMISSION --- */
+    .btn-submit-container {
+        margin-top: 30px;
+        text-align: center;
+    }
+
+    .btn-cyber-submit {
+        background: linear-gradient(45deg, var(--neon-blue), var(--neon-green));
+        border: none;
+        padding: 15px 40px;
+        border-radius: 50px;
+        color: #050a1f;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.1rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 20px rgba(0, 255, 153, 0.3);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-cyber-submit:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px rgba(0, 255, 153, 0.6);
+    }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 768px) {
+        .form-wrapper {
+            margin: 20px auto;
+        }
+        .cyber-form-card {
+            padding: 20px;
+        }
+        .btn-cyber-submit {
+            width: 100%; /* Bouton pleine largeur sur mobile */
+            justify-content: center;
+        }
+    }
+</style>
+
+<div class="form-wrapper">
+    <h2 class="cyber-title">
+        <i class="fas fa-cube me-2"></i> Produit
+    </h2>
+
+    <form method="post" class="cyber-form-card" enctype="multipart/form-data" class="cyber-form-card">
+        {% csrf_token %}
+
+        <div class="django-form-fields">
+            {{ form.as_p }}
+        </div>
+
+        <div class="btn-submit-container">
+            <button type="submit" class="btn-cyber-submit">
+                <i class="fas fa-save"></i> Enregistrer
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

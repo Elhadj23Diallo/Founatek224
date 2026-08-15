@@ -1,0 +1,67 @@
+{% extends "iot/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard Organisation{% endblock %}
+
+{% block content %}
+<style>
+.dashboard {
+    max-width: 1100px;
+    margin: 50px auto;
+    color: #e0e6ff;
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+.card {
+    background: #0d1229;
+    border-radius: 18px;
+    padding: 25px;
+    box-shadow: 0 0 25px rgba(0,210,255,0.15);
+    border: 1px solid rgba(0,210,255,0.2);
+    text-align: center;
+}
+.card h2 {
+    font-size: 2rem;
+    color: {{ organisation.couleur_principale|default:"#00d2ff" }};
+}
+.card p {
+    margin-top: 10px;
+    font-size: 1rem;
+    opacity: 0.85;
+}
+.org-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.org-logo {
+    max-height: 90px;
+    margin-bottom: 15px;
+}
+</style>
+
+<div class="dashboard">
+
+    <div class="org-header">
+        {% if organisation.logo %}
+            <img src="{{ organisation.logo.url }}" class="org-logo">
+        {% endif %}
+        <h1>{{ organisation.nom }}</h1>
+        <p>Dashboard organisation</p>
+    </div>
+
+    <div class="grid">
+        <div class="card"><h2>{{ nb_formateurs }}</h2><p>Formateurs</p></div>
+        <div class="card"><h2>{{ nb_etudiants }}</h2><p>Étudiants</p></div>
+        <div class="card"><h2>{{ nb_parcours }}</h2><p>Parcours</p></div>
+        <div class="card"><h2>{{ nb_lecons }}</h2><p>Leçons</p></div>
+        <div class="card"><h2>{{ nb_blocs }}</h2><p>Blocs pédagogiques</p></div>
+        <div class="card"><h2>{{ nb_quiz }}</h2><p>Quiz</p></div>
+        <div class="card"><h2>{{ nb_certificats }}</h2><p>Certificats délivrés</p></div>
+        <div class="card"><h2>{{ nb_progressions }}</h2><p>Progressions</p></div>
+    </div>
+
+</div>
+{% endblock %}

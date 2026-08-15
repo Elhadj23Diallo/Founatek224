@@ -1,0 +1,948 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Oscilloscope — {{ session.name }} — Founatek</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@400;700;900&display=swap');
+:root{
+  --bg:#060e1a;--surface:#0a1628;--panel:#0d1e35;--border:#0e2a4a;
+  --cyan:#00d4ff;--green:#00ff88;--yellow:#ffcc00;--red:#ff4455;
+  --orange:#ff8800;--purple:#cc88ff;--text:#8ab4cc;--bright:#d0e8f8;
+  --dim:#122240;--grid:#0a2040;
+  --topbar-h:48px;
+  --bottomnav-h:52px; /* mobile only */
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);font-family:'JetBrains Mono',monospace;color:var(--text);height:100dvh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ═══════════════════════════════
+   TOP BAR
+═══════════════════════════════ */
+.topbar{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:0 10px;height:var(--topbar-h);
+  display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:20;
+}
+.logo{font-family:'Orbitron',sans-serif;font-size:clamp(.7rem,.9rem,1rem);font-weight:900;color:var(--cyan);letter-spacing:2px;text-shadow:0 0 15px rgba(0,212,255,.5);white-space:nowrap;}
+.logo span{color:var(--green);}
+.session-name{font-size:.7rem;color:var(--bright);border:1px solid var(--border);background:var(--dim);padding:4px 8px;border-radius:4px;outline:none;min-width:0;flex:1;max-width:160px;}
+.run-btn{padding:5px 12px;border:none;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:700;letter-spacing:1px;cursor:pointer;transition:.2s;text-transform:uppercase;white-space:nowrap;flex-shrink:0;}
+.run-btn.running{background:rgba(255,68,85,.15);color:var(--red);border:1px solid var(--red);}
+.run-btn.stopped{background:rgba(0,255,136,.15);color:var(--green);border:1px solid var(--green);}
+.top-badge{font-size:.6rem;padding:2px 7px;border-radius:20px;letter-spacing:1px;white-space:nowrap;flex-shrink:0;}
+.badge-wifi{background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.3);}
+.badge-sim{background:rgba(255,204,0,.1);color:var(--yellow);border:1px solid rgba(255,204,0,.3);}
+.badge-serial{background:rgba(255,136,0,.1);color:var(--orange);border:1px solid rgba(255,136,0,.3);}
+.spacer{flex:1;}
+.icon-btn{background:none;border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.65rem;font-family:'JetBrains Mono',monospace;transition:.2s;white-space:nowrap;flex-shrink:0;}
+.icon-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+/* Hide some buttons on small screens */
+.hide-sm{display:flex;}
+@media(max-width:600px){.hide-sm{display:none;}}
+
+/* Hamburger for mobile */
+.menu-btn{display:none;background:none;border:1px solid var(--border);color:var(--text);padding:6px 9px;border-radius:4px;cursor:pointer;font-size:.9rem;flex-shrink:0;}
+@media(max-width:600px){.menu-btn{display:flex;align-items:center;}}
+
+/* ═══════════════════════════════
+   MAIN LAYOUT — Desktop 3 cols
+═══════════════════════════════ */
+.main{display:grid;grid-template-columns:220px 1fr 200px;grid-template-rows:1fr auto;gap:0;flex:1;overflow:hidden;min-height:0;}
+
+/* ═══════════════════════════════
+   LEFT PANEL
+═══════════════════════════════ */
+.left-panel{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.left-panel::-webkit-scrollbar{width:3px;}
+.left-panel::-webkit-scrollbar-thumb{background:var(--dim);}
+.panel-section{border-bottom:1px solid var(--border);padding:10px 12px;}
+.section-title{font-size:.6rem;color:#2d5a7a;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.ch-header{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.ch-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.ch-label{font-size:.75rem;font-weight:700;color:var(--bright);}
+.ch-toggle{margin-left:auto;cursor:pointer;font-size:.65rem;padding:3px 8px;border-radius:10px;border:1px solid;transition:.2s;min-width:36px;text-align:center;}
+.ch-toggle.on{color:var(--green);border-color:var(--green);background:rgba(0,255,136,.1);}
+.ch-toggle.off{color:#ff445566;border-color:#ff445533;background:transparent;}
+.knob-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.knob-label{font-size:.62rem;color:#3d6080;}
+.knob-val{font-size:.72rem;color:var(--bright);}
+.knob-controls{display:flex;gap:2px;}
+.knob-btn{background:var(--dim);border:1px solid var(--border);color:var(--text);width:22px;height:22px;border-radius:3px;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center;transition:.15s;}
+.knob-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.gen-select{width:100%;background:var(--dim);border:1px solid var(--border);color:var(--bright);padding:4px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.7rem;margin-bottom:6px;-webkit-appearance:none;appearance:none;}
+.gen-row{display:flex;align-items:center;gap:4px;margin-bottom:5px;}
+.gen-label{font-size:.6rem;color:#3d6080;min-width:55px;}
+.gen-input{flex:1;background:var(--dim);border:1px solid var(--border);color:var(--bright);padding:3px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:.7rem;outline:none;}
+.gen-input:focus{border-color:var(--cyan);}
+.gen-unit{font-size:.6rem;color:#3d6080;min-width:25px;}
+
+/* ═══════════════════════════════
+   SCOPE CANVAS AREA
+═══════════════════════════════ */
+.scope-area{display:flex;flex-direction:column;background:var(--bg);position:relative;min-width:0;}
+.scope-wrapper{flex:1;position:relative;overflow:hidden;border:1px solid var(--border);margin:8px;border-radius:4px;}
+canvas#scope{position:absolute;top:0;left:0;width:100%;height:100%;}
+.scope-info{position:absolute;top:8px;left:10px;font-size:.65rem;pointer-events:none;}
+.scope-info-item{color:rgba(0,212,255,.5);margin-bottom:2px;}
+.trigger-line{position:absolute;left:0;right:0;height:1px;background:rgba(255,204,0,.4);pointer-events:none;border-top:1px dashed rgba(255,204,0,.3);}
+.cursor-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,204,0,.6);pointer-events:none;}
+.cursor-label{position:absolute;top:4px;background:rgba(255,204,0,.15);border:1px solid rgba(255,204,0,.4);padding:2px 5px;font-size:.6rem;color:var(--yellow);white-space:nowrap;pointer-events:none;}
+
+/* ═══════════════════════════════
+   BOTTOM TABS
+═══════════════════════════════ */
+.bottom-tabs{height:clamp(120px,22vh,160px);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.tab-bar{display:flex;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto;}
+.tab-bar::-webkit-scrollbar{height:2px;}
+.tab{padding:6px 12px;font-size:.6rem;cursor:pointer;letter-spacing:1px;color:#3d6080;border-bottom:2px solid transparent;transition:.2s;white-space:nowrap;}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+.tab-content{flex:1;overflow:hidden;}
+.tab-pane{display:none;height:100%;padding:8px 12px;overflow-y:auto;}
+.tab-pane.active{display:flex;gap:16px;}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;width:100%;}
+.metric-card{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:5px 8px;text-align:center;}
+.metric-label{font-size:.55rem;color:#2d5a7a;letter-spacing:1px;margin-bottom:2px;}
+.metric-value{font-size:clamp(.75rem,.9rem,1rem);font-family:'Orbitron',monospace;font-weight:700;color:var(--bright);}
+.metric-value.ch1{color:#00ff88;}
+.metric-value.ch2{color:#00d4ff;}
+.metric-unit{font-size:.55rem;color:#3d6080;}
+canvas#fft{width:100%;height:100%;display:block;}
+
+/* ═══════════════════════════════
+   RIGHT PANEL
+═══════════════════════════════ */
+.right-panel{background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;font-size:.68rem;}
+.right-panel::-webkit-scrollbar{width:3px;}
+.right-panel::-webkit-scrollbar-thumb{background:var(--dim);}
+.meas-block{padding:8px 10px;border-bottom:1px solid var(--border);}
+.meas-title{font-size:.58rem;color:#2d5a7a;letter-spacing:2px;margin-bottom:6px;text-transform:uppercase;}
+.meas-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #071530;}
+.meas-key{color:#3d6080;font-size:.62rem;}
+.meas-val{font-size:.68rem;font-weight:700;}
+.meas-val.green{color:var(--green);}
+.meas-val.cyan{color:var(--cyan);}
+.meas-val.yellow{color:var(--yellow);}
+
+/* ═══════════════════════════════
+   STATUS BAR
+═══════════════════════════════ */
+.statusbar{grid-column:1/-1;height:22px;background:#040c18;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 12px;font-size:.58rem;color:#1e3a5f;overflow:hidden;}
+.status-item{display:flex;gap:5px;white-space:nowrap;}
+.status-val{color:#2d5a7a;}
+
+/* ═══════════════════════════════
+   MODALS
+═══════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:clamp(16px,4vw,24px);width:100%;max-width:420px;max-height:90dvh;overflow-y:auto;}
+.modal h3{font-family:'Orbitron',sans-serif;color:var(--cyan);font-size:.85rem;margin-bottom:16px;letter-spacing:1px;}
+.modal-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.modal-label{font-size:.65rem;color:var(--text);min-width:110px;}
+.modal-input{flex:1;min-width:120px;background:var(--dim);border:1px solid var(--border);color:var(--bright);padding:6px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.7rem;outline:none;}
+.modal-input:focus{border-color:var(--cyan);}
+.modal-select{flex:1;min-width:120px;background:var(--dim);border:1px solid var(--border);color:var(--bright);padding:6px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.7rem;-webkit-appearance:none;appearance:none;}
+.modal-btns{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap;}
+.btn-primary{padding:8px 18px;background:rgba(0,212,255,.1);border:1px solid var(--cyan);color:var(--cyan);border-radius:4px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:1px;transition:.2s;}
+.btn-primary:hover{background:rgba(0,212,255,.2);}
+.btn-cancel{padding:8px 18px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:.7rem;}
+
+/* ═══════════════════════════════
+   TOASTS
+═══════════════════════════════ */
+.alert-toast{position:fixed;bottom:clamp(60px,12vw,30px);right:16px;z-index:300;display:flex;flex-direction:column;gap:6px;}
+.toast{padding:8px 14px;border-radius:5px;font-size:.7rem;animation:toastIn .3s ease;max-width:min(280px,90vw);}
+.toast.success{background:rgba(0,255,136,.1);border:1px solid var(--green);color:var(--green);}
+.toast.error{background:rgba(255,68,85,.1);border:1px solid var(--red);color:var(--red);}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+
+/* ═══════════════════════════════
+   SCROLLBARS
+═══════════════════════════════ */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
+
+/* ═══════════════════════════════
+   MOBILE LAYOUT (≤ 768px)
+   - Left/Right panels become drawers
+   - Bottom nav for switching
+═══════════════════════════════ */
+@media(max-width:768px){
+  .main{
+    grid-template-columns:1fr;
+    grid-template-rows:1fr auto auto;
+  }
+
+  /* Left panel → slide-in drawer from left */
+  .left-panel{
+    position:fixed;top:var(--topbar-h);left:0;bottom:0;
+    width:min(280px,85vw);z-index:100;
+    transform:translateX(-100%);
+    transition:transform .25s ease;
+    border-right:1px solid var(--border);
+    box-shadow:4px 0 20px rgba(0,0,0,.5);
+  }
+  .left-panel.open{transform:translateX(0);}
+
+  /* Right panel → slide-in drawer from right */
+  .right-panel{
+    position:fixed;top:var(--topbar-h);right:0;bottom:0;
+    width:min(220px,85vw);z-index:100;
+    transform:translateX(100%);
+    transition:transform .25s ease;
+    border-left:1px solid var(--border);
+    box-shadow:-4px 0 20px rgba(0,0,0,.5);
+  }
+  .right-panel.open{transform:translateX(0);}
+
+  /* Scope takes full width */
+  .scope-area{grid-column:1;grid-row:1;}
+
+  /* Status bar hidden on mobile (too small) */
+  .statusbar{display:none;}
+
+  /* Bottom tabs smaller */
+  .bottom-tabs{height:clamp(100px,28vw,130px);}
+
+  /* Bottom navigation bar for mobile */
+  .mobile-nav{
+    display:flex;
+    position:fixed;bottom:0;left:0;right:0;
+    height:var(--bottomnav-h);z-index:50;
+    background:var(--panel);border-top:1px solid var(--border);
+  }
+  .mobile-nav-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;cursor:pointer;border:none;background:none;
+    color:#3d6080;font-family:'JetBrains Mono',monospace;font-size:.52rem;
+    letter-spacing:.5px;transition:.2s;padding:4px;
+  }
+  .mobile-nav-btn .nav-icon{font-size:1.1rem;}
+  .mobile-nav-btn.active{color:var(--cyan);}
+
+  /* Overlay for drawers */
+  .drawer-overlay{
+    display:none;position:fixed;inset:0;z-index:90;
+    background:rgba(0,0,0,.5);
+  }
+  .drawer-overlay.open{display:block;}
+
+  /* Toast above bottom nav */
+  .alert-toast{bottom:calc(var(--bottomnav-h) + 10px);}
+
+  /* Scope margin adjustment */
+  .scope-wrapper{margin-bottom:calc(var(--bottomnav-h) + 8px);}
+}
+
+/* Desktop: hide mobile elements */
+@media(min-width:769px){
+  .mobile-nav{display:none;}
+  .drawer-overlay{display:none !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <button class="menu-btn" onclick="toggleDrawer('left')" title="Réglages">☰</button>
+  <div class="logo">FNT<span>.</span>OSC</div>
+  <input class="session-name" id="sessionName" value="{{ session.name }}" onblur="updateSessionName()">
+  <span class="top-badge {% if session.source == 'wifi' %}badge-wifi{% elif session.source == 'serial' %}badge-serial{% else %}badge-sim{% endif %}">
+    {{ session.get_source_display }}
+  </span>
+  <button class="run-btn running" id="runBtn" onclick="toggleRun()">⏹ STOP</button>
+  <div class="spacer"></div>
+  <button class="icon-btn hide-sm" onclick="openSnapshotModal()">📸</button>
+  <button class="icon-btn hide-sm" onclick="openAnalysisModal()">🔬</button>
+  <button class="icon-btn hide-sm" onclick="exportCSV()">⬇</button>
+  <button class="icon-btn" onclick="window.location='{% url 'oscilloscope:home' %}'" title="Accueil">⬅</button>
+  <button class="menu-btn" onclick="toggleDrawer('right')" title="Mesures">📊</button>
+</div>
+
+<!-- DRAWER OVERLAY -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeAllDrawers()"></div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT PANEL (controls) -->
+  <div class="left-panel" id="leftPanel">
+
+    <!-- CH1 -->
+    <div class="panel-section">
+      <div class="ch-header">
+        <div class="ch-dot" style="background:#00ff88;box-shadow:0 0 6px #00ff88;"></div>
+        <span class="ch-label">CH1</span>
+        <button class="ch-toggle on" id="ch1Toggle" onclick="toggleChannel(1)">ON</button>
+      </div>
+      <div class="knob-row">
+        <span class="knob-label">Volt/div</span>
+        <span class="knob-val" id="voltDiv1">1.0 V</span>
+        <div class="knob-controls">
+          <button class="knob-btn" onclick="changeVoltDiv(1,-1)">−</button>
+          <button class="knob-btn" onclick="changeVoltDiv(1,1)">+</button>
+        </div>
+      </div>
+      <div class="knob-row">
+        <span class="knob-label">Offset</span>
+        <span class="knob-val" id="offset1">0.0 V</span>
+        <div class="knob-controls">
+          <button class="knob-btn" onclick="changeOffset(1,-0.5)">−</button>
+          <button class="knob-btn" onclick="changeOffset(1,0.5)">+</button>
+        </div>
+      </div>
+      <div class="knob-row">
+        <span class="knob-label">Couplage</span>
+        <select class="gen-select" onchange="changeCoupling(1,this.value)" style="margin:0;width:auto;flex:1;">
+          <option value="DC">DC</option>
+          <option value="AC">AC</option>
+          <option value="GND">GND</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- CH2 -->
+    <div class="panel-section">
+      <div class="ch-header">
+        <div class="ch-dot" style="background:#00d4ff;box-shadow:0 0 6px #00d4ff;"></div>
+        <span class="ch-label">CH2</span>
+        <button class="ch-toggle off" id="ch2Toggle" onclick="toggleChannel(2)">OFF</button>
+      </div>
+      <div class="knob-row">
+        <span class="knob-label">Volt/div</span>
+        <span class="knob-val" id="voltDiv2">1.0 V</span>
+        <div class="knob-controls">
+          <button class="knob-btn" onclick="changeVoltDiv(2,-1)">−</button>
+          <button class="knob-btn" onclick="changeVoltDiv(2,1)">+</button>
+        </div>
+      </div>
+      <div class="knob-row">
+        <span class="knob-label">Offset</span>
+        <span class="knob-val" id="offset2">0.0 V</span>
+        <div class="knob-controls">
+          <button class="knob-btn" onclick="changeOffset(2,-0.5)">−</button>
+          <button class="knob-btn" onclick="changeOffset(2,0.5)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMPS -->
+    <div class="panel-section">
+      <div class="section-title">Temps</div>
+      <div class="knob-row">
+        <span class="knob-label">Temps/div</span>
+        <span class="knob-val" id="timeDiv">1.0 ms</span>
+        <div class="knob-controls">
+          <button class="knob-btn" onclick="changeTimeDiv(-1)">−</button>
+          <button class="knob-btn" onclick="changeTimeDiv(1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRIGGER -->
+    <div class="panel-section">
+      <div class="section-title">Trigger</div>
+      <div class="knob-row">
+        <span class="knob-label">Niveau</span>
+        <span class="knob-val" id="trigLevel">0.0 V</span>
+        <div class="knob-controls">
+          <button class="knob-btn" onclick="changeTrigger(-0.1)">−</button>
+          <button class="knob-btn" onclick="changeTrigger(0.1)">+</button>
+        </div>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Source</span>
+        <select class="gen-select" onchange="trigSource=this.value" style="margin:0;">
+          <option>CH1</option><option>CH2</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- GÉNÉRATEUR CH1 -->
+    <div class="panel-section">
+      <div class="section-title">Générateur CH1</div>
+      <select class="gen-select" id="waveType1" onchange="updateGenerator(1)">
+        <option value="sine">Sinusoïdal</option>
+        <option value="square">Carré</option>
+        <option value="triangle">Triangle</option>
+        <option value="sawtooth">Dent de scie</option>
+        <option value="pwm">PWM</option>
+        <option value="damped">Amorti</option>
+        <option value="am">AM modulé</option>
+        <option value="noise">Bruit</option>
+      </select>
+      <div class="gen-row">
+        <span class="gen-label">Fréq.</span>
+        <input class="gen-input" id="freq1" type="number" value="100" min="1" max="50000" onchange="updateGenerator(1)">
+        <span class="gen-unit">Hz</span>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Amplitude</span>
+        <input class="gen-input" id="amp1" type="number" value="3.3" step="0.1" min="0" max="5" onchange="updateGenerator(1)">
+        <span class="gen-unit">V</span>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Offset</span>
+        <input class="gen-input" id="dc1" type="number" value="0" step="0.1" min="-5" max="5" onchange="updateGenerator(1)">
+        <span class="gen-unit">V</span>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Phase</span>
+        <input class="gen-input" id="phase1" type="number" value="0" min="0" max="360" onchange="updateGenerator(1)">
+        <span class="gen-unit">°</span>
+      </div>
+      <div class="gen-row" id="dcRow1">
+        <span class="gen-label">Duty</span>
+        <input class="gen-input" id="duty1" type="number" value="50" min="1" max="99" onchange="updateGenerator(1)">
+        <span class="gen-unit">%</span>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Bruit</span>
+        <input class="gen-input" id="noise1" type="number" value="0" step="0.01" min="0" max="1" onchange="updateGenerator(1)">
+        <span class="gen-unit">V</span>
+      </div>
+    </div>
+
+    <!-- GÉNÉRATEUR CH2 -->
+    <div class="panel-section">
+      <div class="section-title">Générateur CH2</div>
+      <select class="gen-select" id="waveType2" onchange="updateGenerator(2)">
+        <option value="sine">Sinusoïdal</option>
+        <option value="square">Carré</option>
+        <option value="triangle">Triangle</option>
+        <option value="sawtooth">Dent de scie</option>
+        <option value="pwm">PWM</option>
+        <option value="damped">Amorti</option>
+        <option value="am">AM modulé</option>
+        <option value="noise">Bruit</option>
+      </select>
+      <div class="gen-row">
+        <span class="gen-label">Fréq.</span>
+        <input class="gen-input" id="freq2" type="number" value="200" min="1" max="50000" onchange="updateGenerator(2)">
+        <span class="gen-unit">Hz</span>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Amplitude</span>
+        <input class="gen-input" id="amp2" type="number" value="2.5" step="0.1" min="0" max="5" onchange="updateGenerator(2)">
+        <span class="gen-unit">V</span>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Offset</span>
+        <input class="gen-input" id="dc2" type="number" value="0" step="0.1" onchange="updateGenerator(2)">
+        <span class="gen-unit">V</span>
+      </div>
+      <div class="gen-row">
+        <span class="gen-label">Phase</span>
+        <input class="gen-input" id="phase2" type="number" value="90" min="0" max="360" onchange="updateGenerator(2)">
+        <span class="gen-unit">°</span>
+      </div>
+    </div>
+
+  </div><!-- /left-panel -->
+
+  <!-- SCOPE CANVAS AREA -->
+  <div class="scope-area">
+    <div class="scope-wrapper" id="scopeWrapper">
+      <canvas id="scope"></canvas>
+      <div class="scope-info">
+        <div class="scope-info-item" id="infoTimeDiv">T/div: 1.0ms</div>
+        <div class="scope-info-item" id="infoVDiv1">CH1: 1.0V/div</div>
+        <div class="scope-info-item" id="infoVDiv2" style="color:rgba(0,212,255,.5)">CH2: 1.0V/div</div>
+      </div>
+      <div class="trigger-line" id="triggerLine"></div>
+      <div class="cursor-line" id="cursorLine" style="display:none;"></div>
+      <div class="cursor-label" id="cursorLabel" style="display:none;"></div>
+    </div>
+
+    <!-- BOTTOM TABS -->
+    <div class="bottom-tabs">
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('measures')">MESURES</div>
+        <div class="tab" onclick="switchTab('fft')">FFT</div>
+        <div class="tab" onclick="switchTab('snapshots')">SNAPSHOTS</div>
+        <div class="tab" onclick="switchTab('esp32')">ESP32</div>
+      </div>
+      <div class="tab-content">
+
+        <div class="tab-pane active" id="tab-measures">
+          <div class="metrics-grid">
+            <div class="metric-card"><div class="metric-label">Vmax CH1</div><div class="metric-value ch1" id="m-vmax1">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Vmin CH1</div><div class="metric-value ch1" id="m-vmin1">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Vpp CH1</div><div class="metric-value ch1" id="m-vpp1">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Vrms CH1</div><div class="metric-value ch1" id="m-vrms1">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Fréq CH1</div><div class="metric-value ch1" id="m-freq1">--</div><div class="metric-unit">Hz</div></div>
+            <div class="metric-card"><div class="metric-label">Vmax CH2</div><div class="metric-value ch2" id="m-vmax2">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Vmin CH2</div><div class="metric-value ch2" id="m-vmin2">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Vpp CH2</div><div class="metric-value ch2" id="m-vpp2">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Vrms CH2</div><div class="metric-value ch2" id="m-vrms2">--</div><div class="metric-unit">V</div></div>
+            <div class="metric-card"><div class="metric-label">Fréq CH2</div><div class="metric-value ch2" id="m-freq2">--</div><div class="metric-unit">Hz</div></div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="tab-fft" style="flex-direction:column;">
+          <canvas id="fft" style="width:100%;height:100%;display:block;"></canvas>
+        </div>
+
+        <div class="tab-pane" id="tab-snapshots" style="flex-direction:column;overflow-y:auto;">
+          <div id="snapshotList" style="width:100%;"></div>
+        </div>
+
+        <div class="tab-pane" id="tab-esp32" style="flex-direction:column;gap:8px;overflow-y:auto;">
+          <div style="font-size:.68rem;color:var(--bright);font-weight:700;">Connecter un appareil physique</div>
+          <div style="font-size:.62rem;color:var(--text);line-height:1.6;">
+            <strong style="color:var(--cyan);">ESP32 WiFi</strong> → POST /oscilloscope/api/ingest/<br>
+            Header: <span style="color:var(--yellow);">Authorization: Token TON_TOKEN</span><br>
+            Session ID: <span style="color:var(--cyan);font-weight:700;">{{ session.id }}</span>
+          </div>
+          <div style="font-size:.62rem;color:var(--text);line-height:1.6;">
+            <strong style="color:var(--orange);">Arduino Série</strong> → python serial_bridge.py
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /scope-area -->
+
+  <!-- RIGHT PANEL (measures) -->
+  <div class="right-panel" id="rightPanel">
+    <div class="meas-block">
+      <div class="meas-title">CH1 — Mesures</div>
+      <div class="meas-row"><span class="meas-key">Vmax</span><span class="meas-val green" id="r-vmax1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vmin</span><span class="meas-val green" id="r-vmin1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vpp</span><span class="meas-val green" id="r-vpp1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vrms</span><span class="meas-val green" id="r-vrms1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vmoy</span><span class="meas-val green" id="r-vavg1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Fréq.</span><span class="meas-val yellow" id="r-freq1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Période</span><span class="meas-val yellow" id="r-per1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Duty</span><span class="meas-val yellow" id="r-duty1">--</span></div>
+      <div class="meas-row"><span class="meas-key">Tr</span><span class="meas-val yellow" id="r-tr1">--</span></div>
+    </div>
+    <div class="meas-block">
+      <div class="meas-title">CH2 — Mesures</div>
+      <div class="meas-row"><span class="meas-key">Vmax</span><span class="meas-val cyan" id="r-vmax2">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vmin</span><span class="meas-val cyan" id="r-vmin2">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vpp</span><span class="meas-val cyan" id="r-vpp2">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vrms</span><span class="meas-val cyan" id="r-vrms2">--</span></div>
+      <div class="meas-row"><span class="meas-key">Vmoy</span><span class="meas-val cyan" id="r-vavg2">--</span></div>
+      <div class="meas-row"><span class="meas-key">Fréq.</span><span class="meas-val yellow" id="r-freq2">--</span></div>
+      <div class="meas-row"><span class="meas-key">Période</span><span class="meas-val yellow" id="r-per2">--</span></div>
+      <div class="meas-row"><span class="meas-key">Duty</span><span class="meas-val yellow" id="r-duty2">--</span></div>
+    </div>
+    <div class="meas-block">
+      <div class="meas-title">Curseur</div>
+      <div class="meas-row"><span class="meas-key">Temps</span><span class="meas-val yellow" id="cur-t">--</span></div>
+      <div class="meas-row"><span class="meas-key">V CH1</span><span class="meas-val green" id="cur-v1">--</span></div>
+      <div class="meas-row"><span class="meas-key">V CH2</span><span class="meas-val cyan" id="cur-v2">--</span></div>
+    </div>
+    <div class="meas-block">
+      <div class="meas-title">Système</div>
+      <div class="meas-row"><span class="meas-key">Source</span><span class="meas-val" id="sys-source" style="color:var(--orange);">{{ session.get_source_display }}</span></div>
+      <div class="meas-row"><span class="meas-key">Samples</span><span class="meas-val" id="sys-samples" style="color:var(--text);">500</span></div>
+      <div class="meas-row"><span class="meas-key">FPS</span><span class="meas-val" id="sys-fps" style="color:var(--text);">--</span></div>
+      <div class="meas-row"><span class="meas-key">Session</span><span class="meas-val" style="color:var(--text);font-size:.6rem;">{{ session.id }}</span></div>
+      <!-- Actions rapides dans le drawer mobile -->
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+        <button class="btn-primary" style="width:100%;text-align:center;" onclick="openSnapshotModal()">📸 Snapshot</button>
+        <button class="btn-primary" style="width:100%;text-align:center;" onclick="openAnalysisModal()">🔬 Analyser</button>
+        <button class="btn-primary" style="width:100%;text-align:center;" onclick="exportCSV()">⬇ Export CSV</button>
+      </div>
+    </div>
+  </div><!-- /right-panel -->
+
+  <!-- STATUS BAR (desktop) -->
+  <div class="statusbar">
+    <div class="status-item">FOUNATEK OSC</div>
+    <div class="status-item">Session: <span class="status-val">{{ session.id }}</span></div>
+    <div class="status-item">Source: <span class="status-val">{{ session.get_source_display }}</span></div>
+    <div class="status-item">CH1: <span class="status-val" id="sb-ch1">1.0V/div</span></div>
+    <div class="status-item">CH2: <span class="status-val" id="sb-ch2">1.0V/div</span></div>
+    <div class="status-item">T/div: <span class="status-val" id="sb-tdiv">1.0ms</span></div>
+    <div class="status-item">Trig: <span class="status-val" id="sb-trig">0.0V</span></div>
+    <div class="spacer"></div>
+    <div class="status-item" id="sb-time">--:--:--</div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav">
+  <button class="mobile-nav-btn" onclick="toggleDrawer('left')">
+    <span class="nav-icon">⚙️</span>Réglages
+  </button>
+  <button class="mobile-nav-btn active" id="nav-scope" onclick="closeAllDrawers()">
+    <span class="nav-icon">📺</span>Scope
+  </button>
+  <button class="mobile-nav-btn" onclick="openSnapshotModal()">
+    <span class="nav-icon">📸</span>Snapshot
+  </button>
+  <button class="mobile-nav-btn" onclick="openAnalysisModal()">
+    <span class="nav-icon">🔬</span>Analyser
+  </button>
+  <button class="mobile-nav-btn" onclick="toggleDrawer('right')">
+    <span class="nav-icon">📊</span>Mesures
+  </button>
+</nav>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="snapshotModal">
+  <div class="modal">
+    <h3>📸 Sauvegarder Snapshot</h3>
+    <div class="modal-row">
+      <span class="modal-label">Nom du snapshot</span>
+      <input class="modal-input" id="snapName" placeholder="Ex: Signal sinusoïdal 100Hz">
+    </div>
+    <div class="modal-row">
+      <span class="modal-label">Notes</span>
+      <input class="modal-input" id="snapNotes" placeholder="Ex: Filtre RC, condensateur 10µF">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('snapshotModal')">Annuler</button>
+      <button class="btn-primary" onclick="doSnapshot()">💾 Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="analysisModal">
+  <div class="modal">
+    <h3>🔬 Analyse de Composant</h3>
+    <div class="modal-row">
+      <span class="modal-label">Composant</span>
+      <select class="modal-select" id="compType">
+        <option value="resistor">Résistance</option>
+        <option value="capacitor">Condensateur</option>
+        <option value="inductor">Inductance</option>
+        <option value="diode">Diode</option>
+        <option value="filter_lp">Filtre passe-bas RC</option>
+        <option value="filter_hp">Filtre passe-haut RC</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <span class="modal-label">Nom</span>
+      <input class="modal-input" id="compName" placeholder="Ex: Résistance 1kΩ">
+    </div>
+    <div class="modal-row">
+      <span class="modal-label">Valeur nominale</span>
+      <input class="modal-input" id="compValue" type="number" placeholder="Ex: 1000 pour 1kΩ">
+    </div>
+    <div class="modal-row">
+      <span class="modal-label">R shunt (Ω)</span>
+      <input class="modal-input" id="compShunt" type="number" value="100">
+    </div>
+    <div class="modal-row">
+      <span class="modal-label">Notes</span>
+      <input class="modal-input" id="compNotes" placeholder="Notes">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('analysisModal')">Annuler</button>
+      <button class="btn-primary" onclick="doAnalysis()">🔬 Analyser</button>
+    </div>
+  </div>
+</div>
+
+<div class="alert-toast" id="toastContainer"></div>
+
+<script>
+const SESSION_ID = {{ session.id }};
+const CSRF = '{{ csrf_token }}';
+
+// ── State ─────────────────────────────────────────────────
+let running=true, ch1On=true, ch2On=false;
+let voltDiv=[null,1.0,1.0], offsetV=[null,0.0,0.0];
+let timeDiv=1.0, trigLevel=0.0, trigSource='CH1';
+let ch1Data=[], ch2Data=[], fftData1=[];
+let loopId=null, lastTime=performance.now(), frameCount=0, fps=0;
+let cursorX=null;
+
+const canvas=document.getElementById('scope');
+const ctx=canvas.getContext('2d');
+const fftCvs=document.getElementById('fft');
+const fftCtx=fftCvs.getContext('2d');
+
+function resizeCanvas(){
+  const wrap=document.getElementById('scopeWrapper');
+  canvas.width=wrap.clientWidth; canvas.height=wrap.clientHeight;
+  fftCvs.width=fftCvs.parentElement.clientWidth;
+  fftCvs.height=fftCvs.parentElement.clientHeight;
+}
+window.addEventListener('resize',()=>{resizeCanvas();drawScope();});
+setTimeout(resizeCanvas,100);
+
+// ── DRAWERS (mobile) ──────────────────────────────────────
+function toggleDrawer(side){
+  const left=document.getElementById('leftPanel');
+  const right=document.getElementById('rightPanel');
+  const overlay=document.getElementById('drawerOverlay');
+  if(side==='left'){
+    const isOpen=left.classList.contains('open');
+    left.classList.toggle('open',!isOpen);
+    right.classList.remove('open');
+    overlay.classList.toggle('open',!isOpen);
+  } else {
+    const isOpen=right.classList.contains('open');
+    right.classList.toggle('open',!isOpen);
+    left.classList.remove('open');
+    overlay.classList.toggle('open',!isOpen);
+  }
+}
+function closeAllDrawers(){
+  document.getElementById('leftPanel').classList.remove('open');
+  document.getElementById('rightPanel').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+// ── DRAWING ───────────────────────────────────────────────
+function drawScope(){
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#030a14'; ctx.fillRect(0,0,W,H);
+
+  const cols=10, rows=8, cw=W/cols, rh=H/rows;
+  ctx.strokeStyle='#0a2040'; ctx.lineWidth=1;
+  for(let i=0;i<=cols;i++){ctx.beginPath();ctx.moveTo(i*cw,0);ctx.lineTo(i*cw,H);ctx.stroke();}
+  for(let i=0;i<=rows;i++){ctx.beginPath();ctx.moveTo(0,i*rh);ctx.lineTo(W,i*rh);ctx.stroke();}
+  ctx.strokeStyle='#0d2a45';
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+
+  const trigY=H/2-(trigLevel/voltDiv[1])*rh;
+  document.getElementById('triggerLine').style.top=Math.max(0,Math.min(H,trigY))+'px';
+
+  function drawWave(data,color,vdiv,ofs,glow){
+    if(!data||data.length<2)return;
+    const totalTime=timeDiv*cols;
+    ctx.save();
+    if(glow){ctx.shadowBlur=6;ctx.shadowColor=color;}
+    ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.beginPath();
+    let started=false;
+    for(let i=0;i<data.length;i++){
+      const x=(data[i].t/totalTime)*W;
+      const y=H/2-((data[i].v+ofs)/vdiv)*rh;
+      if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+
+  if(ch2On) drawWave(ch2Data,'#00d4ff',voltDiv[2],offsetV[2],false);
+  if(ch1On) drawWave(ch1Data,'#00ff88',voltDiv[1],offsetV[1],true);
+
+  if(cursorX!==null){
+    ctx.strokeStyle='rgba(255,204,0,0.7)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(cursorX,0);ctx.lineTo(cursorX,H);ctx.stroke();
+    ctx.setLineDash([]);
+    const totalTime=timeDiv*cols;
+    const tMs=(cursorX/W)*totalTime;
+    function getV(data,ofs){
+      if(!data||data.length<2)return null;
+      const idx=data.findIndex(d=>(d.t/totalTime)*W>=cursorX);
+      if(idx<=0)return null;
+      return data[idx].v+ofs;
+    }
+    document.getElementById('cur-t').textContent=tMs.toFixed(2)+' ms';
+    document.getElementById('cur-v1').textContent=(getV(ch1Data,offsetV[1])??'--');
+    document.getElementById('cur-v2').textContent=(getV(ch2Data,offsetV[2])??'--');
+  }
+
+  frameCount++;
+  const now=performance.now();
+  if(now-lastTime>1000){fps=frameCount;frameCount=0;lastTime=now;document.getElementById('sys-fps').textContent=fps;}
+}
+
+function drawFFT(){
+  if(!fftData1||fftData1.length===0)return;
+  const W=fftCvs.width, H=fftCvs.height;
+  fftCtx.clearRect(0,0,W,H);
+  fftCtx.fillStyle='#030a14'; fftCtx.fillRect(0,0,W,H);
+  fftCtx.strokeStyle='#0a2040'; fftCtx.lineWidth=0.5;
+  for(let i=0;i<=10;i++){fftCtx.beginPath();fftCtx.moveTo(i*W/10,0);fftCtx.lineTo(i*W/10,H);fftCtx.stroke();}
+  const maxMag=Math.max(...fftData1.map(d=>d.mag),0.001);
+  const freqs=fftData1.filter(d=>d.f>0);
+  const maxF=freqs.length>0?Math.max(...freqs.map(d=>d.f)):1;
+  fftCtx.strokeStyle='#00ff88'; fftCtx.lineWidth=1.5;
+  fftCtx.shadowBlur=4; fftCtx.shadowColor='#00ff88';
+  fftCtx.beginPath();
+  freqs.forEach((d,i)=>{
+    const x=(d.f/maxF)*W, y=H-(d.mag/maxMag)*H*0.9;
+    i===0?fftCtx.moveTo(x,y):fftCtx.lineTo(x,y);
+  });
+  fftCtx.stroke(); fftCtx.shadowBlur=0;
+}
+
+// ── SIGNAL FETCH ──────────────────────────────────────────
+async function fetchSignal(){
+  if(!running)return;
+  try{
+    const g1={wave_type:document.getElementById('waveType1').value,frequency:parseFloat(document.getElementById('freq1').value),amplitude:parseFloat(document.getElementById('amp1').value),offset:parseFloat(document.getElementById('dc1').value),phase:parseFloat(document.getElementById('phase1').value),duty_cycle:parseFloat(document.getElementById('duty1').value),noise_amp:parseFloat(document.getElementById('noise1').value),n_samples:500,duration:50.0};
+    const g2={wave_type:document.getElementById('waveType2').value,frequency:parseFloat(document.getElementById('freq2').value),amplitude:parseFloat(document.getElementById('amp2').value),offset:parseFloat(document.getElementById('dc2').value),phase:parseFloat(document.getElementById('phase2').value),n_samples:500,duration:50.0};
+    const [r1,r2]=await Promise.all([
+      fetch('/oscilloscope/api/generate/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(g1)}).then(r=>r.json()),
+      ch2On?fetch('/oscilloscope/api/generate/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(g2)}).then(r=>r.json()):Promise.resolve(null)
+    ]);
+    ch1Data=r1.samples; fftData1=r1.fft;
+    if(r2)ch2Data=r2.samples;
+    updateMeasures(r1.metrics,r2?r2.metrics:{});
+    drawScope(); drawFFT();
+  }catch(e){console.error(e);}
+}
+
+// ── MEASURES ──────────────────────────────────────────────
+function updateMeasures(m1,m2){
+  const fmt=(v,u='')=>v!==null&&v!==undefined?v+(u?' '+u:''):'--';
+  ['vmax','vmin','vpp','vrms'].forEach(k=>{document.getElementById(`m-${k}1`).textContent=fmt(m1[k],'V');});
+  document.getElementById('m-freq1').textContent=fmt(m1.frequency,'Hz');
+  if(m2&&Object.keys(m2).length>0){
+    ['vmax','vmin','vpp','vrms'].forEach(k=>{document.getElementById(`m-${k}2`).textContent=fmt(m2[k],'V');});
+    document.getElementById('m-freq2').textContent=fmt(m2.frequency,'Hz');
+  }
+  ['vmax','vmin','vpp','vrms','vavg'].forEach(k=>{const el=document.getElementById(`r-${k}1`);if(el)el.textContent=fmt(m1[k],'V');});
+  document.getElementById('r-freq1').textContent=fmt(m1.frequency,'Hz');
+  document.getElementById('r-per1').textContent=fmt(m1.period,'ms');
+  document.getElementById('r-duty1').textContent=fmt(m1.duty_cycle,'%');
+  document.getElementById('r-tr1').textContent=fmt(m1.rise_time,'µs');
+  if(m2&&Object.keys(m2).length>0){
+    ['vmax','vmin','vpp','vrms','vavg'].forEach(k=>{const el=document.getElementById(`r-${k}2`);if(el)el.textContent=fmt(m2[k],'V');});
+    document.getElementById('r-freq2').textContent=fmt(m2.frequency,'Hz');
+    document.getElementById('r-per2').textContent=fmt(m2.period,'ms');
+    document.getElementById('r-duty2').textContent=fmt(m2.duty_cycle,'%');
+  }
+}
+
+// ── CONTROLS ──────────────────────────────────────────────
+function toggleRun(){
+  running=!running;
+  const btn=document.getElementById('runBtn');
+  if(running){btn.textContent='⏹ STOP';btn.className='run-btn running';startLoop();}
+  else{btn.textContent='▶ RUN';btn.className='run-btn stopped';clearInterval(loopId);}
+}
+function startLoop(){if(loopId)clearInterval(loopId);loopId=setInterval(fetchSignal,80);fetchSignal();}
+function toggleChannel(n){
+  if(n===1){ch1On=!ch1On;const b=document.getElementById('ch1Toggle');b.textContent=ch1On?'ON':'OFF';b.className='ch-toggle '+(ch1On?'on':'off');}
+  else{ch2On=!ch2On;const b=document.getElementById('ch2Toggle');b.textContent=ch2On?'ON':'OFF';b.className='ch-toggle '+(ch2On?'on':'off');}
+  drawScope();
+}
+const voltDivSteps=[0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10];
+let voltIdx=[null,6,6];
+function changeVoltDiv(ch,dir){
+  voltIdx[ch]=Math.max(0,Math.min(voltDivSteps.length-1,voltIdx[ch]+dir));
+  voltDiv[ch]=voltDivSteps[voltIdx[ch]];
+  const label=voltDiv[ch]<1?(voltDiv[ch]*1000).toFixed(0)+'mV':voltDiv[ch]+'V';
+  document.getElementById(`voltDiv${ch}`).textContent=label+'/div';
+  document.getElementById(`infoVDiv${ch}`).textContent=`CH${ch}: ${label}/div`;
+  const sb=document.getElementById(`sb-ch${ch}`);if(sb)sb.textContent=label+'/div';
+  drawScope();
+}
+const timeDivSteps=[0.05,0.1,0.2,0.5,1,2,5,10,20,50,100];
+let timeDivIdx=4;
+function changeTimeDiv(dir){
+  timeDivIdx=Math.max(0,Math.min(timeDivSteps.length-1,timeDivIdx+dir));
+  timeDiv=timeDivSteps[timeDivIdx];
+  const label=timeDiv<1?(timeDiv*1000).toFixed(0)+'µs':timeDiv+'ms';
+  document.getElementById('timeDiv').textContent=label+'/div';
+  document.getElementById('infoTimeDiv').textContent='T/div: '+label;
+  const sb=document.getElementById('sb-tdiv');if(sb)sb.textContent=label;
+  drawScope();
+}
+function changeOffset(ch,delta){
+  offsetV[ch]=Math.round((offsetV[ch]+delta)*10)/10;
+  document.getElementById(`offset${ch}`).textContent=offsetV[ch].toFixed(1)+' V';
+  drawScope();
+}
+function changeTrigger(delta){
+  trigLevel=Math.round((trigLevel+delta)*10)/10;
+  document.getElementById('trigLevel').textContent=trigLevel.toFixed(1)+' V';
+  const sb=document.getElementById('sb-trig');if(sb)sb.textContent=trigLevel.toFixed(1)+'V';
+  drawScope();
+}
+function changeCoupling(ch,val){if(val==='GND'){ch===1?ch1Data=ch1Data.map(d=>({...d,v:0})):ch2Data=ch2Data.map(d=>({...d,v:0}));}}
+function updateGenerator(){}
+function updateSessionName(){
+  fetch(`/oscilloscope/api/${SESSION_ID}/update/`,{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({name:document.getElementById('sessionName').value})});
+}
+
+// ── TABS ──────────────────────────────────────────────────
+function switchTab(name){
+  const tabs=['measures','fft','snapshots','esp32'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===name));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
+  if(name==='fft')setTimeout(()=>{resizeCanvas();drawFFT();},50);
+}
+
+// ── CURSOR (mouse + touch) ────────────────────────────────
+canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();cursorX=(e.clientX-r.left)*(canvas.width/r.width);drawScope();});
+canvas.addEventListener('mouseleave',()=>{cursorX=null;drawScope();});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();cursorX=(e.touches[0].clientX-r.left)*(canvas.width/r.width);drawScope();},{passive:false});
+canvas.addEventListener('touchend',()=>{cursorX=null;drawScope();});
+
+// ── SNAPSHOT ──────────────────────────────────────────────
+function openSnapshotModal(){document.getElementById('snapName').value=`Snapshot ${new Date().toLocaleTimeString('fr-FR')}`;document.getElementById('snapshotModal').classList.add('open');}
+async function doSnapshot(){
+  const name=document.getElementById('snapName').value, notes=document.getElementById('snapNotes').value;
+  closeModal('snapshotModal');
+  const resp=await fetch(`/oscilloscope/api/${SESSION_ID}/snapshots/save/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({name,notes,ch1_data:ch1Data,ch2_data:ch2Data,fft_data:fftData1})});
+  if(resp.ok){showToast('success',`Snapshot "${name}" sauvegardé !`);loadSnapshots();}
+  else showToast('error','Erreur lors de la sauvegarde');
+}
+async function loadSnapshots(){
+  const resp=await fetch(`/oscilloscope/api/${SESSION_ID}/snapshots/`);
+  const data=await resp.json();
+  document.getElementById('snapshotList').innerHTML=data.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.65rem;gap:8px;"><span style="color:var(--bright);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}</span><span style="color:#3d6080;flex-shrink:0;">${new Date(s.created_at).toLocaleTimeString('fr-FR')}</span><button onclick="loadSnapshot(${s.id})" style="background:none;border:1px solid var(--border);color:var(--cyan);padding:3px 8px;cursor:pointer;font-size:.6rem;border-radius:3px;flex-shrink:0;">Charger</button></div>`).join('')||'<div style="color:#2d5a7a;font-size:.65rem;">Aucun snapshot</div>';
+}
+async function loadSnapshot(id){
+  const resp=await fetch(`/oscilloscope/api/${SESSION_ID}/snapshots/${id}/`);
+  const data=await resp.json();
+  if(data.ch1_data){ch1Data=data.ch1_data;ch1On=true;}
+  if(data.ch2_data){ch2Data=data.ch2_data;ch2On=true;}
+  if(data.fft_data)fftData1=data.fft_data;
+  running=false;document.getElementById('runBtn').textContent='▶ RUN';document.getElementById('runBtn').className='run-btn stopped';clearInterval(loopId);
+  drawScope();drawFFT();showToast('success','Snapshot chargé — mode pause');
+}
+
+// ── ANALYSIS ─────────────────────────────────────────────
+function openAnalysisModal(){document.getElementById('analysisModal').classList.add('open');}
+async function doAnalysis(){
+  const compType=document.getElementById('compType').value, compName=document.getElementById('compName').value||'Analyse';
+  const compValue=parseFloat(document.getElementById('compValue').value)||null, rShunt=parseFloat(document.getElementById('compShunt').value)||100;
+  const notes=document.getElementById('compNotes').value;
+  closeModal('analysisModal');
+  const resp=await fetch(`/oscilloscope/api/${SESSION_ID}/analyze/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({component_type:compType,name:compName,component_value:compValue,r_shunt:rShunt,notes,ch1_samples:ch1Data,ch2_samples:ch2Data})});
+  const data=await resp.json();
+  if(resp.ok){
+    const r=data.results;
+    let msg=`${compName} — `;
+    if(r.R_mesuree_ohm)msg+=`R=${r.R_mesuree_ohm}Ω`;
+    if(r.gain_dB!==undefined)msg+=`Gain=${r.gain_dB}dB`;
+    if(r.V_seuil_V)msg+=`Vseuil=${r.V_seuil_V}V`;
+    showToast('success',msg);
+  }else showToast('error','Erreur analyse');
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────
+function exportCSV(){
+  if(!ch1Data.length){showToast('error','Aucune donnée');return;}
+  const rows=['t_ms,v_ch1'+(ch2On?',v_ch2':'')];
+  for(let i=0;i<ch1Data.length;i++){let r=`${ch1Data[i].t},${ch1Data[i].v}`;if(ch2On&&ch2Data[i])r+=`,${ch2Data[i].v}`;rows.push(r);}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));
+  a.download=`founatek_osc_${SESSION_ID}_${Date.now()}.csv`;a.click();
+  showToast('success','Export CSV téléchargé !');
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(type,msg){const d=document.createElement('div');d.className=`toast ${type}`;d.textContent=msg;document.getElementById('toastContainer').appendChild(d);setTimeout(()=>d.remove(),3500);}
+
+// ── CLOCK ─────────────────────────────────────────────────
+setInterval(()=>{const el=document.getElementById('sb-time');if(el)el.textContent=new Date().toLocaleTimeString('fr-FR');},1000);
+
+// ── INIT ──────────────────────────────────────────────────
+loadSnapshots();
+startLoop();
+</script>
+</body>
+</html>

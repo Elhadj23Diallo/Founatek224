@@ -1,0 +1,249 @@
+{% extends 'espcontrol/base.html' %}
+{% block content %}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    body {
+        background:
+            radial-gradient(circle at 50% 30%, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 50%, rgba(2, 6, 23, 1) 100%),
+            linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 60px 60px, 60px 60px;
+        background-attachment: fixed;
+        color: #f1f5f9;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 100vh;
+        margin: 0;
+    }
+
+    .container-custom {
+        max-width: 1000px;
+        margin: 40px auto;
+        padding: 30px 20px;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+
+    .balance-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+        padding: 30px;
+        border-radius: 16px;
+        text-align: center;
+        border: 1px solid #334155;
+        box-shadow: 0 0 20px rgba(34, 211, 238, 0.1);
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    .balance-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, transparent, #22d3ee, transparent);
+    }
+    .balance-title { color: #94a3b8; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
+    .balance-amount {
+        font-size: 3.5rem;
+        font-weight: 800;
+        color: #fff;
+        margin: 10px 0;
+        text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+    }
+    .currency-tag { font-size: 1.5rem; color: #22d3ee; }
+
+    .action-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cyan { background-color: #22d3ee; color: #0f172a; }
+    .btn-cyan:hover { background-color: #0ea5e9; box-shadow: 0 0 15px rgba(34, 211, 238, 0.5); color: #0f172a;}
+
+    .btn-back {
+        background: transparent;
+        border: 1px solid #334155;
+        color: #94a3b8;
+        margin-top: 20px;
+    }
+    .btn-back:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.05); }
+
+    .section-title { color: #cbd5e1; margin-bottom: 20px; border-left: 4px solid #22d3ee; padding-left: 15px; }
+
+    .table-responsive { overflow-x: auto; border-radius: 10px; }
+    .table-dark-custom {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        color: #e2e8f0;
+    }
+    .table-dark-custom th, .table-dark-custom td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #334155;
+    }
+    .table-dark-custom th {
+        background-color: rgba(15, 23, 42, 0.9);
+        color: #22d3ee;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+    }
+    .table-dark-custom tr:hover td { background-color: rgba(45, 55, 72, 0.5); }
+
+    .badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
+    .badge-pending { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid #eab308; }
+    .badge-failed { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
+
+    .paypal-actions-container {
+        margin-top: 30px;
+        padding: 20px;
+        border: 1px dashed #eab308;
+        border-radius: 10px;
+        background: rgba(234, 179, 8, 0.05);
+    }
+</style>
+
+<div class="container-custom">
+
+    <div class="balance-card">
+        <div class="balance-title"><i class="fas fa-wallet"></i> Solde disponible</div>
+        <div class="balance-amount">
+            €{{ wallet.balance }} <span class="currency-tag">{{ currency }}</span>
+        </div>
+        <a href="{% url 'monetisation:init_mobile_money' %}" class="action-btn btn-cyan">
+            <i class="fas fa-plus-circle"></i> Recharger mon compte
+        </a>
+    </div>
+
+    <h3 class="section-title">Historique des transactions</h3>
+
+    <div class="table-responsive">
+        <table class="table-dark-custom">
+            <thead>
+                <tr>
+                    <th>Fournisseur</th>
+                    <th>€Montant</th>
+                    <th>Infos</th>
+                    <th>Statut</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr id="payment-container-{{ p.transaction_id }}">
+                    <td>
+                        {% if p.provider == 'paypal' %}
+                            <i class="fab fa-paypal"></i> PayPal
+                        {% else %}
+                            <i class="fas fa-mobile-alt"></i> {{ p.provider }}
+                        {% endif %}
+                    </td>
+                    <td style="font-weight: bold; color: #fff;">{{ p.amount }} {{ currency }}</td>
+                    <td style="color: #94a3b8; font-size: 0.9rem;">{{ p.phone_number|default:"-" }}</td>
+                    <td>
+                        {% if p.status == 'completed' or p.status == 'success' %}
+                            <span class="badge badge-success"><i class="fas fa-check"></i> Succès</span>
+                        {% elif p.status == 'pending' %}
+                            <span class="badge badge-pending"><i class="fas fa-clock"></i> En attente</span>
+                        {% else %}
+                            <span class="badge badge-failed"><i class="fas fa-times"></i> Échec</span>
+                        {% endif %}
+                    </td>
+                    <td style="color: #94a3b8;">{{ p.created_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 30px; color: #64748b;">
+                        <i class="fas fa-receipt" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        Aucun paiement enregistré pour le moment.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% for payment in payments %}
+        {% if payment.status == 'pending' and payment.provider == 'paypal' %}
+            <div id="paypal-button-container-{{ payment.transaction_id }}" style="margin-top: 15px;">
+                <div id="paypal-button-{{ payment.transaction_id }}"></div>
+                <div id="payment-feedback-{{ payment.transaction_id }}" style="display:none; color: #4ade80; font-weight: bold; margin-top:5px;">
+                    <i class="fas fa-check-circle"></i> Paiement validé !
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{% url 'monetisation:monetisation_dashboard' %}" class="action-btn btn-back">
+            <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+        </a>
+    </div>
+
+</div>
+
+<script src="https://www.paypal.com/sdk/js?client-id={{ PAYPAL_CLIENT_ID }}&currency={{ currency }}"></script>
+
+<script>
+{% for payment in payments %}
+    {% if payment.status == 'pending' and payment.provider == 'paypal' %}
+    paypal.Buttons({
+        style: {
+            layout: 'horizontal',
+            color:  'gold',
+            shape:  'pill',
+            label:  'pay',
+            height: 35
+        },
+        createOrder: function(data, actions) {
+            return fetch("{% url 'monetisation:create_paypal_order' %}", {
+                method: "POST",
+                headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+                body: JSON.stringify({amount: {{ payment.amount }}, type:"credit"})
+            })
+            .then(res => res.json())
+            .then(data => data.id);
+        },
+        onApprove: function(data) {
+            const transactionId = "{{ payment.transaction_id }}";
+            const feedbackEl = document.getElementById("payment-feedback-" + transactionId);
+            const buttonContainer = document.getElementById("paypal-button-" + transactionId);
+            buttonContainer.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traitement...';
+
+            return fetch("{% url 'monetisation:capture_paypal_order' %}", {
+                method: "POST",
+                headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+                body: JSON.stringify({orderID: data.orderID, transaction_id: transactionId})
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    buttonContainer.style.display = "none";
+                    feedbackEl.style.display = "block";
+                    const row = document.getElementById("payment-container-" + transactionId);
+                    row.style.border = "1px solid #4ade80";
+                    row.style.backgroundColor = "rgba(34,197,94,0.1)";
+                }
+            });
+        }
+    }).render("#paypal-button-{{ payment.transaction_id }}");
+    {% endif %}
+{% endfor %}
+</script>
+
+{% endblock %}

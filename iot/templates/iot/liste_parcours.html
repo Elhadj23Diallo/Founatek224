@@ -1,0 +1,222 @@
+{% extends "iot/base.html" %}
+
+{% block title %}Parcours disponibles{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- STYLES GLOBAUX --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+        margin: 0; padding: 20px; min-height: 100vh;
+    }
+
+    .main-container { max-width: 1200px; margin: auto; }
+
+    /* Titre */
+    h1.page-title { 
+        font-family: 'Orbitron', sans-serif; 
+        text-align: center; 
+        font-size: 2.5rem;
+        color: #fff; 
+        margin-bottom: 50px; 
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.7);
+        text-transform: uppercase; 
+        letter-spacing: 2px;
+    }
+
+    /* --- GRILLE DES PARCOURS --- */
+    .course-grid {
+        display: grid;
+        /* Responsive automatique : autant de colonnes que possible, min 300px de large */
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 30px;
+    }
+
+    /* --- CARTE DU PARCOURS (MODULE) --- */
+    .course-card {
+        background: rgba(13, 18, 41, 0.6);
+        border: 1px solid rgba(0, 210, 255, 0.2);
+        border-radius: 20px;
+        padding: 25px;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(5px);
+        height: 100%; /* Uniformise la hauteur */
+    }
+
+    /* Effet Hover */
+    .course-card:hover {
+        transform: translateY(-10px);
+        border-color: #00d2ff;
+        box-shadow: 0 0 30px rgba(0, 210, 255, 0.15);
+        background: rgba(13, 18, 41, 0.8);
+    }
+
+    /* Barre décorative en haut de la carte */
+    .course-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        background: linear-gradient(90deg, #050a1f, #00d2ff, #050a1f);
+        opacity: 0.5;
+    }
+
+    /* Icône principale */
+    .card-icon-wrapper {
+        width: 60px; height: 60px;
+        background: rgba(0, 210, 255, 0.1);
+        border-radius: 15px;
+        display: flex; justify-content: center; align-items: center;
+        margin-bottom: 20px;
+        border: 1px solid rgba(0, 210, 255, 0.3);
+    }
+    .card-icon-wrapper i { font-size: 1.8rem; color: #00d2ff; }
+
+    /* Titre Carte */
+    .course-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.3rem;
+        color: #fff;
+        margin-bottom: 15px;
+        line-height: 1.4;
+    }
+
+    /* Description */
+    .course-desc {
+        font-size: 0.95rem;
+        color: #8892b0;
+        flex-grow: 1; /* Pousse le footer vers le bas */
+        margin-bottom: 20px;
+        line-height: 1.6;
+    }
+
+    /* Badges Container */
+    .badges-container {
+        display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap;
+    }
+
+    /* Badges Styles */
+    .tech-badge {
+        font-size: 0.75rem;
+        padding: 5px 12px;
+        border-radius: 8px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        border: 1px solid;
+    }
+
+    .badge-level {
+        border-color: #a855f7; color: #a855f7; background: rgba(168, 85, 247, 0.1);
+    }
+    
+    .badge-certif {
+        border-color: #ffd700; color: #ffd700; background: rgba(255, 215, 0, 0.1);
+        display: flex; align-items: center; gap: 5px;
+    }
+
+    /* Bouton d'action */
+    .btn-access {
+        display: block;
+        width: 100%;
+        text-align: center;
+        padding: 12px;
+        border-radius: 10px;
+        background: transparent;
+        border: 1px solid #00d2ff;
+        color: #00d2ff;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        text-decoration: none;
+        transition: 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .btn-access:hover {
+        background: #00d2ff;
+        color: #050a1f;
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+    }
+
+    /* --- EMPTY STATE (Vide) --- */
+    .empty-state {
+        text-align: center;
+        padding: 60px;
+        border: 2px dashed rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        color: #8892b0;
+    }
+
+    /* --- RESPONSIVE MOBILE --- */
+    @media (max-width: 768px) {
+        .main-container { padding: 0; }
+        h1.page-title { font-size: 1.8rem; margin-bottom: 30px; }
+        
+        .course-grid {
+            grid-template-columns: 1fr; /* 1 colonne forcée sur petit mobile */
+            gap: 20px;
+        }
+        
+        .course-card { padding: 20px; }
+    }
+</style>
+
+<div class="main-container">
+
+    <h1 class="page-title">
+        <i class="fas fa-network-wired me-3"></i>Catalogue IOT
+    </h1>
+
+    {% if parcours %}
+        <div class="course-grid">
+            {% for p in parcours %}
+                <div class="course-card">
+                    
+                    <div class="card-icon-wrapper">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+
+                    <h3 class="course-title">{{ p.titre }}</h3>
+                    
+                    <div class="badges-container">
+                        <span class="tech-badge badge-level">
+                            <i class="fas fa-layer-group me-1"></i> {{ p.niveau }}
+                        </span>
+                        
+                        {% if p.certifiant %}
+                            <span class="tech-badge badge-certif">
+                                <i class="fas fa-certificate"></i> Certifiant
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <p class="course-desc">
+                        {{ p.description|truncatechars:120 }}
+                    </p>
+
+                    <a href="{% url 'iot:liste_lecons' p.id %}" class="btn-access">
+                        Accéder au Module <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-search fa-3x mb-3" style="color: #555;"></i>
+            <h3>Base de données vide</h3>
+            <p>Aucun parcours n'a encore été déployé dans le système.</p>
+        </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

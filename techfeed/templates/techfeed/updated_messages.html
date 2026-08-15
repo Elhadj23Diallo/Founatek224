@@ -1,0 +1,221 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+  /* --- BASE --- */
+  body {
+    background-color: #000; color: #fff; font-family: 'Roboto', sans-serif;
+    margin: 0; padding: 0; padding-top: 70px; padding-bottom: 80px; overflow-x: hidden;
+  }
+
+  /* --- HEADER --- */
+  .msg-header {
+    position: fixed; top: 0; left: 0; width: 100%; height: 60px;
+    background: rgba(0, 0, 0, 0.95); border-bottom: 1px solid #222;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(5px);
+  }
+  .header-title { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; margin: 0; }
+  
+  .header-icons { position: absolute; right: 15px; display: flex; gap: 15px; }
+  .header-icon { color: #00d2ff; font-size: 1.2rem; cursor: pointer; }
+
+  /* --- LISTE --- */
+  .conversation-list { width: 100%; max-width: 600px; margin: 0 auto; }
+
+  .conv-item {
+    display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #111;
+    text-decoration: none; color: inherit; background-color: #000;
+  }
+  .conv-item:active { background-color: #111; }
+  
+  .avatar-wrapper { position: relative; margin-right: 15px; }
+  .conv-avatar { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #222; }
+  
+  /* Avatar Groupe Spécial */
+  .group-avatar-placeholder {
+      width: 55px; height: 55px; border-radius: 50%; background: #222; border: 2px solid #00d2ff;
+      display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #00d2ff;
+  }
+
+  .conv-content { flex: 1; min-width: 0; }
+  .conv-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .conv-username { font-weight: 700; font-size: 1rem; color: #fff; }
+  .conv-time { font-size: 0.75rem; color: #666; white-space: nowrap; margin-left: 10px; }
+  .conv-preview { font-size: 0.9rem; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* --- MODAL CREATION GROUPE --- */
+  .create-group-modal {
+      position: fixed; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 200;
+      background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: flex-end;
+  }
+  .modal-content {
+      background: #111; border-top-left-radius: 20px; border-top-right-radius: 20px;
+      padding: 20px; border-top: 2px solid #00d2ff; max-height: 80vh; overflow-y: auto;
+      animation: slideUp 0.3s ease-out;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-title { font-family: 'Orbitron'; font-size: 1.2rem; }
+  .close-modal { color: #666; font-size: 1.5rem; cursor: pointer; }
+
+  .group-form input[type="text"] {
+      width: 100%; padding: 12px; background: #222; border: 1px solid #333; color: white;
+      border-radius: 8px; margin-bottom: 20px; box-sizing: border-box;
+  }
+  
+  .friend-select-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+  .friend-option {
+      display: flex; align-items: center; padding: 10px; background: #1a1a1a; border-radius: 8px;
+      cursor: pointer; border: 1px solid transparent;
+  }
+  .friend-option.selected { border-color: #00d2ff; background: rgba(0, 210, 255, 0.1); }
+  .checkbox-hidden { display: none; }
+  
+  .create-btn {
+      width: 100%; padding: 15px; background: linear-gradient(90deg, #00d2ff, #0077ff);
+      border: none; border-radius: 30px; color: black; font-weight: bold; cursor: pointer;
+      font-family: 'Orbitron'; font-size: 1rem;
+  }
+
+  .empty-state { text-align: center; margin-top: 30vh; color: #555; }
+
+  /* NAV */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #000; border-top: 1px solid #222; display: flex; justify-content: space-around; align-items: center; z-index: 100; }
+  .nav-item { color: #888; text-decoration: none; display: flex; flex-direction: column; align-items: center; font-size: 10px; gap: 4px; padding: 5px; }
+  .nav-item i { font-size: 22px; } .nav-item.active { color: #fff; }
+  .upload-btn { width: 45px; height: 30px; background: linear-gradient(to right, #00d2ff, #ef233c); border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; }
+  .upload-btn::after { content: '+'; color: black; font-weight: bold; font-size: 20px; background: white; width: 38px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+</style>
+
+<div class="msg-header">
+  <h2 class="header-title">Messages</h2>
+  <div class="header-icons">
+      <i class="fas fa-users-cog header-icon" onclick="openCreateGroup()" title="Nouveau Groupe"></i>
+      <a href="{% url 'techfeed:search' %}" style="color:#00d2ff;"><i class="far fa-edit header-icon"></i></a>
+  </div>
+</div>
+
+<div class="conversation-list">
+  {% for item in conversations %}
+  
+    {% if item.type == 'private' %}
+        <a href="{% url 'techfeed:conversation' item.object.id %}" class="conv-item">
+          <div class="avatar-wrapper">
+            {% if item.object.profile.avatar %}
+              <img src="{{ item.object.profile.avatar.url }}" class="conv-avatar">
+            {% else %}
+              <img src="{% static 'images/default-avatar.png' %}" class="conv-avatar">
+            {% endif %}
+          </div>
+          <div class="conv-content">
+            <div class="conv-top">
+              <span class="conv-username">@{{ item.object.username }}</span>
+              <span class="conv-time">{{ item.timestamp|timesince }}</span>
+            </div>
+            <div class="conv-preview">
+              {% if item.last_message.sender == user %}<span style="color:#666;">Vous:</span>{% endif %}
+              {{ item.last_message.content|default:"[Fichier]" }}
+            </div>
+          </div>
+        </a>
+
+    {% elif item.type == 'group' %}
+        <a href="{% url 'techfeed:group_chat' item.object.id %}" class="conv-item">
+          <div class="avatar-wrapper">
+             {% if item.object.avatar %}
+                <img src="{{ item.object.avatar.url }}" class="conv-avatar">
+             {% else %}
+                <div class="group-avatar-placeholder"><i class="fas fa-users"></i></div>
+             {% endif %}
+          </div>
+          <div class="conv-content">
+            <div class="conv-top">
+              <span class="conv-username">{{ item.object.name }}</span>
+              <span class="conv-time">{{ item.timestamp|timesince }}</span>
+            </div>
+            <div class="conv-preview" style="color:#00d2ff;">
+                {{ item.last_message.sender.username }}: {{ item.last_message.content|default:"..." }}
+            </div>
+          </div>
+        </a>
+    {% endif %}
+
+  {% empty %}
+    <div class="empty-state">
+      <i class="far fa-paper-plane fa-3x" style="margin-bottom: 15px;"></i>
+      <p>Aucun message. Lancez une discussion !</p>
+    </div>
+  {% endfor %}
+</div>
+
+<div id="groupModal" class="create-group-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span class="modal-title">Nouveau Groupe</span>
+            <i class="fas fa-times close-modal" onclick="closeCreateGroup()"></i>
+        </div>
+        
+        <form action="{% url 'techfeed:create_group' %}" method="post" class="group-form">
+            {% csrf_token %}
+            <label style="color:#aaa; font-size:0.8rem; display:block; margin-bottom:5px;">NOM DU GROUPE</label>
+            <input type="text" name="group_name" placeholder="Ex: Team Dev Python" required>
+            
+            <label style="color:#aaa; font-size:0.8rem; display:block; margin-bottom:10px;">AJOUTER DES MEMBRES</label>
+            <div class="friend-select-list">
+                {% for friend in friends %}
+                <label class="friend-option" onclick="this.classList.toggle('selected')">
+                    <input type="checkbox" name="members" value="{{ friend.id }}" class="checkbox-hidden">
+                    {% if friend.profile.avatar %}
+                        <img src="{{ friend.profile.avatar.url }}" class="conv-avatar" style="width:35px; height:35px; margin-right:10px;">
+                    {% else %}
+                        <img src="{% static 'images/default-avatar.png' %}" class="conv-avatar" style="width:35px; height:35px; margin-right:10px;">
+                    {% endif %}
+                    <span>@{{ friend.username }}</span>
+                    <i class="fas fa-check-circle" style="margin-left:auto; color:#00d2ff;"></i>
+                </label>
+                {% empty %}
+                <p style="color:#666;">Vous devez suivre des gens pour les ajouter.</p>
+                {% endfor %}
+            </div>
+
+            <button type="submit" class="create-btn">CRÉER LE GROUPE</button>
+        </form>
+    </div>
+</div>
+
+<footer class="bottom-nav">
+  <a href="{% url 'techfeed:feed' %}" class="nav-item">
+    <i class="fa-solid fa-house"></i>
+    <span>Accueil</span>
+  </a>
+  <a href="{% url 'techfeed:friends' %}" class="nav-item">
+    <i class="fa-solid fa-user-friends"></i>
+    <span>Amis</span>
+  </a>
+  <a href="{% url 'techfeed:uploader_video' %}" class="upload-btn"></a>
+  <a href="{% url 'techfeed:notifications' %}" class="nav-item active">
+    <i class="fa-solid fa-bell"></i>
+    <span>Boîte</span>
+  </a>
+  <a href="{% url 'techfeed:profile' request.user.username %}" class="nav-item">
+    <i class="fa-regular fa-user"></i>
+    <span>Profil</span>
+  </a>
+</footer>
+
+<script>
+    function openCreateGroup() {
+        document.getElementById('groupModal').style.display = 'flex';
+    }
+    function closeCreateGroup() {
+        document.getElementById('groupModal').style.display = 'none';
+    }
+</script>
+
+{% endblock %}

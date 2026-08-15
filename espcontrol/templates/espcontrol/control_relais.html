@@ -1,0 +1,217 @@
+{% extends "espcontrol/base.html" %}
+
+{% block title %}Ajouter un Relais{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    /* --- CSS GLOBAL (Rappel du thème pour cohérence) --- */
+    body {
+        /* On s'assure que le fond est bien celui du thème */
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 30%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+    }
+
+    /* --- Conteneur Principal Glassmorphism --- */
+    .main-container-form {
+        max-width: 600px; /* Plus étroit pour un formulaire */
+        margin: 50px auto;
+        padding: 40px;
+        background-color: rgba(13, 18, 41, 0.75); /* Un peu plus opaque pour la lisibilité du form */
+        backdrop-filter: blur(15px);
+        border-radius: 25px;
+        border: 1px solid rgba(0, 210, 255, 0.2);
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 210, 255, 0.1);
+    }
+
+    /* --- Header du formulaire --- */
+    .form-header {
+        text-align: center;
+        margin-bottom: 35px;
+        border-bottom: 1px solid rgba(0, 210, 255, 0.3);
+        padding-bottom: 20px;
+    }
+    .form-header h4 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+        margin: 0;
+    }
+    .form-header i {
+        font-size: 2.5rem;
+        color: #00d2ff;
+        margin-bottom: 15px;
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.6);
+    }
+
+    /* --- Styles des Champs de Formulaire Futuristes --- */
+    /* On cible les inputs générés par Django dans notre conteneur */
+    .futuristic-form label {
+        font-family: 'Orbitron', sans-serif;
+        color: #00d2ff;
+        font-weight: 500;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+    }
+
+    /* Style par défaut des champs (inputs, selects, textareas) */
+    .futuristic-form input[type="text"],
+    .futuristic-form input[type="number"],
+    .futuristic-form input[type="email"],
+    .futuristic-form input[type="password"],
+    .futuristic-form select,
+    .futuristic-form textarea {
+        width: 100%;
+        background-color: rgba(10, 15, 30, 0.8) !important; /* Fond très sombre */
+        border: 1px solid rgba(0, 210, 255, 0.3) !important; /* Bordure subtile cyan */
+        color: #fff !important; /* Texte blanc */
+        padding: 12px 15px;
+        border-radius: 10px;
+        font-family: 'Roboto', sans-serif;
+        transition: all 0.3s ease;
+        outline: none; /* Supprime le contour bleu par défaut du navigateur */
+    }
+
+    /* Effet FOCUS : Quand on clique dans le champ */
+    .futuristic-form input:focus,
+    .futuristic-form select:focus,
+    .futuristic-form textarea:focus {
+        border-color: #00d2ff !important; /* Bordure cyan vif */
+        box-shadow: 0 0 15px rgba(0, 210, 255, 0.5) !important; /* Lueur externe */
+        background-color: rgba(13, 18, 41, 1) !important;
+    }
+
+    /* Textes d'aide et d'erreur */
+    .form-text.text-muted {
+        color: #aab2cd !important;
+        font-size: 0.85rem;
+        margin-top: 5px;
+    }
+    .text-danger.small {
+        color: #ff3366 !important; /* Rouge néon pour les erreurs */
+        text-shadow: 0 0 5px rgba(255, 51, 102, 0.5);
+        margin-top: 5px;
+        font-weight: 500;
+    }
+
+    /* --- Boutons --- */
+    .btn-submit-neon {
+        width: 100%;
+        padding: 12px;
+        margin-top: 20px;
+        background: linear-gradient(135deg, #00d2ff, #00ff99);
+        border: none;
+        border-radius: 12px;
+        color: #0a1128;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        box-shadow: 0 5px 15px rgba(0, 210, 255, 0.3);
+        transition: all 0.3s ease;
+    }
+    .btn-submit-neon:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 210, 255, 0.6);
+        background: linear-gradient(135deg, #00ff99, #00d2ff);
+    }
+
+    /* Lien de retour stylisé */
+    .back-link-container {
+        text-align: center;
+        margin-top: 25px;
+    }
+    .btn-back-neon {
+        text-decoration: none;
+        color: #aab2cd;
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+    }
+    .btn-back-neon:hover {
+        color: #00d2ff;
+        border-color: rgba(0, 210, 255, 0.3);
+        background: rgba(0, 210, 255, 0.05);
+        text-shadow: 0 0 5px rgba(0, 210, 255, 0.5);
+    }
+
+
+    /* =========================================
+       RESPONSIVE (Petits Écrans)
+    ========================================= */
+    @media (max-width: 768px) {
+        .main-container-form {
+            margin: 20px auto; /* Moins de marge extérieure */
+            padding: 25px 20px; /* Moins de padding intérieur */
+            width: 95%; /* Prend presque toute la largeur */
+        }
+
+        .form-header h4 {
+            font-size: 1.5rem; /* Titre plus petit */
+        }
+        .form-header i {
+            font-size: 2rem;
+        }
+
+        .btn-submit-neon {
+            padding: 15px; /* Bouton plus facile à taper */
+        }
+    }
+</style>
+
+<div class="main-container-form">
+    <div class="form-header">
+        <div><i class="fas fa-microchip"></i></div>
+        <h4>Configuration du Relais</h4>
+    </div>
+
+    <div class="card-body">
+        <form method="POST" class="futuristic-form">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="mb-4"> <label for="{{ field.id_for_label }}" class="form-label">
+                        <i class="fas fa-caret-right fa-xs me-1" style="opacity:0.7;"></i> {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <div class="form-text text-muted"><i class="fas fa-info-circle me-1"></i>{{ field.help_text }}</div>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <div class="text-danger small"><i class="fas fa-exclamation-triangle me-1"></i>{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn-submit-neon">
+                <i class="fas fa-save me-2"></i> Enregistrer le Relais
+            </button>
+        </form>
+
+        <div class="back-link-container">
+            <a href="{% url 'home' %}" class="btn-back-neon">
+                <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

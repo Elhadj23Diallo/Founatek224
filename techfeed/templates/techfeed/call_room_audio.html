@@ -1,0 +1,70 @@
+{% extends "techfeed/base.html" %}
+{% block content %}
+
+<script type="module">
+import {
+  Room,
+  createLocalAudioTrack
+} from "https://unpkg.com/livekit-client/dist/livekit-client.esm.mjs";
+
+const LIVEKIT_URL = "{{ LIVEKIT_URL }}";
+const TOKEN_URL = "{% url 'techfeed:call_livekit_token' call.room_name %}";
+
+let room;
+let audioTrack;
+let started = false;
+
+window.startCall = async function () {
+  if (started) return;
+  started = true;
+
+  const res = await fetch(TOKEN_URL);
+  const { token } = await res.json();
+
+  room = new Room();
+  await room.connect(LIVEKIT_URL, token);
+
+  // 🎤 AUDIO ONLY
+  audioTrack = await createLocalAudioTrack();
+  await room.localParticipant.publishTrack(audioTrack);
+
+  room.on("trackSubscribed", (track) => {
+    if (track.kind === "audio") {
+      const audioEl = document.createElement("audio");
+      audioEl.srcObject = new MediaStream([track.mediaStreamTrack]);
+      audioEl.autoplay = true;
+      audioEl.play();
+      document.body.appendChild(audioEl);
+    }
+  });
+};
+
+window.toggleMic = () => {
+  if (audioTrack) audioTrack.enabled = !audioTrack.enabled;
+};
+
+window.hangup = async () => {
+  await fetch("{% url 'techfeed:end_call' call.room_name %}", {
+    method: "POST",
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  });
+  location.href = "{% url 'techfeed:feed' %}";
+};
+</script>
+
+<style>
+.wrap { max-width:500px; margin:40px auto; text-align:center }
+.btn { padding:12px 18px; border-radius:999px; font-weight:800; border:none }
+.btn-green { background:#00ff99 }
+.btn-red { background:#ff0050; color:#fff }
+</style>
+
+<div class="wrap">
+  <h2>📞 Appel audio privé</h2>
+  <button class="btn btn-green" onclick="startCall()">▶️ Démarrer</button>
+  <div style="margin-top:20px">
+    <button class="btn btn-red" onclick="hangup()">❌ Raccrocher</button>
+  </div>
+</div>
+
+{% endblock %}

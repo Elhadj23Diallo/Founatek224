@@ -1,0 +1,322 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<script src='https://meet.jit.si/external_api.js'></script>
+
+<style>
+  /* --- LAYOUT --- */
+  html, body { height: 100%; height: 100dvh; margin: 0; padding: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Roboto', sans-serif; display: flex; justify-content: center; }
+  .chat-wrapper { display: flex; flex-direction: column; height: 100%; width: 100%; position: relative; background-color: #000; }
+  @media (min-width: 768px) { .chat-wrapper { max-width: 600px; border-left: 1px solid #222; border-right: 1px solid #222; } }
+
+  /* --- HEADER --- */
+  .chat-header { flex: 0 0 60px; display: flex; align-items: center; padding: 0 15px; background: rgba(15, 15, 15, 0.95); border-bottom: 1px solid #222; z-index: 50; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; }
+  .back-link { color: #00d2ff; font-size: 1.2rem; margin-right: 15px; text-decoration: none; padding: 10px; }
+  .header-user { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; }
+  .header-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1px solid #333; }
+  .header-name { font-family: 'Orbitron', sans-serif; font-size: 0.95rem; font-weight: 600; }
+  .status-indicator { font-size: 0.7rem; color: #666; margin-left: 5px; }
+
+  /* --- MESSAGES --- */
+  .chat-area { flex: 1; overflow-y: scroll; -webkit-overflow-scrolling: touch; padding: 15px; display: flex; flex-direction: column; gap: 12px; background-image: radial-gradient(circle at center, #0a0a0a 0%, #000 100%); }
+  .chat-area::-webkit-scrollbar { width: 4px; }
+  .chat-area::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+  .msg-row { display: flex; width: 100%; flex-direction: column; }
+  .bubble { max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 0.95rem; line-height: 1.4; word-wrap: break-word; position: relative; }
+
+  /* Bouton Supprimer */
+  .delete-msg-btn { position: absolute; top: -8px; left: -8px; width: 20px; height: 20px; border-radius: 50%; background: #ef233c; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; opacity: 0; transition: 0.2s; text-decoration: none; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10; }
+  .bubble:hover .delete-msg-btn { opacity: 1; }
+  @media (max-width: 768px) { .delete-msg-btn { opacity: 0.5; } }
+
+  .msg-row.other { align-items: flex-start; }
+  .msg-row.other .bubble { background-color: #1a1a1a; color: #e0e0e0; border-bottom-left-radius: 4px; border: 1px solid #333; }
+  .msg-row.me { align-items: flex-end; }
+  .msg-row.me .bubble { background: linear-gradient(135deg, #00d2ff, #0077ff); color: #000; font-weight: 500; border-bottom-right-radius: 4px; }
+  .msg-time { display: block; font-size: 0.65rem; margin-top: 4px; opacity: 0.7; text-align: right; }
+
+  /* --- MEDIA --- */
+  .image-container { position: relative; display: inline-block; margin-top: 5px; }
+  .chat-image { max-width: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+  .download-overlay { position: absolute; bottom: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; width: 25px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .file-link { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; text-decoration: none; color: inherit; margin-top: 5px; font-weight: bold; font-size: 0.85rem; border: 1px solid #333; }
+  .audio-player { width: 100%; min-width: 150px; margin-top: 5px; height: 40px; border-radius: 20px; }
+  audio { filter: invert(100%) grayscale(100%) contrast(1.5); opacity: 0.8; }
+
+  /* --- INPUT (Optimisé) --- */
+  .chat-input-container { flex: 0 0 auto; padding: 8px 10px; background-color: #000; border-top: 1px solid #222; padding-bottom: calc(8px + env(safe-area-inset-bottom)); position: relative; }
+  .chat-form { display: flex; align-items: center; background: #1a1a1a; border-radius: 25px; padding: 5px 5px; border: 1px solid #333; width: 100%; box-sizing: border-box; gap: 2px; }
+  .chat-input { flex: 1; background: transparent; border: none; color: #fff; padding: 8px 5px; font-size: 16px; outline: none; min-width: 0; }
+  .icon-btn { background: transparent; border: none; color: #888; font-size: 1.2rem; padding: 8px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; min-width: 35px; }
+  .send-btn { color: #00d2ff; margin-right: 2px; }
+  #fileInput { display: none; }
+
+  /* Previews */
+  #filePreview { display: none; position: absolute; bottom: 70px; left: 20px; background: #1a1a1a; padding: 8px; border-radius: 12px; border: 1px solid #00d2ff; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 90; }
+  #previewImg { max-width: 80px; max-height: 80px; border-radius: 6px; display: block; }
+  #previewFileName { font-size: 0.7rem; color: #ccc; margin-top: 5px; display: none; max-width: 150px; overflow: hidden; }
+  .remove-file-btn { position: absolute; top: -8px; right: -8px; background: red; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; cursor: pointer; font-weight: bold; }
+
+  #recordingUI { display: none; align-items: center; justify-content: space-between; position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 20; padding: 0 15px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .rec-indicator { color: #ef233c; font-weight: bold; font-family: 'Orbitron'; display: flex; align-items: center; gap: 10px; }
+  .pulsing-dot { width: 12px; height: 12px; background: #ef233c; border-radius: 50%; animation: pulse-red 1s infinite; }
+  @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+  .stop-btn { background: #333; color: white; border: 1px solid #444; padding: 5px 15px; border-radius: 20px; cursor: pointer; }
+
+  #emojiContainer { position: absolute; bottom: 70px; left: 5px; z-index: 90; display: none; }
+  .picmo-picker { border: 1px solid #333 !important; background: #111 !important; width: 300px !important; max-width: 90vw; }
+
+  /* Call Container */
+  #jitsiMeetContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 3000; display: none; }
+  #closeCallBtn { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: #ef233c; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; z-index: 3001; border: 2px solid white; box-shadow: 0 0 20px rgba(239, 35, 60, 0.5); }
+
+  /* Lightbox */
+  #imageLightbox { display: none; position: fixed; z-index: 4000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+  #lightboxImg { max-width: 95%; max-height: 90vh; object-fit: contain; border: 2px solid #00d2ff; }
+  .close-lightbox { position: absolute; top: 20px; right: 25px; color: #f1f1f1; font-size: 40px; cursor: pointer; }
+</style>
+
+<div id="jitsiMeetContainer">
+    <div id="closeCallBtn" onclick="endCall()"><i class="fas fa-phone-slash"></i></div>
+</div>
+
+<div class="chat-wrapper">
+
+  <div class="chat-header">
+    <div class="header-left">
+        <a href="{% url 'techfeed:messages' %}" class="back-link"><i class="fas fa-arrow-left"></i></a>
+        <a href="{% url 'techfeed:profile' other_user.username %}" class="header-user">
+          {% if other_user.profile.avatar %}
+            <img src="{{ other_user.profile.avatar.url }}" class="header-avatar">
+          {% else %}
+            <img src="{% static 'images/default-avatar.png' %}" class="header-avatar">
+          {% endif %}
+          <div>
+            <div class="header-name">@{{ other_user.username }}</div>
+            <div class="status-indicator">En ligne</div>
+          </div>
+        </a>
+    </div>
+
+    <div style="display:flex; gap:8px; align-items: center;">
+      <form method="post" action="{% url 'techfeed:start_call' other_user.id %}" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" style="border:none;background:#00d2ff;color:#000;padding:8px 16px;border-radius:999px;font-weight:700;cursor:pointer; display:flex; align-items:center; gap:5px;">
+          <i class="fas fa-video"></i>
+        </button>
+      </form>
+
+      <form method="post" action="{% url 'techfeed:start_call' other_user.id %}" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="call_type" value="audio">
+        <button type="submit" style="border:none;background:#00ff99;color:#000;padding:8px 16px;border-radius:999px;font-weight:700;cursor:pointer; display:flex; align-items:center; gap:5px;">
+          <i class="fas fa-phone-alt"></i>
+        </button>
+      </form>
+    </div>
+    </div>
+
+  <div class="chat-area" id="chatScroll">
+    {% for m in messages %}
+      {% if m.sender == user %}
+        <div class="msg-row me">
+          <div class="bubble">
+            <a href="{% url 'techfeed:delete_message' m.id %}" class="delete-msg-btn" onclick="return confirm('Supprimer ce message ?');" title="Supprimer">
+                <i class="fas fa-trash"></i>
+            </a>
+            {% if m.attachment %}
+                {% if m.attachment.url|lower|slice:"-4:" == ".jpg" or m.attachment.url|lower|slice:"-4:" == ".png" %}
+                    <div class="image-container">
+                        <img src="{{ m.attachment.url }}" class="chat-image" onclick="openLightbox('{{ m.attachment.url }}')">
+                        <a href="{{ m.attachment.url }}" download class="download-overlay" onclick="event.stopPropagation()"><i class="fas fa-download"></i></a>
+                    </div>
+                {% elif m.attachment.url|lower|slice:"-4:" == ".mp3" or m.attachment.url|lower|slice:"-5:" == ".webm" %}
+                    <audio controls src="{{ m.attachment.url }}" class="audio-player"></audio>
+                {% else %}
+                    <a href="{{ m.attachment.url }}" download class="file-link" style="color:#000; background:rgba(0,0,0,0.2);">
+                        <i class="fas fa-file-download"></i> Fichier
+                    </a>
+                {% endif %}
+            {% endif %}
+            {% if "INVITATION_APPEL_FOUNATEK" in m.content %}
+                 <div style="color:#000; font-weight:bold;">📞 Appel sortant...</div>
+            {% else %}
+                 {% if m.content %}<div style="margin-top:4px;">{{ m.content }}</div>{% endif %}
+            {% endif %}
+            <span class="msg-time">{{ m.timestamp|time:"H:i" }}</span>
+          </div>
+        </div>
+      {% else %}
+        <div class="msg-row other">
+          <div class="bubble">
+            {% if "INVITATION_APPEL_FOUNATEK" in m.content %}
+                 <div style="background:#222; padding:10px; border-radius:10px; border:1px solid #00d2ff;">
+                     <i class="fas fa-phone-volume" style="color:#00ff99;"></i> Appel entrant
+                     <button onclick="joinCall('{{ m.content }}')" style="display:block; margin-top:5px; background:#00ff99; border:none; padding:5px 10px; border-radius:15px; width:100%; cursor:pointer;">REJOINDRE</button>
+                 </div>
+            {% else %}
+                {% if m.attachment %}
+                    {% if m.attachment.url|lower|slice:"-4:" == ".jpg" or m.attachment.url|lower|slice:"-4:" == ".png" %}
+                        <div class="image-container">
+                            <img src="{{ m.attachment.url }}" class="chat-image" onclick="openLightbox('{{ m.attachment.url }}')">
+                            <a href="{{ m.attachment.url }}" download class="download-overlay" onclick="event.stopPropagation()"><i class="fas fa-download"></i></a>
+                        </div>
+                    {% elif m.attachment.url|lower|slice:"-4:" == ".mp3" or m.attachment.url|lower|slice:"-5:" == ".webm" %}
+                        <audio controls src="{{ m.attachment.url }}" class="audio-player"></audio>
+                    {% else %}
+                        <a href="{{ m.attachment.url }}" download class="file-link">
+                            <i class="fas fa-file-download"></i> Fichier
+                        </a>
+                    {% endif %}
+                {% endif %}
+                {% if m.content %}<div style="margin-top:4px;">{{ m.content }}</div>{% endif %}
+            {% endif %}
+            <span class="msg-time">{{ m.timestamp|time:"H:i" }}</span>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="chat-input-container">
+    <div id="emojiContainer"></div>
+    <div id="filePreview">
+        <div class="remove-file-btn" onclick="clearFile()">×</div>
+        <img id="previewImg" src="">
+        <div id="previewFileName"></div>
+    </div>
+    <div id="recordingUI">
+        <div class="rec-indicator"><div class="pulsing-dot"></div><span id="recTimer">00:00</span></div>
+        <div style="font-size:0.9rem; color:#888;">Enregistrement...</div>
+        <button type="button" class="stop-btn" onclick="stopRecording()"><i class="fas fa-stop"></i> Envoyer</button>
+    </div>
+
+    <form action="{% url 'techfeed:send_message' other_user.id %}" method="post" class="chat-form" enctype="multipart/form-data" id="mainChatForm">
+      {% csrf_token %}
+      <label for="fileInput" class="icon-btn" style="margin:0;"><i class="fas fa-paperclip"></i></label>
+      <input type="file" name="attachment" id="fileInput" style="display:none;" onchange="handleFileSelect(this)">
+      <button type="button" class="icon-btn" id="micBtn" onclick="toggleRecording()" style="color:#ef233c;"><i class="fas fa-microphone"></i></button>
+      <button type="button" class="icon-btn" id="emojiBtn"><i class="far fa-smile"></i></button>
+      <input type="text" name="content" id="msgInput" class="chat-input" placeholder="Message..." autocomplete="off">
+      <button type="submit" class="icon-btn send-btn"><i class="fas fa-paper-plane"></i></button>
+    </form>
+  </div>
+
+</div>
+
+<div id="imageLightbox"><span class="close-lightbox" onclick="closeLightbox()">&times;</span><img id="lightboxImg" src=""></div>
+
+<script src="https://unpkg.com/picmo@latest/dist/umd/index.js"></script>
+<script>
+  function scrollToBottom() { var c = document.getElementById("chatScroll"); c.scrollTop = c.scrollHeight; }
+  window.onload = scrollToBottom;
+
+  /* APPELS */
+  let jitsiApi = null;
+  function startCall(type) {
+      const roomName = "FounatekCall_" + Math.random().toString(36).substring(7);
+      const invite = "INVITATION_APPEL_FOUNATEK:" + roomName + ":" + type;
+      document.getElementById('msgInput').value = invite;
+      document.getElementById('mainChatForm').submit();
+  }
+  function joinCall(str) {
+      const parts = str.split(':'); const room = parts[1]; const type = parts[2];
+      document.getElementById('jitsiMeetContainer').style.display = 'block';
+      const domain = 'framatalk.org';
+      const options = { roomName: room, width: '100%', height: '100%', parentNode: document.querySelector('#jitsiMeetContainer'),
+          configOverwrite: { startWithAudioMuted: false, startWithVideoMuted: (type==='audio'), prejoinPageEnabled: false, disableDeepLinking: true },
+          interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ['microphone', 'camera', 'hangup', 'tileview'], SHOW_JITSI_WATERMARK: false },
+          userInfo: { displayName: "{{ user.username }}" }
+      };
+      jitsiApi = new JitsiMeetExternalAPI(domain, options);
+      jitsiApi.addEventListeners({ videoConferenceLeft: function(){ endCall(); } });
+  }
+  function endCall() { if(jitsiApi){jitsiApi.dispose(); jitsiApi=null;} document.getElementById('jitsiMeetContainer').style.display='none'; }
+
+  /* LIGHTBOX & FILES */
+  const lightbox = document.getElementById('imageLightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  function openLightbox(src) { lightbox.style.display = "flex"; lightboxImg.src = src; }
+  function closeLightbox() { lightbox.style.display = "none"; }
+  lightbox.addEventListener('click', e => { if(e.target!==lightboxImg) closeLightbox() });
+
+  function handleFileSelect(input) {
+      const file = input.files[0];
+      if(file) {
+          const previewBox = document.getElementById('filePreview');
+          const previewImg = document.getElementById('previewImg');
+          const previewFileName = document.getElementById('previewFileName');
+          if (file.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onload = function(e) { previewImg.src = e.target.result; previewImg.style.display = 'block'; previewFileName.style.display = 'none'; }
+              reader.readAsDataURL(file);
+          } else {
+              previewImg.style.display = 'none'; previewFileName.textContent = "📄 " + file.name; previewFileName.style.display = 'block';
+          }
+          previewBox.style.display = 'block';
+      }
+  }
+  function clearFile() { document.getElementById('fileInput').value = ""; document.getElementById('filePreview').style.display = 'none'; }
+
+  /* RECORDING */
+  let mediaRecorder; let audioChunks = []; let isRecording = false; let timerInterval;
+  const fileInput = document.getElementById('fileInput');
+  async function toggleRecording() {
+      if (!isRecording) {
+          try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              mediaRecorder = new MediaRecorder(stream);
+              audioChunks = []; mediaRecorder.start(); isRecording = true;
+              document.getElementById('recordingUI').style.display = 'flex';
+              let startTime = Date.now();
+              timerInterval = setInterval(() => {
+                  const diff = Math.floor((Date.now() - startTime) / 1000);
+                  const m = Math.floor(diff / 60).toString().padStart(2, '0');
+                  const s = (diff % 60).toString().padStart(2, '0');
+                  document.getElementById('recTimer').textContent = `${m}:${s}`;
+              }, 1000);
+              mediaRecorder.addEventListener("dataavailable", event => { audioChunks.push(event.data); });
+              mediaRecorder.addEventListener("stop", () => {
+                  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                  const audioFile = new File([audioBlob], "vocal_message.webm", { type: 'audio/webm' });
+                  const dataTransfer = new DataTransfer(); dataTransfer.items.add(audioFile);
+                  fileInput.files = dataTransfer.files;
+                  handleFileSelect(fileInput);
+                  stream.getTracks().forEach(track => track.stop());
+              });
+          } catch (err) { alert("Micro inaccessible."); }
+      }
+  }
+  function stopRecording() {
+      if (isRecording && mediaRecorder) {
+          mediaRecorder.stop(); isRecording = false; clearInterval(timerInterval); document.getElementById('recordingUI').style.display = 'none';
+      }
+  }
+
+  /* EMOJIS */
+  document.addEventListener('DOMContentLoaded', () => {
+      const container = document.querySelector('#emojiContainer');
+      const input = document.querySelector('#msgInput');
+      const picker = picmo.createPicker({ rootElement: container, theme: 'dark', showPreview: false, visibleRows: 4 });
+      document.querySelector('#emojiBtn').addEventListener('click', () => {
+          container.style.display = (container.style.display === 'none' || container.style.display === '') ? 'block' : 'none';
+      });
+      picker.addEventListener('emoji:select', (selection) => { input.value += selection.emoji; input.focus(); });
+      document.querySelector('.chat-area').addEventListener('click', () => { container.style.display = 'none'; });
+  });
+
+  var input = document.querySelector('.chat-input');
+  input.addEventListener('focus', function() {
+      document.querySelector('#emojiContainer').style.display = 'none';
+      setTimeout(scrollToBottom, 300);
+  });
+  window.addEventListener('resize', scrollToBottom);
+</script>
+
+{% endblock %}

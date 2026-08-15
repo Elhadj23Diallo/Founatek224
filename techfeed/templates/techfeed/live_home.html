@@ -1,0 +1,147 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  body {
+    background: #000;
+    color: #fff;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .live-page {
+    padding: 15px;
+  }
+
+  .live-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+
+  .live-header h1 {
+    font-size: 22px;
+    margin: 0;
+  }
+
+  .start-live-btn {
+    background: #ff0050;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .live-list {
+    margin-top: 10px;
+  }
+
+  .live-card {
+    background: #111;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .live-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .live-info {
+    flex: 1;
+  }
+
+  .live-title {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .live-host {
+    font-size: 13px;
+    color: #aaa;
+  }
+
+  .live-join-btn {
+    background: #00ff9a;
+    color: #000;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: none;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .live-empty {
+    text-align: center;
+    margin-top: 40px;
+    color: #777;
+  }
+
+  .live-title-input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: none;
+    margin-top: 8px;
+    background: #181818;
+    color: #fff;
+  }
+</style>
+
+<div class="live-page">
+
+  <div class="live-header">
+    <h1>Lives en cours 🔴</h1>
+  </div>
+
+  <!-- Formulaire pour lancer un live -->
+  <form method="post" action="{% url 'techfeed:start_live' %}">
+    {% csrf_token %}
+    <label for="title">Titre de ton live (optionnel)</label>
+    <input id="title" name="title" type="text" class="live-title-input" placeholder="Ex: Live IoT avec ESP32 et capteurs...">
+    <button type="submit" class="start-live-btn" style="margin-top:8px;">Lancer un live</button>
+  </form>
+
+  <div class="live-list">
+    {% if lives %}
+      {% for live in lives %}
+        <div class="live-card">
+          {% if live.host.profile.avatar %}
+            <img src="{{ live.host.profile.avatar.url }}" alt="{{ live.host.username }}" class="live-avatar">
+          {% else %}
+            <img src="{% static 'images/default-avatar.png' %}" alt="{{ live.host.username }}" class="live-avatar">
+          {% endif %}
+
+          <div class="live-info">
+            <div class="live-title">
+              {{ live.title|default:"Live sans titre" }}
+            </div>
+            <div class="live-host">
+              @{{ live.host.username }} • En direct
+            </div>
+          </div>
+
+          <form method="get" action="{% url 'techfeed:watch_live' live.room_name %}">
+            <button type="submit" class="live-join-btn">Rejoindre</button>
+          </form>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="live-empty">
+        Aucun live pour l’instant.<br>
+        Lance le premier live Founatek IoT ! 🚀
+      </p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

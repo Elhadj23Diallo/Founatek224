@@ -1,0 +1,204 @@
+{% extends "iot/base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- STYLES GLOBAUX --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+    }
+
+    .main-container { max-width: 800px; margin: auto; padding: 20px; }
+
+    /* Titre */
+    h1.form-title { 
+        font-family: 'Orbitron', sans-serif; 
+        text-align: center; 
+        color: #fff; 
+        margin-bottom: 30px;
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.6);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    /* --- PANNEAU DU FORMULAIRE --- */
+    .cyber-form-panel {
+        background: rgba(13, 18, 41, 0.6);
+        border: 1px solid #00d2ff;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Petite barre décorative en haut */
+    .cyber-form-panel::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+        background: linear-gradient(90deg, #00d2ff, #00ff99, #00d2ff);
+    }
+
+    /* --- SURCHARGE DES ÉLÉMENTS DJANGO (form.as_p) --- */
+    
+    /* Le conteneur <p> de Django */
+    .cyber-form p {
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    /* Les Labels */
+    .cyber-form label {
+        display: block; /* Force le label au-dessus */
+        font-family: 'Orbitron', sans-serif;
+        color: #00d2ff;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+    }
+
+    /* Les Inputs (Texte, Email, Password, Date, Select, Textarea) */
+    .cyber-form input[type="text"],
+    .cyber-form input[type="email"],
+    .cyber-form input[type="password"],
+    .cyber-form input[type="number"],
+    .cyber-form input[type="url"],
+    .cyber-form input[type="date"],
+    .cyber-form input[type="file"],
+    .cyber-form select,
+    .cyber-form textarea {
+        width: 100%;
+        background-color: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 12px 15px;
+        color: #fff;
+        font-family: 'Roboto', sans-serif;
+        font-size: 1rem;
+        outline: none;
+        transition: all 0.3s ease;
+        box-sizing: border-box; /* Important pour le responsive */
+    }
+
+    /* Focus sur les inputs */
+    .cyber-form input:focus, 
+    .cyber-form select:focus, 
+    .cyber-form textarea:focus {
+        border-color: #00ff99;
+        box-shadow: 0 0 10px rgba(0, 255, 153, 0.2);
+        background-color: #162032;
+    }
+
+    /* Cas particulier : Checkbox */
+    /* Django met souvent le label après, ou l'input dans le label. On cible l'input spécifiquement */
+    .cyber-form input[type="checkbox"] {
+        width: 20px; height: 20px;
+        accent-color: #00ff99; /* Couleur native moderne */
+        margin-right: 10px;
+        vertical-align: middle;
+        cursor: pointer;
+    }
+    
+    /* Si le label est pour une checkbox, on l'aligne */
+    .cyber-form input[type="checkbox"] + label,
+    .cyber-form label[for*="checkbox"] { 
+        display: inline-block; 
+        color: #fff; 
+        vertical-align: middle;
+        margin-bottom: 0;
+    }
+
+    /* Aide textuelle (help_text de Django) */
+    .helptext {
+        display: block;
+        font-size: 0.8rem;
+        color: #8892b0;
+        margin-top: 5px;
+        font-style: italic;
+    }
+
+    /* Gestion des erreurs (si Django renvoie des erreurs) */
+    .errorlist { color: #ef4444; list-style: none; padding: 0; margin-bottom: 10px; font-size: 0.9rem; }
+
+    /* --- BOUTONS D'ACTION --- */
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        gap: 15px;
+    }
+
+    .btn-cyber-submit {
+        flex: 2; /* Prend plus de place */
+        background: linear-gradient(45deg, #00d2ff, #0056b3);
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        text-transform: uppercase;
+        display: flex; justify-content: center; align-items: center; gap: 10px;
+    }
+    .btn-cyber-submit:hover { transform: translateY(-2px); box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
+
+    .btn-cyber-cancel {
+        flex: 1;
+        background: transparent;
+        border: 1px solid #8892b0;
+        color: #8892b0;
+        padding: 12px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        text-align: center;
+        font-family: 'Roboto', sans-serif;
+        transition: 0.3s;
+    }
+    .btn-cyber-cancel:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.05); }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 600px) {
+        .main-container { padding: 10px; }
+        .cyber-form-panel { padding: 20px 15px; }
+        .form-title { font-size: 1.5rem; }
+        
+        /* Boutons l'un sous l'autre sur mobile */
+        .form-actions { flex-direction: column-reverse; }
+        .btn-cyber-submit, .btn-cyber-cancel { width: 100%; }
+    }
+</style>
+
+<div class="main-container">
+    
+    <h1 class="form-title">
+        <i class="fas fa-terminal me-2" style="font-size: 0.8em;"></i> {{ title }}
+    </h1>
+
+    <div class="cyber-form-panel">
+        <form method="post" {% if is_multipart %}enctype="multipart/form-data"{% endif %} class="cyber-form">
+            {% csrf_token %}
+            
+            {{ form.as_p }}
+
+            <div class="form-actions">
+                <a class="btn-cyber-cancel" href="{% url 'iot:formateur_dashboard' %}">
+                    <i class="fas fa-times"></i> Annuler
+                </a>
+                <button type="submit" class="btn-cyber-submit">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

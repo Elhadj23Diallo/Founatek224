@@ -1,0 +1,59 @@
+{% extends "iot/base.html" %}
+
+{% block content %}
+    <div class="container mt-4">
+
+        <h2 class="mb-4">📊 Suivi des étudiants</h2>
+
+    <div class="d-flex justify-content-end gap-2 mb-3">
+        <a href="{% url 'iot:formateur_progressions_pdf' %}"
+           class="btn btn-outline-danger"
+           target="_blank">
+            📄 PDF
+        </a>
+
+        <a href="{% url 'iot:formateur_progressions_excel' %}"
+           class="btn btn-outline-success">
+            📊 Excel
+        </a>
+    </div>
+
+    <table class="table table-dark table-striped">
+        <thead>
+            <tr>
+                <th>Étudiant</th>
+                <th>Parcours</th>
+                <th>Leçon</th>
+                <th>Score</th>
+                <th>Statut</th>
+                <th>Dernière mise à jour</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in progressions %}
+                <tr>
+                    <td>{{ p.user.username }}</td>
+                    <td>{{ p.lecon.parcours.titre }}</td>
+                    <td>{{ p.lecon.titre }}</td>
+                    <td>{{ p.score }}%</td>
+                    <td>
+                        {% if p.completed %}
+                            <span class="badge bg-success">Validée</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">En cours</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.updated_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        Aucune progression enregistrée
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+{% endblock %}

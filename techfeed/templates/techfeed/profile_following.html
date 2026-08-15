@@ -1,0 +1,245 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+  /* --- BASE --- */
+  body {
+    background-color: #000;
+    color: #fff;
+    font-family: 'Roboto', sans-serif;
+    margin: 0; padding: 0;
+    padding-top: 60px; /* Header */
+    padding-bottom: 70px; /* Nav */
+  }
+
+  /* --- HEADER --- */
+  .list-header {
+    position: fixed;
+    top: 0; left: 0; width: 100%;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #222;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    z-index: 100;
+  }
+
+  .back-btn {
+    color: #fff;
+    font-size: 1.2rem;
+    margin-right: 20px;
+    text-decoration: none;
+    padding: 5px;
+  }
+
+  .header-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin: 0;
+    flex-grow: 1;
+    text-align: center;
+    margin-right: 30px; 
+  }
+
+  /* --- LISTE --- */
+  .user-list {
+    padding: 10px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .user-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    margin-bottom: 5px;
+    background: transparent;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  .user-card:hover {
+    background: #111;
+  }
+
+  /* Info User */
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    flex-grow: 1;
+    overflow: hidden;
+  }
+
+  .avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #333;
+    flex-shrink: 0;
+  }
+
+  .text-group {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  .username {
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .fullname {
+    color: #888;
+    font-size: 0.8rem;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Boutons */
+  .btn-action {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    min-width: 100px; /* Un peu plus large pour "Amis" */
+    transition: 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+
+  /* Rouge : Suivre */
+  .btn-follow { background: #ef233c; color: white; }
+  .btn-follow:hover { background: #d90429; }
+
+  /* Gris : Abonné (Simple follow) */
+  .btn-unfollow { background: #222; color: #ccc; border: 1px solid #444; }
+  .btn-unfollow:hover { background: #333; color: white; }
+
+  /* Gris + Icône : Amis (Follow mutuel) */
+  .btn-friends { background: #222; color: #fff; border: 1px solid #444; }
+  .btn-friends i { color: #00d2ff; } /* Icône bleue tech */
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    margin-top: 100px;
+    color: #555;
+  }
+
+  /* --- NAV --- */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; width: 100%; height: 60px;
+    background: #000; border-top: 1px solid #222;
+    display: flex; justify-content: space-around; align-items: center; z-index: 100;
+  }
+  .nav-item { color: #888; text-decoration: none; display: flex; flex-direction: column; align-items: center; font-size: 10px; gap: 4px; }
+  .nav-item i { font-size: 22px; }
+  .nav-item.active { color: #fff; }
+  
+  .upload-btn {
+    width: 45px; height: 30px; background: linear-gradient(to right, #00d2ff, #ef233c);
+    border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center;
+  }
+  .upload-btn::after {
+    content: '+'; color: black; font-weight: bold; font-size: 20px;
+    background: white; width: 38px; height: 30px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+  }
+</style>
+
+<div class="list-header">
+  <a href="{% url 'techfeed:profile' user_profile.username %}" class="back-btn">
+    <i class="fas fa-chevron-left"></i>
+  </a>
+  <h2 class="header-title">
+      Suivis <span style="font-size:0.8rem; color:#666;">({{ following.count }})</span>
+  </h2>
+</div>
+
+<div class="user-list">
+  {% for u in following %}
+    <div class="user-card">
+      
+      <a href="{% url 'techfeed:profile' u.username %}" class="user-info">
+        {% if u.profile.avatar %}
+          <img src="{{ u.profile.avatar.url }}" class="avatar">
+        {% else %}
+          <img src="{% static 'images/default-avatar.png' %}" class="avatar">
+        {% endif %}
+        
+        <div class="text-group">
+          <span class="username">@{{ u.username }}</span>
+          <span class="fullname">{{ u.first_name }} {{ u.last_name|default:"Tech Lover" }}</span>
+        </div>
+      </a>
+
+      {% if request.user != u %}
+        <form action="{% url 'techfeed:toggle_follow' u.id %}" method="post">
+          {% csrf_token %}
+          
+          {% if u.is_followed %}
+              
+              {% if u.is_following_me %}
+                  <button class="btn-action btn-friends">
+                      <i class="fas fa-user-friends"></i> Amis
+                  </button>
+              {% else %}
+                  <button class="btn-action btn-unfollow">Abonné</button>
+              {% endif %}
+
+          {% else %}
+              <button class="btn-action btn-follow">Suivre</button>
+          {% endif %}
+
+        </form>
+      {% endif %}
+
+    </div>
+  {% empty %}
+    <div class="empty-state">
+      <i class="fas fa-user-plus fa-3x" style="margin-bottom: 15px;"></i>
+      <p>Cet utilisateur ne suit personne pour l'instant.</p>
+    </div>
+  {% endfor %}
+</div>
+
+<footer class="bottom-nav">
+  <a href="{% url 'techfeed:feed' %}" class="nav-item">
+    <i class="fa-solid fa-house"></i>
+    <span>Accueil</span>
+  </a>
+  <a href="{% url 'techfeed:friends' %}" class="nav-item">
+    <i class="fa-solid fa-user-friends"></i>
+    <span>Amis</span>
+  </a>
+  <a href="{% url 'techfeed:uploader_video' %}" class="upload-btn"></a>
+  <a href="{% url 'techfeed:notifications' %}" class="nav-item">
+    <i class="fa-solid fa-bell"></i>
+    <span>Boîte</span>
+  </a>
+  <a href="{% url 'techfeed:profile' request.user.username %}" class="nav-item active">
+    <i class="fa-regular fa-user"></i>
+    <span>Profil</span>
+  </a>
+</footer>
+
+{% endblock %}

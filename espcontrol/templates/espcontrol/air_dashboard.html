@@ -1,0 +1,58 @@
+{% extends "espcontrol/base.html" %}
+{% load static %}
+
+{% block content %}
+<meta http-equiv="refresh" content="300">
+
+
+<h1>Prévision Qualité de l’air – Conakry</h1>
+
+<p>
+    <strong>De :</strong> {{ data.from_time }}<br>
+    <strong>Vers :</strong> {{ data.to_time }}
+</p>
+
+<h2 style="color: {{ color }};">
+    Qualité de l’air : {{ level }}
+</h2>
+
+<img src="{% static 'air/pm2p5_dashboard.png' %}?t={{ data.to_time }}" width="800">
+
+
+
+<h3>Valeurs prévues (+3h)</h3>
+<ul>
+    <li>PM2.5 : {{ data.prediction.pm2p5 }}</li>
+    <li>PM10 : {{ data.prediction.pm10 }}</li>
+    <li>CO : {{ data.prediction.co }}</li>
+    <li>NO2 : {{ data.prediction.no2 }}</li>
+</ul>
+
+<hr>
+
+<h2>🚨 Alertes prédictives</h2>
+
+{% if alerts.global_status == "danger" %}
+    <p style="color:red; font-weight:bold;">
+        ⚠️ Situation critique prévue
+    </p>
+{% elif alerts.global_status == "warning" %}
+    <p style="color:orange; font-weight:bold;">
+        ⚠️ Situation préoccupante prévue
+    </p>
+{% else %}
+    <p style="color:green; font-weight:bold;">
+        ✅ Qualité de l’air acceptable
+    </p>
+{% endif %}
+
+<ul>
+{% for alert in alerts.alerts %}
+    <li>
+        <strong>{{ alert.pollutant|upper }}</strong> :
+        {{ alert.message }}
+    </li>
+{% endfor %}
+</ul>
+
+{% endblock %}

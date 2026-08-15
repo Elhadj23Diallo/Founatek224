@@ -1,0 +1,47 @@
+{% extends "techfeed/base.html" %}
+{% block content %}
+<style>
+  body{background:#000;color:#fff;font-family:system-ui;margin:0}
+  .box{max-width:520px;margin:40px auto;padding:18px;background:#111;border:1px solid #222;border-radius:14px}
+  .pill{display:inline-block;background:#222;border:1px solid #333;border-radius:999px;padding:6px 10px;font-size:13px;color:#aaa}
+  .btn{border:none;border-radius:999px;padding:10px 14px;font-weight:700;cursor:pointer}
+  .btn-red{background:#ff0050;color:#fff}
+</style>
+
+<div class="box">
+  <div class="pill">📹 Appel en cours…</div>
+  <h2 style="margin:12px 0 6px 0;">En attente de @{{ call.receiver.username }}</h2>
+  <p style="color:#aaa;margin:0 0 15px 0;">Dès qu’il accepte, tu rejoins la room automatiquement.</p>
+
+  <button class="btn btn-red" onclick="hangup()">Raccrocher</button>
+</div>
+
+<script>
+  const roomName = "{{ call.room_name }}";
+
+  async function poll() {
+    const res = await fetch("{% url 'techfeed:call_status' call.room_name %}");
+    const data = await res.json();
+
+    if (data.ended) {
+      alert("Appel terminé.");
+      window.location.href = "{% url 'techfeed:feed' %}";
+      return;
+    }
+    if (data.accepted) {
+      window.location.href = "{% url 'techfeed:call_room' call.room_name %}";
+      return;
+    }
+    setTimeout(poll, 1200);
+  }
+  poll();
+
+  async function hangup() {
+    await fetch("{% url 'techfeed:end_call' call.room_name %}", {
+      method: "POST",
+      headers: {"X-CSRFToken": "{{ csrf_token }}"}
+    });
+    window.location.href = "{% url 'techfeed:feed' %}";
+  }
+</script>
+{% endblock %}

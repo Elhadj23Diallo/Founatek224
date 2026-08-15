@@ -1,0 +1,326 @@
+{% extends 'espcontrol/base.html' %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    /* --- STYLES GLOBAUX & FOND --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+        margin: 0; padding: 20px;
+        min-height: 100vh;
+    }
+
+    .main-container {
+        max-width: 1400px; margin: auto;
+        padding: 30px;
+        /* Effet Glassmorphism */
+        background-color: rgba(13, 18, 41, 0.7);
+        backdrop-filter: blur(15px);
+        border-radius: 25px;
+        border: 1px solid rgba(0, 210, 255, 0.2);
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 210, 255, 0.1);
+    }
+
+    /* --- TITRE & NAVIGATION --- */
+    h1.page-title {
+        font-family: 'Orbitron', sans-serif;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin: 30px 0 50px 0;
+        color: #fff;
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.7);
+    }
+
+    .btn-back {
+        display: inline-flex; align-items: center; gap: 10px;
+        padding: 10px 20px; border-radius: 12px; text-decoration: none;
+        font-weight: 600; color: #aab2cd; border: 1px solid #334155;
+        background-color: transparent; transition: all 0.3s ease;
+    }
+    .btn-back:hover { background-color: rgba(51, 65, 85, 0.4); color: #fff; border-color: #00d2ff; }
+
+    /* --- FILTRES --- */
+    .filters-form { display: flex; gap: 15px; margin-bottom: 40px; flex-wrap: wrap; align-items: end;}
+    .form-group { flex: 1; min-width: 200px; }
+    .form-label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #00d2ff; font-family: 'Orbitron', sans-serif; }
+    .form-control-dark {
+        width: 100%;
+        background-color: #0f172a; border: 1px solid #334155; color: #f1f5f9;
+        padding: 12px; border-radius: 12px; font-size: 0.9rem; transition: all 0.3s ease;
+    }
+    .form-control-dark:focus { outline: none; border-color: #00d2ff; box-shadow: 0 0 0 2px rgba(0, 210, 255, 0.2); }
+    .btn-filter {
+        padding: 12px 24px; border: none; border-radius: 12px; height: 45px;
+        background: linear-gradient(135deg, rgba(0, 210, 255, 0.2), rgba(0, 255, 153, 0.2));
+        color: #00d2ff; font-family: 'Orbitron', sans-serif; font-weight: bold;
+        border: 1px solid rgba(0, 210, 255, 0.3); cursor: pointer; transition: all 0.3s ease;
+    }
+    .btn-filter:hover {
+        background: linear-gradient(135deg, rgba(0, 210, 255, 0.4), rgba(0, 255, 153, 0.4));
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.5); color: #fff;
+    }
+
+    /* --- STATISTIQUES GLOBALES (CARTES) --- */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-bottom: 50px; }
+    .stats-card {
+        background-color: rgba(15, 23, 42, 0.5); border: 1px solid rgba(51, 65, 85, 0.6);
+        border-radius: 20px; padding: 25px; text-align: center;
+        transition: all 0.3s ease; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden;
+    }
+    .stats-card:hover { transform: translateY(-5px); }
+    .stats-card::before { content: ''; position: absolute; top:0; left:0; width: 100%; height: 5px; }
+
+    .card-icon { font-size: 3rem; margin-bottom: 15px; opacity: 0.8; }
+    .card-title { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; margin-bottom: 10px; color: #aab2cd; text-transform: uppercase; }
+    .card-value { font-family: 'Orbitron', sans-serif; font-size: 3rem; font-weight: 700; color: #fff; text-shadow: 0 0 15px currentColor; }
+
+    /* Couleurs spécifiques des cartes */
+    .card-total { border-color: rgba(0, 210, 255, 0.3); }
+    .card-total::before { background: #00d2ff; }
+    .card-total .card-icon, .card-total .card-value { color: #00d2ff; }
+
+    .card-allowed { border-color: rgba(0, 255, 153, 0.3); }
+    .card-allowed::before { background: #00ff99; }
+    .card-allowed .card-icon, .card-allowed .card-value { color: #00ff99; }
+
+    .card-denied { border-color: rgba(255, 51, 102, 0.3); }
+    .card-denied::before { background: #ff3366; }
+    .card-denied .card-icon, .card-denied .card-value { color: #ff3366; }
+
+
+    /* --- SECTIONS & TABLEAUX MODERNES --- */
+    h3.section-title {
+        font-family: 'Orbitron', sans-serif; color: #fff; text-transform: uppercase; letter-spacing: 1px;
+        margin: 50px 0 25px 0; display: flex; align-items: center; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+    }
+    h3.section-title i { color: #00d2ff; }
+
+    .table-container {
+        border-radius: 15px; border: 1px solid rgba(51, 65, 85, 0.6);
+        background-color: rgba(15, 23, 42, 0.3); overflow: hidden;
+        margin-bottom: 30px;
+    }
+    table { width: 100%; border-collapse: collapse; color: #e2e8f0; font-size: 0.95rem; }
+    th, td { padding: 18px 15px; text-align: left; vertical-align: middle; }
+    th {
+        background-color: rgba(13, 18, 41, 0.8); color: #00d2ff; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem;
+        border-bottom: 2px solid rgba(0, 210, 255, 0.2);
+    }
+    td { border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
+    tr:hover td { background-color: rgba(0, 210, 255, 0.05); }
+    .empty-row td { color: #94a3b8; padding: 40px; text-align: center; font-style: italic; }
+
+    /* Couleurs et Badges */
+    .text-neon-green { color: #00ff99 !important; text-shadow: 0 0 5px rgba(0, 255, 153, 0.5); font-weight: bold;}
+    .text-neon-red { color: #ff3366 !important; text-shadow: 0 0 5px rgba(255, 51, 102, 0.5); font-weight: bold;}
+
+    .badge-status {
+        padding: 8px 12px; border-radius: 30px; font-weight: 600; font-size: 0.85rem;
+        display: inline-flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .badge-success { background: rgba(0, 255, 153, 0.1); color: #00ff99; border: 1px solid rgba(0, 255, 153, 0.4); box-shadow: 0 0 10px rgba(0, 255, 153, 0.2); }
+    .badge-danger { background: rgba(255, 51, 102, 0.1); color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.4); box-shadow: 0 0 10px rgba(255, 51, 102, 0.2); }
+
+    /* --- PAGINATION --- */
+    .pagination-container { display: flex; justify-content: center; margin-top: 40px; }
+    .pagination { list-style: none; padding: 0; display: flex; gap: 8px; }
+    .page-link {
+        padding: 12px 18px; border-radius: 10px; background-color: #1a243d;
+        border: 1px solid #334155; color: #aab2cd; text-decoration: none; transition: all 0.3s ease; font-weight: 600;
+    }
+    .page-link:hover, .page-item.active .page-link {
+        background-color: rgba(0, 210, 255, 0.2); color: #00d2ff; border-color: #00d2ff; box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+    }
+    .page-item.disabled .page-link {
+        background-color: #0f172a; color: #445566; border-color: #1a243d; pointer-events: none;
+    }
+
+    /* --- RESPONSIVE (Transformation des tableaux en cartes) --- */
+    @media (max-width: 992px) {
+        .main-container { padding: 15px; }
+        .filters-form { flex-direction: column; gap: 20px; }
+        .btn-filter { width: 100%; }
+        .stats-grid { grid-template-columns: 1fr; }
+
+        /* Force le tableau à ne pas se comporter comme un tableau */
+        table, thead, tbody, th, td, tr { display: block; }
+        /* Cache l'en-tête */
+        thead tr { position: absolute; top: -9999px; left: -9999px; }
+
+        tr {
+            margin-bottom: 25px;
+            background-color: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(0, 210, 255, 0.2);
+            border-radius: 15px; overflow: hidden;
+        }
+        td {
+            /* Comportement flex pour aligner label et valeur */
+            border: none; border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+            position: relative; padding: 15px; padding-left: 45%; /* Espace pour le label */
+            text-align: right; display: flex; justify-content: flex-end; align-items: center;
+            min-height: 55px;
+        }
+        td:before {
+            /* Création du label via l'attribut data-label */
+            position: absolute; top: 50%; left: 15px; transform: translateY(-50%);
+            width: 40%; white-space: nowrap; font-family: 'Orbitron', sans-serif;
+            font-weight: 700; color: #00d2ff; text-transform: uppercase; font-size: 0.8rem; text-align: left;
+            content: attr(data-label);
+        }
+        td:last-child { border-bottom: none; }
+        /* Ajustement pour les badges sur mobile */
+        .badge-status { width: auto; justify-content: center; }
+    }
+</style>
+
+<div class="main-container">
+    <a href="{% url 'home' %}" class="btn-back">
+        <i class="fas fa-arrow-left"></i> Retour au Dashboard
+    </a>
+
+    <h1 class="page-title">📊 Tableau de bord - Accès IoT</h1>
+
+    <form method="get" class="filters-form">
+        <div class="form-group">
+            <label class="form-label"><i class="fas fa-door-open"></i> Porte</label>
+            <input type="text" name="door" placeholder="Nom de la porte..." value="{{ door_filter }}" class="form-control-dark">
+        </div>
+        <div class="form-group">
+            <label class="form-label"><i class="fas fa-id-badge"></i> Badge</label>
+            <input type="text" name="badge" placeholder="UID ou Label..." value="{{ badge_filter }}" class="form-control-dark">
+        </div>
+        <div class="form-group">
+            <label class="form-label"><i class="fas fa-user"></i> Utilisateur</label>
+            <input type="text" name="user" placeholder="Nom d'utilisateur..." value="{{ user_filter }}" class="form-control-dark">
+        </div>
+        <div class="form-group" style="flex: 0 0 auto;">
+             <label class="form-label">&nbsp;</label> <button type="submit" class="btn-filter"><i class="fas fa-filter"></i> Filtrer les résultats</button>
+        </div>
+    </form>
+
+    <div class="stats-grid">
+        <div class="stats-card card-total">
+            <div class="card-icon"><i class="fas fa-list-ul"></i></div>
+            <div class="card-title">Total Logs</div>
+            <div class="card-value">{{ total_logs }}</div>
+        </div>
+        <div class="stats-card card-allowed">
+            <div class="card-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="card-title">Accès autorisés</div>
+            <div class="card-value">{{ total_allowed }}</div>
+        </div>
+        <div class="stats-card card-denied">
+            <div class="card-icon"><i class="fas fa-times-circle"></i></div>
+            <div class="card-title">Accès refusés</div>
+            <div class="card-value">{{ total_denied }}</div>
+        </div>
+    </div>
+
+    <h3 class="section-title"><i class="fas fa-users-cog"></i> Statistiques par utilisateur</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th><i class="fas fa-user"></i> Utilisateur</th>
+                    <th><i class="fas fa-list-ol"></i> Total Logs</th>
+                    <th><i class="fas fa-check"></i> Autorisés</th>
+                    <th><i class="fas fa-times"></i> Refusés</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in user_stats %}
+                <tr>
+                    <td data-label="Utilisateur"><strong>{{ u.user__username|default:"—" }}</strong></td>
+                    <td data-label="Total Logs">{{ u.total_logs }}</td>
+                    <td data-label="Autorisés" class="text-neon-green">{{ u.allowed_logs }}</td>
+                    <td data-label="Refusés" class="text-neon-red">{{ u.denied_logs }}</td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="4"><i class="fas fa-info-circle"></i> Aucun utilisateur trouvé.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="section-title"><i class="fas fa-clipboard-list"></i> Historique détaillé des accès</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th><i class="far fa-clock"></i> Date / Heure</th>
+                    <th><i class="fas fa-fingerprint"></i> UID Badge</th>
+                    <th><i class="fas fa-tag"></i> Label Badge</th>
+                    <th><i class="fas fa-user"></i> Utilisateur</th>
+                    <th><i class="fas fa-door-open"></i> Porte</th>
+                    <th><i class="fas fa-poll-h"></i> Résultat</th>
+                    <th><i class="fas fa-network-wired"></i> IP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in page_obj %}
+                <tr>
+                    <td data-label="Date / Heure">{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+                    <td data-label="UID Badge" style="font-family: monospace; color: #00d2ff;">{{ log.uid }}</td>
+                    <td data-label="Label Badge">{{ log.badge.label|default:"—" }}</td>
+                    <td data-label="Utilisateur"><strong>{{ log.user.username|default:log.badge.owner.username|default:"Inconnu" }}</strong></td>
+                    <td data-label="Porte">{{ log.door.name|default:"—" }}</td>
+                    <td data-label="Résultat">
+                        {% if log.allowed %}
+                            <span class="badge-status badge-success"><i class="fas fa-check"></i> Autorisé</span>
+                        {% else %}
+                            <span class="badge-status badge-danger"><i class="fas fa-times"></i> Refusé</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="IP" style="font-family: monospace; font-size: 0.85rem;">{{ log.ip_address }}</td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="7"><i class="fas fa-info-circle"></i> Aucun log disponible pour le moment.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination-container">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&door={{ door_filter }}&badge={{ badge_filter }}&user={{ user_filter }}"><i class="fas fa-chevron-left"></i></a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-left"></i></span></li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}&door={{ door_filter }}&badge={{ badge_filter }}&user={{ user_filter }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&door={{ door_filter }}&badge={{ badge_filter }}&user={{ user_filter }}"><i class="fas fa-chevron-right"></i></a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-right"></i></span></li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "product_transparency/base.html" %}
+{% load static %}
+
+{% block title %}Paramètres entreprise{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --neon-blue:#00d2ff; --neon-green:#00ff99; --bg:#050a1f;
+  --card: rgba(13,18,41,.85); --text:#e0e6ff; --muted:#aab2cd;
+}
+.wrapper{max-width:650px;margin:30px auto;padding:0 16px;}
+h2{font-family:Orbitron;color:var(--neon-blue);text-align:center;margin-bottom:18px;}
+.card{background:var(--card);border:1px solid rgba(0,210,255,.3);border-radius:18px;padding:22px;}
+label{display:block;margin:12px 0 6px;font-family:Orbitron;color:var(--neon-blue);}
+input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(0,210,255,.25);background:rgba(5,10,31,.75);color:var(--text);}
+.btn{margin-top:18px;display:inline-block;padding:12px 18px;border-radius:40px;text-decoration:none;
+     font-family:Orbitron;font-weight:bold;border:2px solid var(--neon-blue);color:var(--neon-blue);background:rgba(0,210,255,.1);}
+.btn:hover{background:var(--neon-blue);color:#050a1f;}
+.preview{margin:10px 0 0; text-align:center;}
+.preview img{max-height:90px; object-fit:contain;}
+</style>
+
+<div class="wrapper">
+  <h2>⚙️ Paramètres entreprise</h2>
+
+  <div class="card">
+    {% if company.logo %}
+      <div class="preview">
+        <p style="color:var(--muted);margin:0 0 8px;">Logo actuel</p>
+        <img src="{{ company.logo.url }}" alt="Logo">
+      </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn" type="submit">Enregistrer</button>
+      <a class="btn" href="{% url 'product_transparency:company-dashboard' %}" style="border-color:var(--neon-green);color:var(--neon-green);">Retour</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

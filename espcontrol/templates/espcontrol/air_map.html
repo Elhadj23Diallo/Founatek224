@@ -1,0 +1,182 @@
+{% extends "espcontrol/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+    /* --- STYLES GLOBAUX (Même thème que le Dashboard) --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+        margin: 0; padding: 20px; min-height: 100vh; overflow-x: hidden;
+    }
+
+    .main-container { max-width: 1400px; margin: auto; }
+
+    /* User Bar & Navigation */
+    .top-nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding: 15px 25px; background: rgba(13, 18, 41, 0.8); border-radius: 15px; border: 1px solid #1a243d; flex-wrap: wrap; backdrop-filter: blur(5px); }
+    .user-info p { margin: 0; font-size: 0.95rem; display: inline-block; margin-right: 20px;}
+    .user-info strong { color: #00d2ff; }
+    
+    .btn-neon { background: transparent; color: #00d2ff; border: 1px solid #00d2ff; padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-neon:hover { background-color: #00d2ff; color: #050a1f; }
+    .btn-neon.red { color: #ef4444; border-color: #ef4444; }
+    .btn-neon.red:hover { background-color: #ef4444; color: white; }
+
+    /* Titre */
+    h1.main-title { font-family: 'Orbitron', sans-serif; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.7); }
+
+    /* Container de la carte */
+    .map-wrapper {
+        position: relative;
+        border: 2px solid #1a243d;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 0 30px rgba(0, 210, 255, 0.15);
+        background: #000;
+        height: 80vh; /* Hauteur de la carte */
+    }
+
+    #map { height: 100%; width: 100%; z-index: 1; }
+
+    /* Overlay Légende */
+    .map-legend {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(15, 23, 42, 0.9);
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid #00d2ff;
+        z-index: 1000; /* Au-dessus de la carte */
+        font-size: 0.85rem;
+        backdrop-filter: blur(4px);
+    }
+    .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; display: inline-block; }
+    .dot.green { background: #10b981; box-shadow: 0 0 5px #10b981; }
+    .dot.orange { background: #f59e0b; box-shadow: 0 0 5px #f59e0b; }
+    .dot.red { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+
+    /* --- Customisation Leaflet (Popup Dark Mode) --- */
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+        background: #0f172a;
+        color: #e0e6ff;
+        border: 1px solid #00d2ff;
+        border-radius: 8px;
+        box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+    }
+    .leaflet-popup-content b { color: #00d2ff; font-family: 'Orbitron', sans-serif; }
+    .leaflet-container a.leaflet-popup-close-button { color: #00d2ff; }
+</style>
+
+<div class="main-container">
+
+    <div class="top-nav-bar">
+        <a href="{% url 'home' %}" class="btn-neon"><i class="fas fa-arrow-left"></i> Retour Dashboard</a>
+        <div class="user-info">
+            <p>🌍 Mode Carte</p>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-neon red"><i class="fas fa-sign-out-alt"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <h1 class="main-title"><i class="fas fa-globe-africa"></i> Qualité de l'Air - Afrique (Temps Réel)</h1>
+
+    <div class="map-wrapper">
+        <div id="map"></div>
+
+        <div class="map-legend">
+            <div style="margin-bottom:8px; font-weight:bold; color:#fff; border-bottom:1px solid #333; padding-bottom:5px;">Légende Qualité</div>
+            <div class="legend-item"><span class="dot green"></span> Bonne / OK</div>
+            <div class="legend-item"><span class="dot orange"></span> Avertissement</div>
+            <div class="legend-item"><span class="dot red"></span> Danger / Mauvaise</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    // Initialisation de la carte (Centrée sur l'Afrique)
+    const map = L.map("map").setView([2.5, 18], 4);
+
+    // 🌑 FOND DE CARTE SOMBRE (CartoDB Dark Matter)
+    // C'est beaucoup plus joli avec ton design que le OpenStreetMap blanc par défaut
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    // Fonction couleur néon
+    function statusColor(status) {
+        if (status === "danger") return "#ef4444"; // Rouge néon
+        if (status === "warning") return "#f59e0b"; // Orange
+        return "#10b981"; // Vert néon
+    }
+
+    // Récupération des données
+    fetch("/air/map/")
+        .then(res => res.json())
+        .then(json => {
+            json.data.forEach(city => {
+                
+                // Appel API pour chaque ville (comme dans ton script original)
+                fetch(`/air/alert/now/${city.city}/`)
+                    .then(res => res.json())
+                    .then(alertData => {
+
+                        let status = "ok";
+                        let alertsHtml = "<span style='color:#888; font-style:italic;'>Aucune alerte active</span>";
+
+                        if (alertData.alert) {
+                            status = alertData.alert.global_status;
+
+                            // Formattage des alertes
+                            alertsHtml = alertData.alert.alerts
+                                .map(a => `<div style="margin-top:4px;">⚠️ <b style="color:#fff;">${a.pollutant.toUpperCase()}</b> : ${a.status}</div>`)
+                                .join("");
+                        }
+
+                        const color = statusColor(status);
+
+                        // Création du marqueur cercle
+                        L.circleMarker([city.lat, city.lon], {
+                            radius: status === "danger" ? 14 : 10,
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.7,
+                            weight: 2, // Epaisseur bordure
+                            opacity: 1
+                        })
+                        .addTo(map)
+                        .bindPopup(`
+                            <div style="font-size:1rem; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:5px;">
+                                📍 <b>${city.city.toUpperCase()}</b>
+                            </div>
+                            <div style="font-size:0.9rem; line-height:1.6;">
+                                <b>Statut :</b> <span style="color:${color}; font-weight:bold;">${status.toUpperCase()}</span><br>
+                                <b>PM2.5 :</b> ${city.pm2p5.toExponential(2)}<br>
+                                <b>Source :</b> ${city.origin}<br>
+                                <b>Confiance :</b> ${Math.round(city.confidence * 100)}%
+                            </div>
+                            <div style="margin-top:10px; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px;">
+                                <b>Alertes :</b><br>
+                                ${alertsHtml}
+                            </div>
+                        `);
+                    });
+            });
+        })
+        .catch(err => console.error("Erreur chargement carte:", err));
+</script>
+
+{% endblock %}

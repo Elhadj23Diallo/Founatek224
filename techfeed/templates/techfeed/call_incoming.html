@@ -1,0 +1,27 @@
+{% extends "techfeed/base.html" %}
+{% block content %}
+<style>
+  body{background:#000;color:#fff;font-family:system-ui;margin:0}
+  .box{max-width:520px;margin:40px auto;padding:18px;background:#111;border:1px solid #222;border-radius:14px}
+  .btn{border:none;border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer}
+  .btn-green{background:#00ff9a;color:#000}
+  .btn-red{background:#ff0050;color:#fff}
+</style>
+
+<div class="box">
+  <h2 style="margin:0 0 10px 0;">📹 Appel entrant</h2>
+  <p style="color:#aaa;margin:0 0 18px 0;">
+    @{{ call.caller.username }} veut te parler (audio + vidéo)
+  </p>
+
+  <form method="post" action="{% url 'techfeed:accept_call' call.room_name %}" style="display:inline;">
+    {% csrf_token %}
+    <button class="btn btn-green" type="submit">✅ Accepter</button>
+  </form>
+
+  <form method="post" action="{% url 'techfeed:refuse_call' call.room_name %}" style="display:inline;margin-left:8px;">
+    {% csrf_token %}
+    <button class="btn btn-red" type="submit">❌ Refuser</button>
+  </form>
+</div>
+{% endblock %}

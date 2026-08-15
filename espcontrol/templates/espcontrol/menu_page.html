@@ -1,0 +1,247 @@
+{% extends 'espcontrol/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ===== GLOBAL ===== */
+body {
+    background-color: #050a1f;
+    background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+    color: #e0e6ff;
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.main-container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+/* ===== USER BAR ===== */
+.user-info-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 10px 20px;
+    background: rgba(13, 18, 41, 0.8);
+    border-radius: 15px;
+    border: 1px solid #1a243d;
+}
+
+.logout-btn {
+    background: transparent;
+    color: #00d2ff;
+    border: 1px solid #00d2ff;
+    padding: 6px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+/* ===== TITLE ===== */
+h1 {
+    font-family: 'Orbitron';
+    text-align: center;
+    margin-bottom: 40px;
+    text-shadow: 0 0 15px rgba(0, 210, 255, 0.7);
+}
+
+/* ===== GRID ===== */
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
+    gap: 25px;
+}
+
+/* ===== CARD ===== */
+.node-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    padding: 20px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.03);
+    transition: 0.3s;
+}
+
+.node-block:hover {
+    transform: translateY(-5px);
+    border: 1px solid #00d2ff;
+}
+
+/* ===== ICON ===== */
+.icon-box {
+    width: 65px;
+    height: 65px;
+    border-radius: 18px;
+    border: 2px solid #00d2ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+/* ===== COLORS ===== */
+.node-profil .icon-box { border-color: #ff6b81; color: #ff6b81; }
+.node-social .icon-box { border-color: #a855f7; color: #a855f7; }
+.node-gold .icon-box { border-color: gold; color: gold; }
+.node-green .icon-box { border-color: #00ff99; color: #00ff99; }
+
+.node-label {
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* ================= RESPONSIVE ================= */
+
+/* Tablette */
+@media (max-width: 992px) {
+    .menu-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+        gap: 20px;
+    }
+
+    .icon-box {
+        width: 55px;
+        height: 55px;
+        font-size: 1.6rem;
+    }
+
+    .node-label {
+        font-size: 0.85rem;
+    }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+
+    body {
+        padding: 15px 10px;
+    }
+
+    h1 {
+        font-size: 1.4rem;
+        margin-bottom: 25px;
+    }
+
+    /* USER BAR */
+    .user-info-bar {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .user-info-bar div {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* GRID */
+    .menu-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    /* CARD */
+    .node-block {
+        padding: 15px;
+    }
+
+    .icon-box {
+        width: 50px;
+        height: 50px;
+        font-size: 1.4rem;
+        margin-bottom: 8px;
+    }
+
+    .node-label {
+        font-size: 0.8rem;
+        line-height: 1.2;
+    }
+}
+
+/* Très petit écran */
+@media (max-width: 400px) {
+    .menu-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<div class="main-container">
+
+    <!-- USER BAR -->
+    <div class="user-info-bar">
+        <p>👤 {{ request.user.username }}</p>
+
+        <div>
+            <a href="{% url 'home' %}" class="logout-btn">← IoT Dashboard</a>
+
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <h1>🚀 Founatek Ecosystem</h1>
+
+    <!-- MENU -->
+    <div class="menu-grid">
+
+        <div class="node-block">
+            <div class="icon-box"><i class="fas fa-cloud"></i></div>
+            <div class="node-label">Gemini Pro AI<br>(NLP)</div>
+        </div>
+
+        <div class="node-block">
+            <div class="icon-box"><i class="fas fa-database"></i></div>
+            <div class="node-label">Django Models<br>(DB)</div>
+        </div>
+
+        <a href="{% url 'iot:profil' %}" class="node-block node-profil">
+            <div class="icon-box"><i class="fas fa-user-circle"></i></div>
+            <div class="node-label">Mon Profil</div>
+        </a>
+
+        <a href="{% url 'iot:liste_parcours' %}" class="node-block node-social">
+            <div class="icon-box"><i class="fas fa-graduation-cap"></i></div>
+            <div class="node-label">Apprentissage</div>
+        </a>
+
+        <a href="{% url 'techfeed:feed' %}" class="node-block node-social">
+            <div class="icon-box"><i class="fas fa-users"></i></div>
+            <div class="node-label">Social Feed</div>
+        </a>
+
+        <a href="{% url 'monetisation:monetisation_dashboard' %}" class="node-block node-gold">
+            <div class="icon-box"><i class="fas fa-gem"></i></div>
+            <div class="node-label">Premium</div>
+        </a>
+
+        <a href="{% url 'iot:comment_ca_marche' %}" class="node-block">
+            <div class="icon-box"><i class="fas fa-question-circle"></i></div>
+            <div class="node-label">Comment ça marche</div>
+        </a>
+
+    {% if is_admin or request.user.is_superuser %}
+    <a href="{% url 'iot:formateur_dashboard' %}" class="node-block node-green">
+        <div class="icon-box"><i class="fas fa-chalkboard-teacher"></i></div>
+        <div class="node-label">Formateur</div>
+    </a>
+    {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

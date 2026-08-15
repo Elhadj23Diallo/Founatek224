@@ -1,0 +1,178 @@
+{% extends "espcontrol/base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+    /* --- DESIGN CYBERPUNK IOT --- */
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+        margin: 0; padding: 20px; min-height: 100vh;
+    }
+
+    .main-container { max-width: 1000px; margin: auto; }
+
+    /* Titre */
+    h1.main-title {
+        font-family: 'Orbitron', sans-serif;
+        text-align: center;
+        letter-spacing: 2px;
+        margin-bottom: 10px;
+        color: #fff;
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.7);
+    }
+    .subtitle { text-align: center; color: #00d2ff; font-family: 'Orbitron'; font-size: 0.9rem; margin-bottom: 40px; letter-spacing: 1px; }
+
+    /* Bouton Reset (Style Node) */
+    .reset-card {
+        background: linear-gradient(145deg, #1a243d, #0d1221);
+        border: 2px solid #ef4444;
+        border-radius: 20px;
+        padding: 20px;
+        text-align: center;
+        color: #ef4444;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: block;
+        width: 100%; max-width: 300px; margin: 0 auto 40px auto;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+    }
+    .reset-card:hover {
+        background: #ef4444; color: #050a1f;
+        box-shadow: 0 0 30px rgba(239, 68, 68, 0.6);
+        transform: translateY(-5px);
+    }
+    .reset-card i { font-size: 2rem; margin-bottom: 10px; }
+    .reset-card h5 { margin: 0; font-family: 'Orbitron'; text-transform: uppercase; }
+
+    /* TABLEAU FUTURISTE */
+    .table-container {
+        background: rgba(13, 18, 41, 0.6);
+        border: 1px solid #00d2ff;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 0 30px rgba(0, 210, 255, 0.1);
+        position: relative;
+    }
+
+    /* Effet Scanline sur le tableau */
+    .table-container::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: #00d2ff;
+        box-shadow: 0 0 10px #00d2ff;
+        animation: scan 3s linear infinite;
+        opacity: 0.5; pointer-events: none;
+    }
+    @keyframes scan { 0% {top:0;} 100% {top:100%;} }
+
+    .table { width: 100%; border-collapse: collapse; color: #e0e6ff; margin-bottom: 0; }
+
+    thead { background: rgba(0, 210, 255, 0.1); }
+    thead th {
+        padding: 15px;
+        text-transform: uppercase;
+        font-family: 'Orbitron';
+        color: #00d2ff;
+        border-bottom: 1px solid #00d2ff;
+        letter-spacing: 1px;
+    }
+
+    tbody tr { border-bottom: 1px solid rgba(0, 210, 255, 0.1); transition: 0.2s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(0, 210, 255, 0.05); }
+
+    td { padding: 12px; text-align: center; font-family: 'Consolas', monospace; }
+
+    /* Style du compteur */
+    .counter-val {
+        color: #00ff99; font-weight: bold; font-size: 1.2rem;
+        text-shadow: 0 0 5px rgba(0, 255, 153, 0.5);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        h1.main-title { font-size: 1.5rem; }
+        td, th { font-size: 0.8rem; padding: 10px; }
+    }
+</style>
+
+<div class="main-container">
+    <h1 class="main-title">MODULE DE COMPTAGE</h1>
+    <div class="subtitle">// FLUX DE DONNÉES EN TEMPS RÉEL //</div>
+
+    <a href="{% url 'initCompteur' %}" class="reset-card">
+        <i class="fas fa-power-off"></i>
+        <h5>RÉINITIALISER SYSTÈME</h5>
+    </a>
+
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>VALEUR</th>
+                    <th>HORODATAGE</th>
+                </tr>
+            </thead>
+            <tbody id="comptage-body">
+                {% for c in comptages %}
+                <tr>
+                    <td>#{{ c.id }}</td>
+                    <td class="counter-val">{{ c.compteur }}</td>
+                    <td>{{ c.timestamp|date:"d/m/Y H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" style="color:#666; padding:30px;">-- AUCUNE DONNÉE --</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+    function refreshComptages() {
+        // Attention : Assure-toi que l'URL 'comptage-live' pointe bien vers ton API
+        // Si ton URL s'appelle autrement dans urls.py, change-le ici.
+        // D'après tes urls.py, c'est 'api/compteur/' -> name='compteur-data'
+        $.ajax({
+            url: "{% url 'comptage-live' %}",
+            method: "GET",
+            success: function(data) {
+                const tbody = $("#comptage-body");
+                tbody.empty();
+
+                if (data.length === 0) {
+                    tbody.append(`<tr><td colspan="3" style="color:#666; padding:30px;">-- AUCUNE DONNÉE --</td></tr>`);
+                } else {
+                    data.forEach(item => {
+                        // Formatage date simple (ou laisse brut si l'API renvoie déjà formaté)
+                        let dateStr = new Date(item.timestamp).toLocaleString();
+
+                        tbody.append(`
+                            <tr>
+                                <td>#${item.id}</td>
+                                <td class="counter-val">${item.compteur}</td>
+                                <td>${dateStr}</td>
+                            </tr>
+                        `);
+                    });
+                }
+            },
+            error: function(err) {
+                console.log("Erreur refresh:", err);
+            }
+        });
+    }
+
+    // Mise à jour toutes les 3 secondes
+    setInterval(refreshComptages, 3000);
+</script>
+
+{% endblock %}

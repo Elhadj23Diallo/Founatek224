@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidéo en direct</title>
+    <script>
+        let imageElement = document.getElementById('video');
+
+        // Fonction pour mettre à jour l'image
+        function updateImage() {
+            fetch('/video_stream/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.image) {
+                        console.log("Image reçue:", data.image);  // Vérifie la réponse
+
+                        // Met à jour la source de l'image en base64
+                        imageElement.src = data.image; // Assure-toi que l'image est correctement mise à jour
+                    } else {
+                        console.error('Erreur lors de la récupération de l’image.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur réseau:', error);
+                });
+        }
+
+        setInterval(updateImage, 1000);  // Met à jour l'image toutes les 1000ms (1 seconde)
+    </script>
+</head>
+<body>
+    <h2>Surveillance en Direct</h2>
+    <img id="video" src="" alt="Flux vidéo" style="width: 100%; max-width: 600px;"/>
+</body>
+</html>

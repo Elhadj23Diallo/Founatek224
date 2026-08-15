@@ -1,0 +1,225 @@
+{% extends "iot/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500;700&family=Fira+Code:wght@400&display=swap" rel="stylesheet">
+
+<style>
+    body {
+        background-color: #050a1f;
+        background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
+        color: #e0e6ff;
+        font-family: 'Roboto', sans-serif;
+    }
+
+    .lesson-container {
+        max-width: 900px;
+        margin: auto;
+        padding: 20px 15px;
+    }
+
+    .lesson-header {
+        border-bottom: 2px solid #00d2ff;
+        padding-bottom: 20px;
+        margin-bottom: 40px;
+    }
+
+    .lesson-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.2rem;
+        color: #fff;
+        text-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+    }
+
+    .lesson-resume {
+        color: #8892b0;
+        font-size: 1.1rem;
+        border-left: 3px solid #00ff99;
+        padding-left: 15px;
+        margin-top: 10px;
+    }
+
+    .content-block {
+        margin-bottom: 40px;
+    }
+
+    .block-text {
+        font-size: 1.1rem;
+        line-height: 1.8;
+    }
+
+    .terminal-window {
+        background-color: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .terminal-header {
+        background: #161b22;
+        padding: 8px 15px;
+        font-family: 'Orbitron';
+        font-size: 0.8rem;
+        color: #8b949e;
+    }
+
+    .terminal-body {
+        padding: 15px;
+        font-family: 'Fira Code', monospace;
+        white-space: pre;
+        font-size: 0.95rem;
+    }
+
+    .quiz-section {
+        margin-top: 60px;
+        padding-top: 20px;
+        border-top: 1px dashed rgba(255,255,255,0.15);
+    }
+
+    .quiz-card {
+        background: rgba(255,255,255,0.03);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+
+    .btn-cyber {
+        width: 100%;
+        background: linear-gradient(45deg, #00ff99, #00d2ff);
+        border: none;
+        padding: 15px;
+        font-family: 'Orbitron';
+        font-weight: bold;
+        cursor: pointer;
+        color: #050a1f;
+        margin-top: 10px;
+    }
+
+    .btn-next {
+        background: linear-gradient(45deg, #ffd700, #00ff99);
+        color: #050a1f;
+        margin-top: 25px;
+    }
+
+    .certif-box {
+        margin-top: 60px;
+        padding: 30px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(0,210,255,0.3);
+        text-align: center;
+    }
+</style>
+
+<div class="lesson-container">
+
+    <!-- ================= EN-TÊTE ================= -->
+    <div class="lesson-header">
+        <h1 class="lesson-title">{{ lecon.titre }}</h1>
+        {% if lecon.resume %}
+            <div class="lesson-resume">{{ lecon.resume }}</div>
+        {% endif %}
+    </div>
+
+    <!-- ================= BLOCS ================= -->
+    {% for bloc in blocs %}
+        <div class="content-block">
+
+            {% if bloc.type == "texte" %}
+                <div class="block-text">{{ bloc.contenu|linebreaks }}</div>
+
+            {% elif bloc.type == "code" %}
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        {{ bloc.language|default:"CODE" }}
+                    </div>
+                    <div class="terminal-body">{{ bloc.code }}</div>
+                </div>
+
+            {% elif bloc.type == "image" %}
+                <img src="{{ bloc.media_file.url }}" class="img-fluid rounded">
+
+            {% elif bloc.type == "video" %}
+                <video controls class="w-100 rounded">
+                    <source src="{{ bloc.media_file.url }}">
+                </video>
+            {% endif %}
+
+        </div>
+    {% endfor %}
+
+    <!-- ================= QUIZ ================= -->
+    {% if quizzes and not lecon_validee %}
+        <div class="quiz-section">
+            <h3><i class="fas fa-brain"></i> Validation des acquis</h3>
+
+            <form method="post">
+                {% csrf_token %}
+                {% for quiz in quizzes %}
+                    <div class="quiz-card">
+                        <strong>Q{{ forloop.counter }}.</strong> {{ quiz.question }}
+
+                        <div class="mt-3">
+                            <label><input type="radio" name="quiz_{{ quiz.id }}" value="A"> {{ quiz.choix_a }}</label><br>
+                            <label><input type="radio" name="quiz_{{ quiz.id }}" value="B"> {{ quiz.choix_b }}</label><br>
+                            {% if quiz.choix_c %}
+                                <label><input type="radio" name="quiz_{{ quiz.id }}" value="C"> {{ quiz.choix_c }}</label><br>
+                            {% endif %}
+                            {% if quiz.choix_d %}
+                                <label><input type="radio" name="quiz_{{ quiz.id }}" value="D"> {{ quiz.choix_d }}</label>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="btn-cyber">
+                    <i class="fas fa-check-circle"></i> Soumettre le quiz
+                </button>
+            </form>
+        </div>
+    {% endif %}
+
+    <!-- ================= FEEDBACK ================= -->
+    {% if score is not None %}
+        <div class="alert {% if lecon_validee %}alert-success{% else %}alert-danger{% endif %} mt-4">
+            🧠 Score obtenu : <strong>{{ score }}%</strong><br>
+            {% if lecon_validee %}
+                🎉 Leçon validée avec succès !
+            {% else %}
+                ❌ Score insuffisant (80% requis).
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- ================= LEÇON SUIVANTE ================= -->
+    {% if lecon_validee and lecon_suivante %}
+        <a href="{% url 'iot:lire_lecon' lecon_suivante.id %}"
+           class="btn btn-next btn-cyber">
+            ➡️ Passer à la leçon suivante
+        </a>
+    {% endif %}
+
+    <!-- ================= CERTIFICATION ================= -->
+    {% if certificat_url %}
+        <div class="certif-box">
+            <h3>🎓 Félicitations !</h3>
+            <p>Vous avez terminé ce parcours avec succès.</p>
+
+            <a href="{{ certificat_url }}" target="_blank" class="btn btn-cyber mt-3">
+                📄 Télécharger le certificat
+            </a>
+
+            {% if certificat_uuid %}
+                <a href="{% url 'iot:verifier_certificat' certificat_uuid %}"
+                   target="_blank"
+                   class="btn btn-outline-light mt-3">
+                    🔐 Vérifier / partager le certificat
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

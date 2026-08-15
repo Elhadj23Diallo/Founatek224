@@ -1,0 +1,414 @@
+{% extends 'espcontrol/base.html' %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    /* --- Thème Général (Style FOUNATEK Futuriste) --- */
+    body {
+        /* Arrière-plan futuriste */
+        background:
+            radial-gradient(circle at 50% 30%, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 50%, rgba(2, 6, 23, 1) 100%),
+            linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 60px 60px, 60px 60px;
+        background-attachment: fixed;
+        background-position: center top;
+        color: #f1f5f9;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: auto;
+        padding: 30px 20px;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(5px);
+        border-radius: 20px;
+        margin-top: 20px;
+        border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+    a.text-decoration-none { text-decoration: none; }
+
+    /* --- Header & Jumbotron --- */
+    .user-info {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: flex-end;
+        font-size: 0.9rem;
+        color: #94a3b8;
+    }
+    .jumbotron {
+        text-align: center;
+        margin-bottom: 40px;
+        padding: 30px 20px;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+        border-radius: 20px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        border: 1px solid #334155;
+    }
+    .jumbotron .display-4 {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #22d3ee;
+        margin-bottom: 10px;
+        text-shadow: 0 0 15px rgba(34, 211, 238, 0.3);
+    }
+    .jumbotron .lead {
+        font-size: 1.1rem;
+        color: #94a3b8;
+    }
+
+    /* --- Grille et Cartes --- */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 25px;
+        margin-bottom: 40px;
+    }
+    .card {
+        background-color: rgba(30, 41, 59, 0.95);
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        padding: 25px;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid #334155;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 180px;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 30px rgba(34, 211, 238, 0.2);
+        border-color: #22d3ee;
+    }
+    .card i.card-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        transition: transform 0.3s ease;
+    }
+    .card:hover i.card-icon { transform: scale(1.1); }
+    .card h5 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 10px;
+    }
+    .card p.card-text { color: #a7b7c9; font-size: 0.9rem; }
+
+    /* --- Boutons d'action --- */
+    .action-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin-top: 15px;
+    }
+    .btn-cyan { background-color: #22d3ee; color: #0f172a; }
+    .btn-cyan:hover { background-color: #0ea5e9; box-shadow: 0 0 15px rgba(34, 211, 238, 0.5); }
+    .btn-danger { background-color: #ef4444; color: white; }
+    .btn-danger:hover { background-color: #dc2626; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+
+    /* --- Sections de Données (Onglets et Graphiques) --- */
+    .section-title {
+        color: #22d3ee;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+    }
+    .data-container {
+        background-color: rgba(30, 41, 59, 0.95);
+        padding: 25px;
+        border-radius: 16px;
+        border: 1px solid #334155;
+        margin-bottom: 30px;
+    }
+
+    /* Styles des Onglets */
+    .tabs {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #334155;
+    }
+    .tab-btn {
+        padding: 12px 24px;
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-bottom: 3px solid transparent;
+    }
+    .tab-btn:hover { color: #fff; }
+    .tab-btn.active {
+        color: #22d3ee;
+        border-bottom-color: #22d3ee;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Formulaire d'export */
+    .export-form {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 0.9rem; color: #94a3b8; }
+    .form-control-dark {
+        background-color: #0f172a;
+        border: 1px solid #334155;
+        color: #f1f5f9;
+        padding: 8px 12px;
+        border-radius: 6px;
+    }
+    .form-control-dark:focus {
+        outline: none;
+        border-color: #22d3ee;
+        box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.2);
+    }
+
+    /* Conteneur du graphique */
+    .chart-container {
+        position: relative;
+        height: 400px; /* Hauteur fixe pour le graphique */
+        width: 100%;
+    }
+
+    /* Tableau sombre */
+    .table-responsive { overflow-x: auto; }
+    .table-dark-custom {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        color: #e2e8f0;
+    }
+    .table-dark-custom th, .table-dark-custom td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #334155;
+    }
+    .table-dark-custom th {
+        background-color: rgba(15, 23, 42, 0.8);
+        font-weight: 600;
+        color: #22d3ee;
+        border-top: 1px solid #334155;
+    }
+    .table-dark-custom tr:hover td { background-color: rgba(45, 55, 72, 0.8); }
+
+</style>
+
+<div class="container">
+    <div class="user-info">
+        {% if request.user.is_authenticated %}
+        <p>👤 Connecté : <strong>{{ request.user.username }}</strong></p>
+        {% endif %}
+    </div>
+
+    <div class="jumbotron">
+        <h1 class="display-4">📡 Système IoT : Irrigation & Climat</h1>
+        <p class="lead">Contrôle de l'arrosage et surveillance des données environnementales en temps réel.</p>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card">
+            {% if led_status %}
+                <i class="fas fa-shower card-icon" style="color: #ef4444;"></i> <h5>Arrosage en cours...</h5>
+                <p class="card-text">Le système est actuellement ACTIF 💧</p>
+            {% else %}
+                <i class="fas fa-faucet card-icon" style="color: #4ade80;"></i> <h5>Arrosage en attente</h5>
+                <p class="card-text">Le système est actuellement INACTIF 💤</p>
+            {% endif %}
+
+            <form method="POST" style="width: 100%;">
+                {% csrf_token %}
+                <button type="submit" class="action-btn {% if led_status %}btn-danger{% else %}btn-cyan{% endif %}">
+                    {% if led_status %}
+                        <i class="fas fa-stop-circle"></i> Désactiver
+                    {% else %}
+                        <i class="fas fa-play-circle"></i> Activer
+                    {% endif %}
+                </button>
+            </form>
+        </div>
+
+        <a href="{% url 'soil_data' %}" class="card text-decoration-none">
+            <i class="fas fa-seedling card-icon" style="color: #fbbf24;"></i> <h5>Humidité du Sol</h5>
+            <p class="card-text">Visualiser les données détaillées des capteurs de sol.</p>
+        </a>
+         <div class="card" onclick="window.location.reload();" style="cursor: pointer;">
+            <i class="fas fa-sync-alt card-icon" style="color: #22d3ee;"></i>
+            <h5>Actualiser les données</h5>
+            <p class="card-text">Mettre à jour l'état et les tableaux.</p>
+        </div>
+    </div>
+
+    <h3 class="section-title">
+        <i class="fas fa-thermometer-half"></i> Historique Température & Humidité
+    </h3>
+
+    <div class="data-container">
+        <form method="get" action="{% url 'export_excel' %}" class="export-form">
+            <div class="form-group">
+                <label for="start_date">📅 Date de début :</label>
+                <input type="date" id="start_date" name="start_date" required class="form-control-dark">
+            </div>
+            <div class="form-group">
+                <label for="end_date">📅 Date de fin :</label>
+                <input type="date" id="end_date" name="end_date" required class="form-control-dark">
+            </div>
+            <div style="flex-grow: 1; display: flex; align-items: flex-end;">
+                 <button type="submit" class="action-btn btn-cyan" style="margin-top: 0; width: auto;">
+                    <i class="fas fa-file-excel"></i> Télécharger Excel
+                </button>
+            </div>
+        </form>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="openTab(event, 'chart-tab')"><i class="fas fa-chart-line"></i> Graphique</button>
+            <button class="tab-btn" onclick="openTab(event, 'table-tab')"><i class="fas fa-table"></i> Tableau</button>
+        </div>
+
+        <div id="chart-tab" class="tab-content active">
+            <div class="chart-container">
+                <canvas id="dhtChart"></canvas>
+            </div>
+        </div>
+
+        <div id="table-tab" class="tab-content">
+            <div class="table-responsive">
+                <table class="table-dark-custom">
+                    <thead>
+                        <tr>
+                            <th><i class="far fa-clock"></i> Date & Heure</th>
+                            <th><i class="fas fa-temperature-high"></i> Température (°C)</th>
+                            <th><i class="fas fa-tint"></i> Humidité (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in dht_data %}
+                        <tr>
+                            <td>{{ data.created_at|date:"d/m/Y H:i" }}</td>
+                            <td><strong>{{ data.temperature }} °C</strong></td>
+                            <td>{{ data.humidity }} %</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: #94a3b8;">Aucune donnée disponible.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<script>
+    // Fonction pour gérer les onglets
+    function openTab(evt, tabName) {
+        var i, tabContent, tabBtn;
+        tabContent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabContent.length; i++) {
+            tabContent[i].style.display = "none";
+            tabContent[i].className = tabContent[i].className.replace(" active", "");
+        }
+        tabBtn = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tabBtn.length; i++) {
+            tabBtn[i].className = tabBtn[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    // Préparation des données pour le graphique
+    // On inverse l'ordre pour avoir les plus anciennes à gauche (chronologique)
+    const data = [{% for item in dht_data reversed %}{
+        time: '{{ item.created_at|date:"d/m H:i" }}',
+        temp: {{ item.temperature }},
+        hum: {{ item.humidity }}
+    },{% endfor %}];
+
+    const labels = data.map(item => item.time);
+    const tempData = data.map(item => item.temp);
+    const humData = data.map(item => item.hum);
+
+    // Configuration du graphique Chart.js
+    const ctx = document.getElementById('dhtChart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Température (°C)',
+                data: tempData,
+                borderColor: '#f97316', // Orange
+                backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                borderWidth: 2,
+                tension: 0.4,
+                yAxisID: 'y-temp',
+            }, {
+                label: 'Humidité (%)',
+                data: humData,
+                borderColor: '#0ea5e9', // Bleu ciel
+                backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                borderWidth: 2,
+                tension: 0.4,
+                yAxisID: 'y-hum',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: 'rgba(51, 65, 85, 0.3)' }
+                },
+                'y-temp': {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Température (°C)', color: '#f97316' },
+                    ticks: { color: '#f97316' },
+                    grid: { color: 'rgba(249, 115, 22, 0.1)' }
+                },
+                'y-hum': {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Humidité (%)', color: '#0ea5e9' },
+                    ticks: { color: '#0ea5e9' },
+                    grid: { drawOnChartArea: false } // Masque la grille pour cet axe
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#f1f5f9' }
+                }
+            }
+        }
+    });
+</script>
+
+{% endblock %}

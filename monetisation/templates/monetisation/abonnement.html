@@ -1,0 +1,207 @@
+{% extends 'espcontrol/base.html' %}
+{% block content %}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+/* --- STYLE GÉNÉRAL (Thème Futuriste) --- */
+body {
+    background:
+        radial-gradient(circle at 50% 30%, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 50%, rgba(2, 6, 23, 1) 100%),
+        linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+    background-size: 100% 100%, 60px 60px, 60px 60px;
+    background-attachment: fixed;
+    color: #f1f5f9;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    margin: 0;
+}
+.container-custom {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 30px 20px;
+    background-color: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    border: 1px solid rgba(51, 65, 85, 0.5);
+}
+.header-section { text-align: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
+.header-section h2 { font-size: 2rem; color: #22d3ee; text-shadow: 0 0 10px rgba(34, 211, 238, 0.3); margin-bottom: 10px; }
+.header-section p { color: #94a3b8; }
+.form-group { margin-bottom: 25px; }
+.form-label { display: block; margin-bottom: 8px; color: #cbd5e1; font-weight: 600; font-size: 0.95rem; }
+.form-label i { color: #22d3ee; margin-right: 8px; }
+.form-control-dark {
+    width: 100%;
+    background-color: #0f172a;
+    border: 1px solid #334155;
+    color: #f1f5f9;
+    padding: 12px 15px;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2322d3ee%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px top 50%;
+    background-size: 12px auto;
+}
+.form-control-dark:focus {
+    outline: none;
+    border-color: #22d3ee;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+}
+.btn-submit {
+    width: 100%;
+    padding: 14px;
+    background-color: #22d3ee;
+    color: #0f172a;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+}
+.btn-submit:hover {
+    background-color: #0ea5e9;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
+    transform: translateY(-2px);
+}
+#paypal-button-container {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px dashed #334155;
+}
+@media (max-width: 768px) {
+    .container-custom { margin-top: 20px; padding: 20px; }
+    .header-section h2 { font-size: 1.5rem; }
+}
+</style>
+
+<div class="container-custom">
+    <div class="header-section">
+        <h2><i class="fas fa-boxes-packing"></i> Gérer votre abonnement</h2>
+        <p>Mettez à niveau votre compte pour débloquer plus de puissance.</p>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" id="plan-form">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label class="form-label"><i class="fas fa-list-check"></i> Choisir un plan</label>
+            <select name="plan" id="plan-select" class="form-control-dark">
+                {% for plan in plans %}
+                    <option value="{{ plan.name }}" {% if subscription.plan == plan.name %}selected{% endif %}>
+                        {{ plan.name|upper }} - Appels API: {{ plan.calls }} / Appareils: {{ plan.devices }} - Prix: {{ plan.price }} USD
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label"><i class="fas fa-wallet"></i> Méthode de paiement</label>
+            <select name="provider" class="form-control-dark" id="provider-select">
+                {% if wallet.balance > 0 %}
+                <option value="wallet">Wallet (Solde: {{ wallet.balance }} USD)</option>
+                {% endif %}
+                <option value="paypal">PayPal / Carte Bancaire</option>
+                <option value="MTN">MTN MoMo</option>
+                <option value="Orange">Orange Money</option>
+                <option value="Moov">Moov Money</option>
+                <option value="Wave">Wave</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submit-btn">
+            <i class="fas fa-arrow-circle-right"></i> Passer au paiement
+        </button>
+    </form>
+
+    <div id="paypal-button-container" style="display: none;">
+        <p style="text-align: center; color: #94a3b8; margin-bottom: 15px; font-size: 0.9rem;">
+            <i class="fab fa-paypal"></i> Paiement sécurisé via PayPal
+        </p>
+    </div>
+</div>
+
+<script src="https://www.paypal.com/sdk/js?client-id={{ PAYPAL_CLIENT_ID }}&currency=EUR"></script>
+<script>
+const form = document.getElementById("plan-form");
+const providerSelect = document.getElementById("provider-select");
+const planSelect = document.getElementById("plan-select");
+const paypalContainer = document.getElementById("paypal-button-container");
+const submitBtn = document.getElementById("submit-btn");
+
+function toggleButtonState() {
+    if (providerSelect.value === 'paypal') {
+        submitBtn.innerHTML = '<i class="fas fa-credit-card"></i> Payer avec PayPal';
+    } else if (providerSelect.value === 'wallet') {
+        submitBtn.innerHTML = '<i class="fas fa-wallet"></i> Payer avec Wallet';
+    } else {
+        submitBtn.innerHTML = '<i class="fas fa-mobile-alt"></i> Payer avec Mobile Money';
+    }
+}
+providerSelect.addEventListener('change', toggleButtonState);
+toggleButtonState();
+
+form.addEventListener("submit", function(e) {
+    e.preventDefault();
+    const provider = providerSelect.value;
+    const plan = planSelect.value;
+
+    let planPrice = 0;
+    try {
+        const selectedText = planSelect.options[planSelect.selectedIndex].text;
+        if(selectedText.includes('Prix: ')) {
+            planPrice = parseFloat(selectedText.split('Prix: ')[1]);
+        }
+    } catch (error) {
+        console.error("Erreur parsing prix", error);
+    }
+
+    if (provider === "paypal" && planPrice > 0) {
+        submitBtn.style.display = "none";
+        paypalContainer.style.display = "block";
+        paypalContainer.innerHTML = '<p style="text-align: center; color: #94a3b8; margin-bottom: 15px; font-size: 0.9rem;"><i class="fab fa-paypal"></i> Paiement sécurisé via PayPal</p>';
+        
+        paypal.Buttons({
+            style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' },
+            createOrder: function(data, actions) {
+                return fetch("{% url 'monetisation:create_paypal_order' %}", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+                    body: JSON.stringify({amount: planPrice, type: "subscription", plan: plan})
+                }).then(res => res.json()).then(data => data.id);
+            },
+            onApprove: function(data) {
+                return fetch("{% url 'monetisation:capture_paypal_order' %}", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+                    body: JSON.stringify({orderID: data.orderID, plan: plan})
+                }).then(res => res.json()).then(result => {
+                    if (result.success) {
+                        alert("✅ Abonnement mis à jour avec succès !");
+                        window.location.href = "{% url 'monetisation:monetisation_dashboard' %}";
+                    }
+                });
+            }
+        }).render("#paypal-button-container");
+    } else {
+        // Wallet ou Mobile Money
+        form.submit();
+    }
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,270 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<script src='https://meet.jit.si/external_api.js'></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+    /* --- 1. LAYOUT PLEIN ÉCRAN --- */
+    body {
+        background: #000; margin: 0; padding: 0;
+        height: 100vh; height: 100dvh; overflow: hidden;
+        color: #fff; font-family: 'Roboto', sans-serif;
+    }
+
+    /* Le moteur vidéo est en arrière-plan */
+    #video-engine {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 1; background: #000;
+    }
+
+    /* --- 2. INTERFACE UI (Par dessus la vidéo) --- */
+    .live-ui-layer {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 10; pointer-events: none; /* Laisse passer les clics vers la vidéo */
+        display: flex; flex-direction: column; justify-content: space-between;
+        background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 30%, transparent 80%, rgba(0,0,0,0.4) 100%);
+    }
+
+    /* Réactiver les clics sur les boutons */
+    .live-ui-layer button, .live-ui-layer input, .live-ui-layer .scroll-area {
+        pointer-events: auto;
+    }
+
+    /* --- TOP BAR --- */
+    .top-bar {
+        padding: 15px 20px; padding-top: calc(15px + env(safe-area-inset-top));
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .host-pill {
+        background: rgba(0,0,0,0.4); border-radius: 30px; padding: 4px 15px 4px 4px;
+        display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(5px);
+    }
+    .host-img { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid #ef233c; }
+    .host-info h4 { margin: 0; font-size: 0.8rem; font-family: 'Orbitron'; }
+    .live-tag { font-size: 0.6rem; background: #ef233c; padding: 1px 4px; border-radius: 4px; font-weight: bold; }
+    
+    .close-btn {
+        width: 35px; height: 35px; border-radius: 50%; background: rgba(0,0,0,0.3);
+        color: white; border: none; font-size: 1.2rem; display: flex; justify-content: center; align-items: center;
+        cursor: pointer;
+    }
+
+    /* --- CHAT ZONE (TikTok Style) --- */
+    .chat-zone {
+        width: 100%; padding: 15px; padding-bottom: calc(15px + env(safe-area-inset-bottom));
+        display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .comments-list {
+        height: 250px; overflow-y: auto; 
+        display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
+        mask-image: linear-gradient(to top, black 80%, transparent 100%); /* Fondu vers le haut */
+        -webkit-mask-image: linear-gradient(to top, black 80%, transparent 100%);
+    }
+    /* Cacher scrollbar */
+    .comments-list::-webkit-scrollbar { display: none; }
+
+    .comment-bubble {
+        background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 15px;
+        align-self: flex-start; font-size: 0.9rem; max-width: 80%;
+        text-shadow: 1px 1px 2px black; animation: slideIn 0.3s ease;
+    }
+    .comment-user { color: #a6c1ee; font-weight: bold; margin-right: 5px; opacity: 0.9; }
+    .comment-text { color: white; }
+
+    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Input Bar */
+    .input-bar {
+        display: flex; align-items: center; gap: 10px; margin-top: 5px;
+    }
+    .chat-input {
+        flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 20px; padding: 10px 15px; color: white; outline: none;
+    }
+    .action-btn {
+        width: 40px; height: 40px; border-radius: 50%; border: none;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; cursor: pointer; transition: 0.2s;
+        background: rgba(255,255,255,0.1); color: white;
+    }
+    .btn-request { background: #00d2ff; color: black; } /* Bouton Monter sur scene */
+    .btn-gift { background: linear-gradient(45deg, #ff0099, #493240); }
+
+    /* --- ANIMATION COEUR --- */
+    .floating-heart {
+        position: absolute; bottom: 100px; right: 20px;
+        font-size: 2rem; pointer-events: none;
+        animation: floatUp 2s ease-out forwards;
+    }
+    @keyframes floatUp {
+        0% { opacity: 1; transform: translateY(0) scale(0.5); }
+        100% { opacity: 0; transform: translateY(-300px) scale(1.5) rotate(20deg); }
+    }
+</style>
+
+<div id="video-engine"></div>
+
+<div class="live-ui-layer">
+    
+    <div class="top-bar">
+        <div class="host-pill">
+            {% if host_user.profile.avatar %}
+                <img src="{{ host_user.profile.avatar.url }}" class="host-img">
+            {% else %}
+                <img src="{% static 'images/default-avatar.png' %}" class="host-img">
+            {% endif %}
+            <div class="host-info">
+                <h4>@{{ host_user.username }}</h4>
+                <span class="live-tag">EN DIRECT</span>
+            </div>
+        </div>
+        <a href="{% url 'techfeed:feed' %}" class="close-btn"><i class="fas fa-times"></i></a>
+    </div>
+
+    <div style="flex:1;" onclick="sendHeart()"></div>
+
+    <div class="chat-zone">
+        <div class="comments-list" id="commentContainer">
+            <div class="comment-bubble" style="background: rgba(0, 210, 255, 0.2);">
+                <span class="comment-text">Bienvenue sur le Live Tech Founatek ! 🚀</span>
+            </div>
+        </div>
+
+        <div class="input-bar">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ajouter un commentaire..." autocomplete="off">
+            
+            {% if user != host_user %}
+                <button class="action-btn btn-request" onclick="requestToJoin()" title="Demander à participer">
+                    <i class="fas fa-video"></i> </button>
+                <button class="action-btn" onclick="sendHeart()"><i class="fas fa-heart" style="color:#ef233c;"></i></button>
+            {% else %}
+                <button class="action-btn" onclick="toggleMute()"><i class="fas fa-microphone"></i></button>
+                <button class="action-btn" onclick="toggleCam()"><i class="fas fa-video"></i></button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="heartsContainer"></div>
+</div>
+
+<script>
+    /* --- CONFIGURATION DU MOTEUR (INVISIBLE) --- */
+    const domain = 'framatalk.org';
+    const isHost = "{{ user.username }}" === "{{ host_user.username }}";
+    
+    // On force la config pour cacher TOUTE l'interface Jitsi
+    const options = {
+        roomName: "{{ room_name }}",
+        width: '100%', height: '100%',
+        parentNode: document.querySelector('#video-engine'),
+        configOverwrite: {
+            startWithAudioMuted: !isHost, // Spectateur muet au début
+            startWithVideoMuted: !isHost, // Spectateur sans vidéo au début
+            prejoinPageEnabled: false,
+            disableDeepLinking: true,
+            disable1On1Mode: true // Important pour le mode grille
+        },
+        interfaceConfigOverwrite: {
+            // On cache TOUS les boutons natifs pour utiliser les nôtres
+            TOOLBAR_BUTTONS: [], 
+            // On cache les logos, watermarks, filmstrip
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            filmStripOnly: false,
+            DEFAULT_REMOTE_DISPLAY_NAME: 'Guest',
+            // Astuce : On met la toolbar invisible
+            MAIN_TOOLBAR_BUTTONS: [],
+            SETTINGS_SECTIONS: [] 
+        },
+        userInfo: { displayName: "{{ user.username }}" }
+    };
+
+    const api = new JitsiMeetExternalAPI(domain, options);
+
+    /* --- GESTION DU CHAT PERSONNALISÉ --- */
+    
+    // 1. Envoi
+    document.getElementById('chatInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            const text = this.value;
+            if(text.trim() !== "") {
+                // On utilise le canal de données Jitsi pour envoyer le message à tous
+                api.executeCommand('sendEndpointTextMessage', '', text); 
+                // On l'affiche localement tout de suite
+                addComment("{{ user.username }}", text);
+                this.value = "";
+            }
+        }
+    });
+
+    // 2. Réception
+    api.addEventListeners({
+        endpointTextMessageReceived: function(event) {
+            // event.senderInfo.displayName contient le nom
+            // event.text contient le message
+            addComment(event.senderInfo.displayName, event.text);
+        },
+        videoConferenceLeft: function () {
+            window.location.href = "{% url 'techfeed:feed' %}";
+        }
+    });
+
+    // Fonction pour ajouter une bulle visuelle
+    function addComment(username, text) {
+        const container = document.getElementById('commentContainer');
+        const div = document.createElement('div');
+        div.className = 'comment-bubble';
+        
+        // Si c'est un cœur spécial
+        if (text === 'HEART_ACTION') {
+            showFloatingHeart();
+            return; 
+        }
+
+        div.innerHTML = `<span class="comment-user">${username}</span><span class="comment-text">${text}</span>`;
+        container.appendChild(div);
+        // Scroll auto en bas
+        container.scrollTop = container.scrollHeight;
+    }
+
+    /* --- DEMANDER À MONTER SUR LE LIVE --- */
+    function requestToJoin() {
+        if(isHost) return;
+        // Active la caméra/micro du spectateur
+        api.executeCommand('toggleVideo');
+        api.executeCommand('toggleAudio');
+        alert("Vous rejoignez la scène !");
+        // Note: Dans une vraie app, il faudrait une demande de permission à l'hôte. 
+        // Ici, c'est "Open Mic" (tout le monde peut monter).
+    }
+
+    /* --- COMMANDES HÔTE --- */
+    function toggleMute() { api.executeCommand('toggleAudio'); }
+    function toggleCam() { api.executeCommand('toggleVideo'); }
+
+    /* --- ANIMATION CŒURS --- */
+    function sendHeart() {
+        // Envoie le signal aux autres
+        api.executeCommand('sendEndpointTextMessage', '', 'HEART_ACTION');
+        showFloatingHeart();
+    }
+
+    function showFloatingHeart() {
+        const container = document.getElementById('heartsContainer');
+        const heart = document.createElement('div');
+        heart.innerHTML = "❤️"; // Ou 🔥, 🚀
+        heart.className = 'floating-heart';
+        heart.style.left = Math.random() * 80 + 10 + "%"; // Position aléatoire
+        container.appendChild(heart);
+        
+        // Nettoyage après l'anim
+        setTimeout(() => heart.remove(), 2000);
+    }
+</script>
+
+{% endblock %}

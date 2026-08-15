@@ -1,0 +1,185 @@
+{% extends 'espcontrol/base.html' %}
+{% block content %}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    /* --- STYLE GÉNÉRAL (Thème Futuriste) --- */
+    body {
+        background:
+            radial-gradient(circle at 50% 30%, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 50%, rgba(2, 6, 23, 1) 100%),
+            linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 60px 60px, 60px 60px;
+        background-attachment: fixed;
+        color: #f1f5f9;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 100vh;
+        margin: 0;
+    }
+
+    .container-custom {
+        max-width: 1100px;
+        margin: 40px auto;
+        padding: 30px 20px;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+
+    /* --- En-tête --- */
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .header-section h2 {
+        font-size: 2rem;
+        color: #22d3ee;
+        text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+        margin: 0;
+    }
+
+    /* --- Tableau Futuriste --- */
+    .table-responsive {
+        overflow-x: auto;
+        border-radius: 12px;
+        background-color: rgba(30, 41, 59, 0.95);
+        border: 1px solid #334155;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .table-dark-custom {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        color: #e2e8f0;
+        min-width: 600px;
+    }
+    .table-dark-custom th, .table-dark-custom td {
+        padding: 18px 20px;
+        text-align: left;
+        border-bottom: 1px solid #334155;
+    }
+    .table-dark-custom th {
+        background-color: rgba(15, 23, 42, 0.95);
+        color: #22d3ee;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+        font-weight: 700;
+    }
+    .table-dark-custom tr:last-child td { border-bottom: none; }
+    .table-dark-custom tr:hover td {
+        background-color: rgba(45, 55, 72, 0.5);
+        color: #fff;
+    }
+
+    /* --- Badges et Couleurs --- */
+    .badge {
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+    .badge-cyan { background: rgba(34, 211, 238, 0.15); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.3); }
+    .badge-purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
+    
+    .amount-plus { color: #4ade80; font-weight: bold; text-shadow: 0 0 5px rgba(74, 222, 128, 0.2); }
+    .amount-minus { color: #f87171; font-weight: bold; }
+
+    /* --- Bouton Retour --- */
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border: 1px solid #334155;
+        color: #94a3b8;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.3s;
+        background: transparent;
+        margin-top: 20px;
+    }
+    .btn-back:hover {
+        border-color: #22d3ee;
+        color: #22d3ee;
+        background: rgba(34, 211, 238, 0.05);
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+        .header-section { justify-content: center; text-align: center; }
+        .container-custom { padding: 15px; margin-top: 20px; }
+    }
+</style>
+
+<div class="container-custom">
+    
+    <div class="header-section">
+        <h2><i class="fas fa-file-invoice-dollar"></i> Historique des transactions</h2>
+        <span style="color: #64748b; font-size: 0.9rem;">
+            <i class="fas fa-clock"></i> Vos mouvements récents
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-dark-custom">
+            <thead>
+                <tr>
+                    <th><i class="fas fa-tag"></i> Type</th>
+                    <th><i class="fas fa-coins"></i> Montant</th>
+                    <th><i class="fas fa-align-left"></i> Description</th>
+                    <th><i class="far fa-calendar-alt"></i> Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                <tr>
+                    <td>
+                        {% if 'credit' in tx.type|lower or 'recharge' in tx.type|lower or 'deposit' in tx.type|lower %}
+                            <span class="badge badge-cyan">{{ tx.get_type_display }}</span>
+                        {% else %}
+                            <span class="badge badge-purple">{{ tx.get_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        {% if tx.amount > 0 %}
+                            <span class="amount-plus">+ {{ tx.amount }}</span>
+                        {% else %}
+                            <span class="amount-minus">{{ tx.amount }}</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td style="color: #cbd5e1;">{{ tx.description }}</td>
+                    <td style="color: #94a3b8; font-size: 0.9rem;">{{ tx.timestamp|date:"d M Y, H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 40px; color: #64748b;">
+                        <i class="fas fa-folder-open" style="font-size: 2.5rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                        <p>Aucune transaction enregistrée pour le moment.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="text-align: center;">
+        <a href="{% url 'monetisation:monetisation_dashboard' %}" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+        </a>
+    </div>
+
+</div>
+{% endblock %}

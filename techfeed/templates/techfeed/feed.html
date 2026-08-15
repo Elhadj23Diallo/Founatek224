@@ -1,0 +1,359 @@
+{% extends "techfeed/base.html" %}
+{% load static %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+  /* --- RESET GLOBAL MOBILE --- */
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    margin: 0; padding: 0;
+    background: #000; color: #fff;
+    font-family: 'Roboto', sans-serif;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  /* --- FEED CONTAINER --- */
+  .feed-container {
+    height: 100vh; height: 100dvh; width: 100%;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+    position: relative;
+    background-color: #000;
+    z-index: 1;
+  }
+  .feed-container::-webkit-scrollbar { display: none; }
+  .feed-container { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* --- VIDEO CARD --- */
+  .video-card {
+    height: 100%; width: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+  }
+
+  .video-player {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .video-gradient {
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 40%;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+    pointer-events: none; z-index: 2;
+  }
+
+  /* --- HEADER FLOTTANT --- */
+  .floating-header {
+    position: fixed; top: 0; left: 0; width: 100%;
+    z-index: 20;
+    padding: 15px 20px;
+    padding-top: calc(15px + env(safe-area-inset-top));
+    display: flex; justify-content: center; align-items: center;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+    pointer-events: none;
+  }
+  .floating-header a, .floating-header .top-search { pointer-events: auto; cursor: pointer; }
+
+  .top-tabs { display: flex; gap: 20px; font-weight: 700; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+  .top-tabs a { text-decoration: none; color: rgba(255,255,255,0.7); font-family: 'Orbitron', sans-serif; transition: 0.3s; }
+  .top-tabs a.active { color: #fff; border-bottom: 2px solid #00d2ff; padding-bottom: 3px; }
+
+  .top-search {
+    position: absolute; right: 20px; top: calc(15px + env(safe-area-inset-top));
+    color: #fff; font-size: 1.3rem; z-index: 21;
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 30px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+  }
+  .top-search:active { opacity: 0.7; transform: scale(0.9); }
+
+  /* --- SIDEBAR ACTIONS --- */
+  .sidebar-right {
+    position: absolute; right: 8px;
+    bottom: calc(80px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column;
+    align-items: center; gap: 20px;
+    z-index: 5;
+  }
+
+  .avatar-container { position: relative; margin-bottom: 15px; }
+  .user-avatar { width: 48px; height: 48px; border-radius: 50%; border: 1px solid #fff; object-fit: cover; }
+  .follow-btn {
+    position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
+    background: #ef233c; color: white; width: 20px; height: 20px;
+    border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; border: none;
+  }
+
+  .action-item { text-align: center; }
+  .icon-btn {
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    font-size: 30px; color: #fff; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    transition: transform 0.1s;
+  }
+  .icon-btn:active { transform: scale(0.8); }
+  .liked { color: #ef233c; }
+  .count-label { font-size: 11px; font-weight: 600; margin-top: 2px; text-shadow: 1px 1px 1px black; }
+
+  /* --- CONTROLES PROPRIÉTAIRE --- */
+  .owner-controls {
+      position: absolute; top: calc(80px + env(safe-area-inset-top)); right: 15px; z-index: 15;
+      display: flex; flex-direction: column; gap: 15px;
+  }
+  .manage-btn {
+      width: 35px; height: 35px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: white; text-decoration: none; font-size: 0.9rem;
+      backdrop-filter: blur(5px); box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+      transition: transform 0.2s;
+  }
+  .manage-btn:active { transform: scale(0.9); }
+  .edit-btn { background: rgba(0, 210, 255, 0.6); border: 1px solid #00d2ff; }
+  .del-btn { background: rgba(239, 35, 60, 0.6); border: 1px solid #ef233c; }
+
+  /* --- INFO VIDÉO --- */
+  .video-info {
+    position: absolute; bottom: calc(70px + env(safe-area-inset-bottom));
+    left: 10px; width: calc(100% - 70px);
+    z-index: 5; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); pointer-events: none;
+  }
+  .video-info a { pointer-events: auto; }
+  .username { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 6px; display: block; color: #fff; text-decoration: none; }
+  .desc-text { font-size: 0.9rem; line-height: 1.3; margin-bottom: 8px; display: block; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .hashtags { color: #00d2ff; font-weight: bold; }
+  .music-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+  .music-icon { animation: spin 4s linear infinite; font-size: 0.8rem; }
+
+  /* --- PARTAGE --- */
+  #shareOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: none; backdrop-filter: blur(2px); }
+  #shareSheet {
+    position: fixed; bottom: -100%; left: 0; width: 100%;
+    background: #121212; border-top-left-radius: 15px; border-top-right-radius: 15px;
+    z-index: 1001; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)) 20px;
+    transition: bottom 0.3s; border-top: 1px solid #333;
+  }
+  #shareSheet.active { bottom: 0; }
+  .sheet-header { text-align: center; margin-bottom: 20px; font-weight: bold; font-size: 0.9rem; color: #fff; }
+  .share-grid { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 5px; }
+  .share-item { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 65px; }
+  .share-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; }
+  .share-label { font-size: 0.7rem; color: #aaa; text-align: center;}
+  .bg-whatsapp { background: #25D366; } .bg-facebook { background: #1877F2; } .bg-copy { background: #333; border: 1px solid #555; }
+
+  /* --- BOTTOM NAV --- */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    height: calc(60px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+    background: #000; border-top: 1px solid #222;
+    z-index: 100; display: flex; justify-content: space-around; align-items: center;
+  }
+  .nav-item {
+      color: #888; text-decoration: none; display: flex; flex-direction: column;
+      align-items: center; font-size: 9px; gap: 4px; flex: 1; position: relative; /* Important pour le badge */
+  }
+  .nav-item.active { color: #fff; }
+  .nav-item i { font-size: 22px; }
+
+  /* STYLE BADGE ROUGE */
+  .notification-badge {
+      position: absolute; top: 2px; right: 25%;
+      background-color: #fe2c55; color: white;
+      font-size: 9px; font-weight: bold; min-width: 14px; height: 14px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      border: 2px solid #000; z-index: 10; padding: 1px;
+  }
+
+  .upload-btn { width: 42px; height: 28px; background: linear-gradient(to right, #00d2ff, #ef233c); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; margin-top: 2px; }
+  .upload-btn::after { content: '+'; color: black; font-weight: bold; font-size: 18px; background: white; width: 34px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+
+<div class="floating-header">
+  <div class="top-tabs">
+    <a href="?tab=following" class="{% if request.GET.tab == 'following' %}active{% endif %}">Abonnements</a>
+    <a href="?tab=foryou" class="{% if request.GET.tab == 'foryou' or not request.GET.tab %}active{% endif %}">Pour toi</a>
+  </div>
+  <div class="top-search" onclick="window.location.href='{% url 'techfeed:search' %}'">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </div>
+</div>
+
+<div class="feed-container" id="videoFeed">
+  {% for video in videos %}
+  <div class="video-card">
+    <video class="video-player" src="{{ video.video.url }}" loop playsinline onclick="togglePlay(this)"></video>
+    <div class="video-gradient"></div>
+
+    {% if request.user == video.auteur %}
+    <div class="owner-controls">
+        <a href="{% url 'techfeed:edit_video' video.id %}" class="manage-btn edit-btn" title="Modifier"><i class="fas fa-pen"></i></a>
+        <a href="{% url 'techfeed:delete_video' video.id %}" class="manage-btn del-btn" onclick="return confirm('Supprimer cette vidéo ?');" title="Supprimer"><i class="fas fa-trash"></i></a>
+    </div>
+    {% endif %}
+
+    <div class="sidebar-right">
+        <div class="action-item avatar-container">
+            <a href="{% url 'techfeed:profile' video.auteur.username %}">
+                {% if video.auteur.profile.avatar %}
+                    <img src="{{ video.auteur.profile.avatar.url }}" class="user-avatar">
+                {% else %}
+                    <img src="{% static 'images/default-avatar.png' %}" class="user-avatar">
+                {% endif %}
+            </a>
+            {% if video.auteur != user and video.auteur.id not in following_ids %}
+                <form action="{% url 'techfeed:toggle_follow' video.auteur.id %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="follow-btn"><i class="fa-solid fa-plus"></i></button>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="action-item">
+            <div class="icon-btn {% if video.id in liked_ids %}liked{% endif %}" onclick="toggleLike({{ video.id }}, this)">
+                <i class="fa-solid fa-heart"></i>
+            </div>
+            <div class="count-label" id="like-count-{{ video.id }}">{{ video.like_entries.count }}</div>
+        </div>
+
+        <div class="action-item">
+            <div class="icon-btn" onclick="window.location.href='{% url 'techfeed:video_detail' video.id %}'">
+                <i class="fa-solid fa-comment-dots"></i>
+            </div>
+            <div class="count-label">{{ video.commentaires.count }}</div>
+        </div>
+
+        <div class="action-item">
+            <div class="icon-btn" onclick="openShareMenu('{{ video.id }}', '{{ video.description|escapejs }}')">
+                <i class="fa-solid fa-share"></i>
+            </div>
+            <div class="count-label">Partager</div>
+        </div>
+    </div>
+
+    <div class="video-info">
+        <a href="{% url 'techfeed:profile' video.auteur.username %}" class="username">@{{ video.auteur.username }}</a>
+        <div class="desc-text">
+            {{ video.description }}
+            <span class="hashtags">#science #tech</span>
+        </div>
+        <div class="music-row">
+            <i class="fa-solid fa-music music-icon"></i>
+            <span>Son original - {{ video.auteur.username }}</span>
+        </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div id="shareOverlay" onclick="closeShareMenu()"></div>
+<div id="shareSheet">
+    <div class="sheet-header">Partager via</div>
+    <div class="share-grid">
+        <div class="share-item" onclick="shareTo('whatsapp')"><div class="share-icon bg-whatsapp"><i class="fab fa-whatsapp"></i></div><div class="share-label">WhatsApp</div></div>
+        <div class="share-item" onclick="shareTo('facebook')"><div class="share-icon bg-facebook"><i class="fab fa-facebook-f"></i></div><div class="share-label">Facebook</div></div>
+        <div class="share-item" onclick="shareTo('copy')"><div class="share-icon bg-copy"><i class="fas fa-link"></i></div><div class="share-label">Copier</div></div>
+    </div>
+</div>
+
+<footer class="bottom-nav">
+  <a href="{% url 'techfeed:feed' %}" class="nav-item active">
+      <i class="fa-solid fa-house"></i><span>Accueil</span>
+  </a>
+
+  <a href="{% url 'techfeed:friends' %}" class="nav-item">
+      <i class="fa-solid fa-user-friends"></i><span>Amis</span>
+  </a>
+
+  <a href="{% url 'techfeed:uploader_video' %}" class="nav-item">
+      <div class="upload-btn"></div>
+  </a>
+
+  <a href="{% url 'techfeed:notifications' %}" class="nav-item">
+      <i class="fa-regular fa-bell"></i><span>Boîte</span>
+      {% if badge_notif_count > 0 %}
+          <div class="notification-badge">{% if badge_notif_count > 9 %}9+{% else %}{{ badge_notif_count }}{% endif %}</div>
+      {% endif %}
+  </a>
+
+  <a href="{% url 'techfeed:messages' %}" class="nav-item">
+      <i class="fa-solid fa-envelope"></i><span>Messages</span>
+      {% if badge_msg_count > 0 %}
+          <div class="notification-badge">{% if badge_msg_count > 9 %}9+{% else %}{{ badge_msg_count }}{% endif %}</div>
+      {% endif %}
+  </a>
+
+  <a href="{% url 'techfeed:profile' request.user.username %}" class="nav-item">
+      <i class="fa-regular fa-user"></i><span>Profil</span>
+  </a>
+</footer>
+
+<script>
+    let currentShareUrl = "";
+    let currentShareText = "";
+
+    function togglePlay(videoElement) {
+        if (videoElement.paused) videoElement.play();
+        else videoElement.pause();
+    }
+
+    function toggleLike(videoId, element) {
+        fetch(`/techfeed/video/${videoId}/like/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.liked) element.classList.add("liked");
+            else element.classList.remove("liked");
+            document.getElementById("like-count-" + videoId).textContent = data.likes_count;
+        });
+    }
+
+    function openShareMenu(videoId, desc) {
+        currentShareUrl = window.location.origin + "/techfeed/video/" + videoId;
+        currentShareText = desc || "Regarde cette vidéo incroyable sur Founatek !";
+        if (navigator.share) {
+            navigator.share({ title: 'Founatek', text: currentShareText, url: currentShareUrl })
+            .catch((error) => console.log('Erreur', error));
+        } else {
+            document.getElementById('shareOverlay').style.display = 'block';
+            setTimeout(() => document.getElementById('shareSheet').classList.add('active'), 10);
+        }
+    }
+
+    function closeShareMenu() {
+        document.getElementById('shareSheet').classList.remove('active');
+        setTimeout(() => document.getElementById('shareOverlay').style.display = 'none', 300);
+    }
+
+    function shareTo(platform) {
+        let url = "";
+        if(platform === 'whatsapp') url = `https://api.whatsapp.com/send?text=${encodeURIComponent(currentShareText + " " + currentShareUrl)}`;
+        if(platform === 'facebook') url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentShareUrl)}`;
+        if(platform === 'copy') {
+            navigator.clipboard.writeText(currentShareUrl).then(() => { alert("Lien copié !"); closeShareMenu(); });
+            return;
+        }
+        if (url) { window.open(url, '_blank'); closeShareMenu(); }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        let videos = document.querySelectorAll("video");
+        let observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) { entry.target.play(); }
+                else { entry.target.pause(); entry.target.currentTime = 0; }
+            });
+        }, { threshold: 0.6 });
+        videos.forEach(video => observer.observe(video));
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,364 @@
+{% extends "espcontrol/base.html" %}
+
+{% block content %}
+<style>
+:root {
+    --neon-green: #0f0;
+    --neon-red: #f00;
+    --neon-blue: #00f3ff;
+    --dark-bg: #050505;
+    --border-color: #333;
+
+    /* Paramètres caméra - ajustables */
+    --cam-bright: 100%;
+    --cam-contrast: 100%;
+    --cam-saturate: 100%;
+    --cam-hue: 0deg;
+}
+
+body {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    background-color: var(--dark-bg);
+    background-image:
+        linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%),
+        linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06));
+    background-size: 100% 2px, 3px 100%;
+    color: #ccc;
+    margin: 0; padding: 20px; min-height: 100vh;
+}
+
+/* Blink indicator */
+.blink-green {
+    width: 10px; height: 10px;
+    background: var(--neon-green);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--neon-green);
+    animation: blink 1s infinite;
+    display: inline-block;
+    margin-right: 8px;
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* Dashboard header */
+.dashboard-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--neon-blue);
+    padding-bottom: 15px; margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,243,255,0.1);
+    flex-wrap: wrap; gap: 15px;
+}
+.brand { font-size: 28px; font-weight: 900; letter-spacing: 4px; color: #fff; text-transform: uppercase; }
+.system-status { display: flex; gap: 20px; font-size: 12px; color: var(--neon-blue); font-weight: bold; }
+
+/* Control panel */
+.control-panel {
+    background: rgba(10,15,20,0.9);
+    border: 1px solid var(--neon-blue);
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+.control-group { display: flex; flex-direction: column; gap: 5px; }
+.control-group label { font-size: 10px; color: var(--neon-blue); text-transform: uppercase; letter-spacing: 1px; }
+input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #333; border-radius: 2px; border: 1px solid #555; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 10px; background: var(--neon-green); margin-top: -7px; border-radius: 2px; cursor: pointer; box-shadow: 0 0 5px var(--neon-green); }
+.btn-reset {
+    background: transparent; border: 1px solid var(--neon-red); color: var(--neon-red);
+    padding: 5px 15px; font-family: inherit; font-weight: bold; cursor: pointer;
+    text-transform: uppercase; font-size: 11px; transition: all 0.3s; height: 30px;
+}
+.btn-reset:hover { background: var(--neon-red); color: #000; box-shadow: 0 0 15px var(--neon-red); }
+
+/* Camera grid */
+.cam-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width:1024px){ .cam-grid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width:768px){ .cam-grid { grid-template-columns: 1fr; } }
+
+.cam-unit {
+    background: #000; border: 1px solid #333; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8); transition: border-color 0.3s;
+}
+.cam-unit::before { content:''; position:absolute; top:-1px; left:-1px; width:10px; height:10px; border-top:2px solid var(--neon-blue); border-left:2px solid var(--neon-blue); z-index:5; }
+.cam-unit::after { content:''; position:absolute; bottom:-1px; right:-1px; width:10px; height:10px; border-bottom:2px solid var(--neon-blue); border-right:2px solid var(--neon-blue); z-index:5; }
+.cam-unit.alert { border:1px solid var(--neon-red); box-shadow:0 0 20px rgba(255,0,0,0.4); }
+
+.cam-info-bar {
+    background: rgba(5,5,5,0.9); padding:8px 12px;
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid #222; font-size:12px; color:#fff; letter-spacing:2px;
+}
+
+.video-container {
+    position:relative; width:100%; aspect-ratio:4/3; background:#050505;
+    overflow:hidden; display:flex; align-items:center; justify-content:center;
+}
+.video-container img {
+    width:100%; height:100%; object-fit:fill; display:block;
+    transform: scaleX(-1);
+    filter:
+        brightness(var(--cam-bright))
+        contrast(var(--cam-contrast))
+        saturate(var(--cam-saturate))
+        hue-rotate(var(--cam-hue));
+    transition: filter 0.2s;
+}
+.history-img {
+    filter: grayscale(100%) brightness(var(--cam-bright)) contrast(var(--cam-contrast)) !important;
+}
+
+.crosshair {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:40px; height:40px; border:1px solid rgba(0,255,0,0.4); pointer-events:none;
+}
+.cam-footer-overlay {
+    position:absolute; bottom:0; left:0; right:0;
+    background:linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    padding:8px; display:flex; justify-content:space-between;
+    color:var(--neon-blue); font-size:10px;
+}
+
+/* Waiting screen */
+.waiting-screen {
+    width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#333; font-size:11px; letter-spacing:2px; gap:10px;
+}
+.waiting-bar { width:60%; height:2px; background:#111; overflow:hidden; }
+.waiting-bar-inner { height:100%; width:0%; background:var(--neon-blue); transition: width 0.3s linear; }
+</style>
+
+<!-- Control Panel Sliders -->
+<div class="control-panel">
+    <div class="control-group">
+        <label for="slider-bright">Brightness</label>
+        <input type="range" id="slider-bright" min="50" max="150" value="100">
+    </div>
+    <div class="control-group">
+        <label for="slider-contrast">Contrast</label>
+        <input type="range" id="slider-contrast" min="50" max="150" value="100">
+    </div>
+    <div class="control-group">
+        <label for="slider-saturate">Saturation</label>
+        <input type="range" id="slider-saturate" min="50" max="150" value="100">
+    </div>
+    <div class="control-group">
+        <label for="slider-hue">Hue</label>
+        <input type="range" id="slider-hue" min="0" max="360" value="0">
+    </div>
+    <button class="btn-reset" id="reset-filters">RESET</button>
+</div>
+
+<!-- Dashboard Header -->
+<div class="dashboard-header">
+    <div class="brand">
+        <span style="color:var(--neon-blue); font-size:30px;">👁‍🗨</span>
+        FOUNATEK <span style="color:#666; font-weight:300;">TIME_SHIFT</span>
+    </div>
+    <div style="display:flex; gap:15px; align-items:center;">
+        <a href="{% url 'archive_gallery' %}" style="color:var(--neon-blue); text-decoration:none; border:1px solid var(--neon-blue); padding:5px 15px; font-size:12px; font-weight:bold;">
+            📁 OUVRIR ARCHIVES
+        </a>
+        <div class="system-status">
+            <div><span id="live-indicator"></span>LIVE</div>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-header">
+    <div class="brand"><span style="color:var(--neon-blue);">👁‍🗨</span> FOUNATEK // OPTICS</div>
+    <div class="system-status">
+        <div><span id="stream-indicator"></span>STREAM ACTIVE</div>
+    </div>
+</div>
+
+<div id="cam-grid" class="cam-grid">
+    <!-- LIVE -->
+    <div class="cam-unit" id="screen-1">
+        <div class="cam-info-bar">
+            <span class="cam-label" id="cam-label-live">CAM [LIVE]</span>
+            <div style="color:var(--neon-red)">● REC</div>
+        </div>
+        <div class="video-container">
+            <img id="img-1" src="">
+            <div class="crosshair"></div>
+            <div class="cam-footer-overlay">
+                <span>LIVE</span>
+                <span id="time-1">--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- T-1 -->
+    <div class="cam-unit" id="screen-2">
+        <div class="cam-info-bar">
+            <span id="cam-label-t1" style="color:#666">CAM [T-1]</span>
+        </div>
+        <div class="video-container">
+            <div class="waiting-screen" id="wait-2">
+                <span>BUFFERING T-1</span>
+                <div class="waiting-bar">
+                    <div class="waiting-bar-inner" id="bar-2"></div>
+                </div>
+                <span id="bar-label-2">0 / 10</span>
+            </div>
+            <img id="img-2" class="history-img" src="" style="display:none;">
+        </div>
+    </div>
+
+    <!-- T-2 -->
+    <div class="cam-unit" id="screen-3">
+        <div class="cam-info-bar">
+            <span id="cam-label-t2" style="color:#444">CAM [T-2]</span>
+        </div>
+        <div class="video-container">
+            <div class="waiting-screen" id="wait-3">
+                <span>BUFFERING T-2</span>
+                <div class="waiting-bar">
+                    <div class="waiting-bar-inner" id="bar-3"></div>
+                </div>
+                <span id="bar-label-3">0 / 30</span>
+            </div>
+            <img id="img-3" class="history-img" src="" style="display:none;">
+        </div>
+    </div>
+</div>
+
+<script>
+const BUFFER_MAX = 30;
+const T1_THRESHOLD = 10;
+const T2_THRESHOLD = 30;
+
+let imageBuffer = [];
+let activeCameraId = null;
+let lastFrameTime = 0;
+const LIVE_TIMEOUT = 2000;
+
+function updateLiveStatus(isReceiving) {
+    const live = document.getElementById("live-indicator");
+    const stream = document.getElementById("stream-indicator");
+    if (!live || !stream) return;
+    if (isReceiving) {
+        live.className = "blink-green";
+        stream.className = "blink-green";
+    } else {
+        live.className = "";
+        stream.className = "";
+        live.style.background = "#333";
+        stream.style.background = "#333";
+    }
+}
+
+function showImage(screen, src, isAlert=false) {
+    const img = document.getElementById(`img-${screen}`);
+    const wait = document.getElementById(`wait-${screen}`);
+    if (!img) return;
+    if (wait) wait.style.display = "none";
+    img.style.display = "block";
+    if (img.src !== src) img.src = src;
+    if (screen === 1) {
+        const timeTag = document.getElementById("time-1");
+        if (timeTag) timeTag.innerText = new Date().toLocaleTimeString();
+        const card = document.getElementById("screen-1");
+        if (isAlert) card.classList.add("alert");
+        else card.classList.remove("alert");
+    }
+}
+
+function updateWaitingBar(screen, current, max) {
+    const bar = document.getElementById(`bar-${screen}`);
+    const label = document.getElementById(`bar-label-${screen}`);
+    if (!bar || !label) return;
+    bar.style.width = Math.min((current / max) * 100, 100) + "%";
+    label.innerText = `${current} / ${max}`;
+}
+
+async function fetchLatestFrames() {
+    try {
+        const response = await fetch("{% url 'get_latest_frames' %}");
+        if (!response.ok) return;
+        const data = await response.json();
+        const cams = data.cameras || [];
+        if (!cams.length) { updateLiveStatus(false); return; }
+
+        const cam = cams[0];
+        if (activeCameraId !== cam.camera_id) {
+            activeCameraId = cam.camera_id;
+            document.getElementById("cam-label-live").innerText = `${activeCameraId} [LIVE]`;
+            document.getElementById("cam-label-t1").innerText  = `${activeCameraId} [T-1]`;
+            document.getElementById("cam-label-t2").innerText  = `${activeCameraId} [T-2]`;
+        }
+
+        const newSrc = `${cam.image_url}?t=${Date.now()}`;
+        const dl = new Image();
+
+        dl.onload = function() {
+            lastFrameTime = Date.now();
+            updateLiveStatus(true);
+
+            imageBuffer.unshift(this.src);
+            if (imageBuffer.length > BUFFER_MAX) imageBuffer.pop();
+            const count = imageBuffer.length;
+
+            showImage(1, imageBuffer[0], cam.has_motion);
+
+            if (count >= T1_THRESHOLD) showImage(2, imageBuffer[Math.floor(count / 2)]);
+            else updateWaitingBar(2, count, T1_THRESHOLD);
+
+            if (count >= T2_THRESHOLD) showImage(3, imageBuffer[count - 1]);
+            else updateWaitingBar(3, count, T2_THRESHOLD);
+
+            // Précharge la prochaine frame pendant l'affichage
+            const preload = new Image();
+            preload.src = `${cam.image_url}?t=${Date.now() + 50}`;
+        };
+
+        dl.onerror = () => updateLiveStatus(false);
+        dl.src = newSrc;
+
+    } catch(e) {
+        console.error(e);
+        updateLiveStatus(false);
+    }
+}
+
+// Détection de perte de signal
+setInterval(() => {
+    if (Date.now() - lastFrameTime > LIVE_TIMEOUT) updateLiveStatus(false);
+}, 500);
+
+// Filtres vidéo
+function updateFilters() {
+    document.documentElement.style.setProperty('--cam-bright',   document.getElementById('slider-bright').value + '%');
+    document.documentElement.style.setProperty('--cam-contrast',  document.getElementById('slider-contrast').value + '%');
+    document.documentElement.style.setProperty('--cam-saturate',  document.getElementById('slider-saturate').value + '%');
+    document.documentElement.style.setProperty('--cam-hue',       document.getElementById('slider-hue').value + 'deg');
+}
+
+document.getElementById('slider-bright').addEventListener('input', updateFilters);
+document.getElementById('slider-contrast').addEventListener('input', updateFilters);
+document.getElementById('slider-saturate').addEventListener('input', updateFilters);
+document.getElementById('slider-hue').addEventListener('input', updateFilters);
+
+document.getElementById('reset-filters').addEventListener('click', () => {
+    document.getElementById('slider-bright').value  = 100;
+    document.getElementById('slider-contrast').value = 100;
+    document.getElementById('slider-saturate').value = 100;
+    document.getElementById('slider-hue').value      = 0;
+    updateFilters();
+});
+
+// Boucle de streaming — plus réactive qu'un setInterval fixe
+async function streamLoop() {
+    await fetchLatestFrames();
+    setTimeout(streamLoop, 50);
+}
+
+streamLoop();
+</script>
+
+{% endblock %}

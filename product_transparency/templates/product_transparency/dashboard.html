@@ -1,0 +1,338 @@
+{% extends "product_transparency/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard entreprise{% endblock %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<style>
+:root {
+    --neon-blue: #00d2ff;
+    --neon-green: #00ff99;
+    --neon-red: #ff3366;
+    --bg-dark: #050a1f;
+    --card-bg: rgba(13,18,41,.85);
+    --text-primary: #e0e6ff;
+    --text-secondary: #aab2cd;
+}
+
+/* Layout */
+.dashboard-wrapper {
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+/* Title */
+h2.cyber-title {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--neon-blue);
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 15px;
+    text-shadow: 0 0 15px rgba(0,210,255,.6);
+    text-transform: uppercase;
+}
+
+/* Logo */
+.company-logo-header {
+    text-align: center;
+    margin-bottom: 25px;
+}
+.company-logo-header img {
+    max-height: 90px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 6px rgba(0,210,255,.4));
+}
+
+/* Actions */
+.actions-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.btn-cyber {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 22px;
+    border-radius: 50px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: bold;
+    text-decoration: none;
+    border: 2px solid var(--neon-blue);
+    background: rgba(0,210,255,.1);
+    color: var(--neon-blue);
+    transition: .3s;
+    font-size: .8rem;
+    text-transform: uppercase;
+}
+.btn-cyber:hover {
+    background: var(--neon-blue);
+    color: #050a1f;
+    box-shadow: 0 0 15px rgba(0,210,255,.4);
+}
+
+/* Grid */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
+    gap: 30px;
+}
+
+/* Card */
+.cyber-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0,210,255,.3);
+    backdrop-filter: blur(10px);
+    transition: transform .3s, border-color .3s;
+}
+.cyber-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--neon-blue);
+}
+
+/* Product image */
+.product-main-img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(0,210,255,.2);
+}
+.product-placeholder {
+    height: 180px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    border: 1px dashed rgba(0,210,255,.3);
+}
+
+/* Header */
+.card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.cyber-card h3 {
+    font-family: 'Orbitron', sans-serif;
+    color: #fff;
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+.btn-edit {
+    color: var(--neon-green);
+    border: 1px solid var(--neon-green);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: .75rem;
+    text-decoration: none;
+}
+.btn-edit:hover {
+    background: var(--neon-green);
+    color: #050a1f;
+}
+
+/* Info */
+.price-tag {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    color: var(--neon-green);
+    margin: 12px 0;
+}
+.info-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: .9rem;
+    margin-bottom: 6px;
+}
+.info-line i {
+    color: var(--neon-blue);
+}
+
+/* Status */
+.status-badge {
+    margin: 12px 0;
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: .75rem;
+    display: inline-flex;
+    gap: 6px;
+}
+.status-valid {
+    color: var(--neon-green);
+    border: 1px solid var(--neon-green);
+}
+.status-expired {
+    color: var(--neon-red);
+    border: 1px solid var(--neon-red);
+}
+
+/* Footer */
+.card-footer-row {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(0,210,255,.2);
+    padding-top: 15px;
+    gap: 15px;
+}
+
+.qr-code-glow {
+    max-width: 70px;
+    border: 2px solid var(--neon-blue);
+    border-radius: 8px;
+    padding: 3px;
+}
+
+.footer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: right;
+}
+
+.cyber-link {
+    color: var(--neon-blue);
+    text-decoration: none;
+    font-size: .85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.cyber-link:hover {
+    color: var(--neon-green);
+}
+
+/* Empty */
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    border: 2px dashed rgba(0,210,255,.3);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    background: var(--card-bg);
+}
+</style>
+
+<div class="dashboard-wrapper">
+
+    <h2 class="cyber-title">📊 Tableau de bord</h2>
+
+    {% if request.user.company.logo %}
+        <div class="company-logo-header">
+            <img src="{{ request.user.company.logo.url }}" alt="Logo entreprise">
+        </div>
+    {% endif %}
+
+    <!-- 🔥 ACTIONS BAR -->
+    <div class="actions-bar">
+        <a href="{% url 'product_transparency:company-settings' %}" class="btn-cyber">
+            <i class="fas fa-cog"></i> Paramètres
+        </a>
+
+        <a href="{% url 'product_transparency:product-add' %}" class="btn-cyber">
+            <i class="fas fa-plus-circle"></i> Ajouter un produit
+        </a>
+
+        <!-- 🖨 PDF QR -->
+        <a href="{% url 'product_transparency:qr-labels-pdf' %}?per_page=12" class="btn-cyber">
+            <i class="fas fa-print"></i> QR A4 (12)
+        </a>
+
+        <a href="{% url 'product_transparency:qr-labels-pdf' %}?per_page=6" class="btn-cyber">
+            <i class="fas fa-print"></i> QR A4 (6)
+        </a>
+    </div>
+
+    <div class="product-grid">
+        {% for product in products %}
+        <div class="cyber-card">
+
+            {% if product.image %}
+                <img src="{{ product.image.url }}" class="product-main-img">
+            {% else %}
+                <div class="product-placeholder">
+                    <i class="fas fa-image fa-2x"></i>
+                </div>
+            {% endif %}
+
+            <div class="card-header-row">
+                <h3>{{ product.name }}</h3>
+                <a href="{% url 'product_transparency:product-edit' product.id %}" class="btn-edit">
+                    <i class="fas fa-edit"></i>
+                </a>
+            </div>
+
+            <div class="price-tag">
+                {{ product.pricing.price }} {{ request.user.company.currency }}
+            </div>
+
+            <div class="info-line">
+                <i class="far fa-calendar-alt"></i>
+                {{ product.pricing.production_date }}
+            </div>
+
+            <div class="info-line">
+                <i class="far fa-hourglass"></i>
+                {{ product.pricing.expiry_date }}
+            </div>
+
+            {% if product.pricing.is_expired %}
+                <div class="status-badge status-expired">
+                    <i class="fas fa-times-circle"></i> Expiré
+                </div>
+            {% else %}
+                <div class="status-badge status-valid">
+                    <i class="fas fa-check-circle"></i> Valide
+                </div>
+            {% endif %}
+
+            <div class="card-footer-row">
+                {% if product.qr.qr_code %}
+                    <img src="{{ product.qr.qr_code.url }}" class="qr-code-glow">
+                {% endif %}
+
+                <div class="footer-links">
+                    <a href="{% url 'product_transparency:product-qr-download' product.id %}" class="cyber-link">
+                        <i class="fas fa-download"></i> Télécharger QR
+                    </a>
+                    <a href="{% url 'product_transparency:product-pricing' product.id %}" class="cyber-link">
+                        <i class="fas fa-tags"></i> Prix & dates
+                    </a>
+                    <a href="{% url 'product_transparency:product-price-history' product.id %}" class="cyber-link">
+                        <i class="fas fa-history"></i> Historique
+                    </a>
+                </div>
+            </div>
+
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i class="fas fa-box-open fa-3x"></i><br>
+            Aucun produit enregistré.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

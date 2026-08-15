@@ -1,0 +1,16 @@
+{% extends "iot/base.html" %}
+{% block content %}
+
+<h2>Choisir une organisation</h2>
+
+<ul>
+  {% for org in organisations %}
+    <li>
+      <a href="{% url 'iot:organisation_dashboard' %}?org={{ org.id }}">
+        {{ org.nom }} ({{ org.type }})
+      </a>
+    </li>
+  {% endfor %}
+</ul>
+
+{% endblock %}
