@@ -669,8 +669,8 @@ def mobile_formateur_dashboard(request):
                             "titre": l.titre,
                             "ordre": l.ordre,
                             "resume": l.resume if hasattr(l, 'resume') else "",
-                            "quiz_count": l.quiz.count() if hasattr(l, 'quiz') else 0,
-                            "blocs": [],
+                            "quiz_count": l.quizzes.count(),
+                            "blocs": list(l.blocs.values("id")),
                         }
                         for l in p.lecons.order_by("ordre").all()
                     ],
