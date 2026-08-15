@@ -1,6 +1,15 @@
 ﻿from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, Product, ProductImage, Order, OrderItem, Cart, CartItem
+from .models import Category, Product, ProductImage, Order, OrderItem, Cart, CartItem, Review, LoyaltyAccount, LoyaltyTransaction
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ['id', 'username', 'rating', 'comment', 'created_at']
+        read_only_fields = ['id', 'username', 'created_at']
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -37,12 +46,15 @@ class ProductListSerializer(serializers.ModelSerializer):
     category_slug = serializers.CharField(source='category.slug', read_only=True)
     main_image_url = serializers.SerializerMethodField()
     in_stock = serializers.BooleanField(read_only=True)
+    average_rating = serializers.FloatField(read_only=True)
+    review_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'slug', 'category_name', 'category_slug',
             'price', 'stock', 'in_stock', 'main_image_url',
+            'average_rating', 'review_count',
         ]
 
     def get_main_image_url(self, obj):
@@ -57,12 +69,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     gallery = ProductImageSerializer(many=True, read_only=True)
     all_images = serializers.SerializerMethodField()
     in_stock = serializers.BooleanField(read_only=True)
+    average_rating = serializers.FloatField(read_only=True)
+    review_count = serializers.IntegerField(read_only=True)
+    reviews = ReviewSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'slug', 'category', 'description', 'specifications',
             'price', 'stock', 'in_stock', 'all_images', 'gallery',
+            'average_rating', 'review_count', 'reviews',
             'created_at', 'updated_at',
         ]
 
@@ -89,17 +105,48 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     total_items = serializers.IntegerField(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
+    payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
 
     class Meta:
         model = Order
         fields = [
-            'id', 'status', 'status_display', 'shipping_address', 'note',
-            'total', 'total_items', 'items', 'created_at', 'updated_at',
+            'id', 'status', 'status_display', 'shipping_address', 'phone', 'contact_email', 'note',
+            'payment_method', 'payment_method_display', 'payment_status', 'payment_status_display',
+            'payment_reference', 'discount', 'subtotal', 'total', 'total_items', 'items',
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['status', 'created_at', 'updated_at']
+        read_only_fields = ['status', 'payment_status', 'discount', 'created_at', 'updated_at']
+
+
+class LoyaltyTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoyaltyTransaction
+        fields = ['id', 'points', 'kind', 'description', 'created_at']
+
+
+class LoyaltyAccountSerializer(serializers.ModelSerializer):
+    discount_value = serializers.IntegerField(read_only=True)
+    next_level_info = serializers.SerializerMethodField()
+    level_display = serializers.CharField(source='get_level_display', read_only=True)
+    transactions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LoyaltyAccount
+        fields = [
+            'points', 'total_spent', 'level', 'level_display',
+            'discount_value', 'next_level_info', 'transactions',
+        ]
+
+    def get_next_level_info(self, obj):
+        return obj.next_level_info
+
+    def get_transactions(self, obj):
+        return LoyaltyTransactionSerializer(obj.transactions.all()[:20], many=True).data
 
 
 class CartItemSerializer(serializers.ModelSerializer):

@@ -7,10 +7,11 @@ from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 
-from .models import Category, Product, Cart, CartItem, Order, OrderItem
+from .models import Category, Product, Cart, CartItem, Order, OrderItem, Review, LoyaltyAccount
 from .serializers import (
     CategorySerializer, ProductListSerializer, ProductDetailSerializer,
     CartSerializer, CartItemSerializer, OrderSerializer, RegisterSerializer,
+    ReviewSerializer, LoyaltyAccountSerializer,
 )
 
 
@@ -179,13 +180,25 @@ def api_checkout(request):
         return Response({'error': 'Panier vide.'}, status=400)
 
     address = request.data.get('shipping_address', '').strip()
+    phone = request.data.get('phone', '').strip()
     if not address:
         return Response({'error': "L'adresse de livraison est obligatoire."}, status=400)
+    if not phone:
+        return Response({'error': "Le numéro de téléphone est obligatoire."}, status=400)
+
+    loyalty, _ = LoyaltyAccount.objects.get_or_create(user=request.user)
+    use_points = min(int(request.data.get('use_points', 0) or 0), loyalty.points)
+    discount = (use_points // 10) * 400
 
     order = Order.objects.create(
         user=request.user,
         shipping_address=address,
+        phone=phone,
+        contact_email=request.data.get('contact_email', '').strip() or request.user.email,
         note=request.data.get('note', ''),
+        discount=discount,
+        payment_method=request.data.get('payment_method', 'cash'),
+        payment_reference=request.data.get('payment_reference', '').strip(),
     )
     for ci in cart.cart_items.all():
         OrderItem.objects.create(
@@ -197,7 +210,38 @@ def api_checkout(request):
         p = ci.product
         p.stock = max(0, p.stock - ci.quantity)
         p.save()
+
+    earned = loyalty.add_points(order)
+    if discount > 0 and use_points > 0:
+        loyalty.use_points(use_points, order)
+
     cart.cart_items.all().delete()
 
-    return Response(OrderSerializer(order, context={'request': request}).data, status=201)
+    data = OrderSerializer(order, context={'request': request}).data
+    data['loyalty_points_earned'] = earned
+    return Response(data, status=201)
+
+
+# ── Avis produits ────────────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_submit_review(request, product_id):
+    product = get_object_or_404(Product, pk=product_id, is_active=True)
+    rating = int(request.data.get('rating', 5))
+    comment = request.data.get('comment', '').strip()
+    review, _ = Review.objects.update_or_create(
+        product=product, user=request.user,
+        defaults={'rating': rating, 'comment': comment},
+    )
+    return Response(ReviewSerializer(review).data, status=201)
+
+
+# ── Fidélité ──────────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_loyalty(request):
+    loyalty, _ = LoyaltyAccount.objects.get_or_create(user=request.user)
+    return Response(LoyaltyAccountSerializer(loyalty).data)
 
