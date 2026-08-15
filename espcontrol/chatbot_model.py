@@ -30,26 +30,86 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL   = "llama-3.3-70b-versatile"
 
-def call_groq(system_prompt, user_message, max_tokens=200):
+def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout=8):
     try:
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
         body = {
             "model": GROQ_MODEL,
             "max_tokens": max_tokens,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_message}
-            ]
+            "temperature": 0.4,
+            "messages": messages,
         }
-        resp = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=8)
+        resp = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=timeout)
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         logger.error(f"Erreur Groq API : {e}")
         return ""
+
+
+# ============================================================
+#  BASE DE CONNAISSANCE DE LA PLATEFORME (pour l'assistant IA)
+# ============================================================
+PLATFORM_KNOWLEDGE = """
+Tu es NEXUS, l'assistant intégré à la plateforme FOUNATEK — disponible sur le site web
+(founatek224.pythonanywhere.com) ET sur l'application mobile Founatek Nexus (Expo/React Native).
+Tu aides l'utilisateur à comprendre et utiliser TOUTES les fonctionnalités, comme le ferait
+l'assistant d'Amazon pour sa boutique — clair, concret, orienté action.
+
+MODULES DE LA PLATEFORME :
+
+1. IoT / Tableau de bord (espcontrol) — capteurs (PM2.5/PM10 SDS011, gaz MQ-135, température/humidité
+   DHT11, GPS L76X), relais on/off, LED RGB, contrôle d'accès par badge RFID, comptage, caméra de
+   surveillance, alertes automatiques (agent IA de détection d'anomalies), règles automatiques par seuil.
+   Mobile : onglets Capteurs/Relais/Alertes + modules Accès RFID, Comptage, LED RGB, Statistiques,
+   Appareils, Chatbot depuis l'accueil.
+
+2. Éducation IoT — parcours pédagogiques (Débutant/Intermédiaire/Avancé) composés de leçons
+   (texte/image/vidéo/code) et de quiz ; progression suivie automatiquement, certificat généré
+   (PDF + QR code de vérification publique) quand toutes les leçons d'un parcours sont réussies (score ≥ 50%).
+   Accessible via le module "Éducation IoT" sur mobile et site.
+
+3. Formateur — réservé aux comptes avec un profil formateur (rattaché à une organisation) : créer/éditer
+   des parcours, leçons, blocs de contenu (avec image/vidéo), questions de quiz, projets pratiques
+   (avec image/vidéo de démo), suivre la progression des apprenants.
+
+4. Monétisation — portefeuille (wallet) en EUR, recharge via Mobile Money (MTN/Orange/Moov/Wave) ou
+   PayPal, abonnements Free/Basic/Pro (limites d'appels API, d'appareils, d'historique, d'alertes,
+   de marketplace, de rapports PDF selon le plan), système de parrainage (code personnel, commissions
+   en points convertibles en crédits wallet, 1000 pts = 1 EUR).
+
+5. Traçabilité Produit — chaque produit d'une entreprise a un QR code unique ; le scanner affiche
+   nom, prix, dates de production/expiration, statut VALIDE/EXPIRÉ, photo, historique des prix.
+   Les entreprises gèrent leur catalogue, mettent à jour les prix (historisés) et enregistrent des ventes.
+
+6. Boutique (Founatek Shop) — catalogue de produits électroniques/IoT par catégorie, fiche produit
+   avec galerie photo/avis clients/note, panier, commande (adresse, téléphone, mode de paiement
+   Cash/Orange Money/MTN MoMo), programme de fidélité (points, niveaux Bronze/Argent/Or/Platine,
+   remise convertible), historique de commandes avec reçu PDF téléchargeable, email de confirmation
+   automatique.
+
+7. Autres modules : TechFeed (réseau social tech : vidéos, commentaires, live, chat de groupe),
+   Oscilloscope virtuel (ESP32 relié en série), Comptage d'objets, Surveillance caméra.
+
+RÈGLES IMPORTANTES :
+- Réponds UNIQUEMENT en te basant sur les données réelles fournies dans le contexte utilisateur
+  ci-dessous. Ne jamais inventer un chiffre, un solde, une commande ou un statut.
+- Si une donnée demandée n'est pas dans le contexte fourni, dis clairement que tu ne l'as pas
+  sous la main et propose où la trouver dans l'app (onglet/écran précis).
+- Tu ne réponds JAMAIS avec des informations concernant d'autres utilisateurs — tu n'as accès
+  qu'aux données de la personne qui te parle.
+- Sois concret : cite les noms d'écrans/onglets exacts (mobile et/ou site) pour guider l'utilisateur.
+- Reste bref mais utile (3 à 8 lignes en général), utilise des emojis avec modération pour la lisibilité.
+- Pour toute action matérielle (allumer/éteindre un relais, changer une couleur LED), l'utilisateur
+  doit reformuler une commande claire — tu ne simules jamais l'exécution toi-même dans ce mode.
+"""
 
 
 # ============================================================
@@ -239,25 +299,6 @@ class Chatbot:
         "🌐 founatek224.pythonanywhere.com/air-quality/"
     )
 
-    SYSTEM_PROMPT_GROQ = """Tu es l'assistant IA de FOUNATEK NEXUS, station IoT de qualité de l'air à Conakry.
-Traduis les demandes en commandes courtes parmi :
-pm25, pm10, gaz, temperature, humidite, gps, device, alertes, stats, regles, historique,
-allume relais N, eteins relais N, etat relais N (N=1,2,3), aide, founatek, bio
-
-Réponds UNIQUEMENT avec la commande. Pas de phrase. Si plusieurs, sépare par virgule.
-Si tu ne sais pas : inconnu
-
-Exemples :
-"C'est quoi la pollution ?" -> "pm25, pm10"
-"Il fait chaud ?" -> "temperature"
-"Alertes récentes ?" -> "alertes"
-"Allume le premier relais" -> "allume relais 1"
-"Tout va bien ?" -> "pm25, pm10, gaz, temperature, alertes"
-"air" -> "pm25, pm10"
-"gaz" -> "gaz"
-"temp" -> "temperature"
-"Parle moi de la pollution à Conakry" -> "pm25, pm10"
-"""
 
     # ============================================================
     def __init__(self, user):
@@ -578,6 +619,100 @@ Exemples :
             return "\n".join(lines)
 
     # ============================================================
+    #  CONTEXTE UTILISATEUR (uniquement les donnees de self.user)
+    # ============================================================
+
+    def get_user_context(self):
+        """Construit un instantane texte des donnees REELLES de l'utilisateur connecte,
+        toujours filtrees par self.user, jamais d'autres comptes."""
+        u = self.user
+        lines = [f"Utilisateur connecte : {u.username}"]
+
+        # ── IoT ──
+        try:
+            device, latest = self.get_latest_data()
+            if device and latest and latest.payload:
+                p = latest.payload
+                lines.append(
+                    "Derniere mesure IoT ({}) : PM2.5={} PM10={} Gaz={} PPM Temp={} C Hum={} %".format(
+                        device.name, p.get("pm2p5"), p.get("pm10"),
+                        p.get("mq135_ppm"), p.get("temperature"), p.get("humidity"),
+                    )
+                )
+            n_alerts = AgentAlert.objects.filter(user=u, is_read=False).count()
+            lines.append(f"Alertes non lues : {n_alerts}")
+            relais_list = list(Relais.objects.filter(user=u).values("num", "nom", "etat"))
+            if relais_list:
+                lines.append("Relais : " + ", ".join(
+                    f"#{r['num']} {r['nom'] or ''} ({'ON' if r['etat'] else 'OFF'})" for r in relais_list
+                ))
+        except Exception:
+            pass
+
+        # ── Monetisation ──
+        try:
+            from monetisation.models import Wallet, Subscription
+            wallet = Wallet.objects.filter(user=u).first()
+            sub = Subscription.objects.filter(user=u).first()
+            if wallet:
+                lines.append(f"Solde wallet : {wallet.balance} EUR")
+            if sub:
+                lines.append(f"Abonnement : plan {sub.plan}" + (f", expire le {sub.end_date}" if sub.end_date else ""))
+        except Exception:
+            pass
+
+        # ── Boutique / fidelite ──
+        try:
+            from founatekapp.models import Order as ShopOrder, LoyaltyAccount
+            recent_orders = list(ShopOrder.objects.filter(user=u).order_by("-created_at")[:3])
+            if recent_orders:
+                lines.append("Dernieres commandes boutique : " + "; ".join(
+                    f"#{o.pk} ({o.get_status_display()}, {o.total} GNF)" for o in recent_orders
+                ))
+            loyalty = LoyaltyAccount.objects.filter(user=u).first()
+            if loyalty:
+                lines.append(f"Fidelite boutique : {loyalty.points} points, niveau {loyalty.level}")
+        except Exception:
+            pass
+
+        # ── Education / Formateur ──
+        try:
+            from iot.models import Progression, Certification, FormateurProfile
+            n_certs = Certification.objects.filter(user=u).count()
+            n_lecons_ok = Progression.objects.filter(user=u, completed=True).count()
+            if n_certs or n_lecons_ok:
+                lines.append(f"Education IoT : {n_lecons_ok} lecon(s) validee(s), {n_certs} certificat(s)")
+            fp = FormateurProfile.objects.filter(user=u).first()
+            if fp:
+                lines.append(f"Profil formateur actif, organisation : {fp.organisation.nom if fp.organisation else 'N/A'}")
+        except Exception:
+            pass
+
+        # ── Transparence produit (entreprise) ──
+        try:
+            from product_transparency.models import Company
+            company = Company.objects.filter(user=u).first()
+            if company:
+                lines.append(f"Entreprise (transparence produit) : {company.name} ({company.products.count()} produit(s))")
+        except Exception:
+            pass
+
+        return "\n".join(lines)
+
+    def ai_chat(self, raw_msg):
+        """Repond de facon conversationnelle en s'appuyant sur la base de connaissance
+        de la plateforme + un instantane des donnees reelles de l'utilisateur."""
+        context = self.get_user_context()
+        system_prompt = PLATFORM_KNOWLEDGE + "\n\nDONNEES REELLES DE L'UTILISATEUR (ne jamais depasser ce perimetre) :\n" + context
+        answer = call_groq(system_prompt, raw_msg, max_tokens=500, timeout=12)
+        if not answer:
+            return (
+                "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
+                "Essaie une commande simple comme 'air', 'alertes', 'stats' ou 'aide'."
+            )
+        return answer
+
+    # ============================================================
     #  PARSING DES INTENTIONS
     # ============================================================
 
@@ -812,26 +947,13 @@ Exemples :
                 ]
             }
 
-        # Parsing local
+        # Parsing local (commandes precises : donnees capteurs, relais, etc.)
         intents = self.parse_intent(raw_msg)
 
-        # Fallback Groq
+        # Rien de reconnu localement -> assistant IA conversationnel,
+        # avec la base de connaissance de la plateforme + les vraies donnees de l'utilisateur
         if not intents:
-            translated = call_groq(self.SYSTEM_PROMPT_GROQ, raw_msg)
-            if translated and translated not in ("inconnu", ""):
-                logger.info(f"Groq: '{raw_msg}' -> '{translated}'")
-                intents = self.parse_intent(translated)
-
-        # Exécution
-        if not intents:
-            return (
-                "🤔 Je n'ai pas compris. Essayez :\n"
-                "  • 'air' ou 'pm25'\n"
-                "  • 'alertes'\n"
-                "  • 'temperature'\n"
-                "  • 'tout' pour un résumé complet\n"
-                "Tapez 'aide' pour voir toutes les commandes."
-            )
+            return self.ai_chat(raw_msg)
 
         responses  = []
         seen_types = set()
