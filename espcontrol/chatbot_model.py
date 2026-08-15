@@ -225,8 +225,7 @@ class Chatbot:
             "video", "camera", "surveillance", "capture"
         },
         "comptage": {
-            "compte", "comptage", "compteur",
-            "combien", "nombre", "total", "compter"
+            "comptage", "compteur", "compter"
         },
         "historique": {
             "historique", "history", "journal",
