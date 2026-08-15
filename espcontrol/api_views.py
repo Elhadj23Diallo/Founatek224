@@ -813,7 +813,7 @@ def mobile_formateur_create_quiz(request, lecon_id):
 
 
 @csrf_exempt
-@api_view(["GET", "DELETE"])
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def mobile_formateur_lecon_detail(request, lecon_id):
     try:
@@ -825,6 +825,11 @@ def mobile_formateur_lecon_detail(request, lecon_id):
         if request.method == "DELETE":
             lecon.delete()
             return Response({"deleted": True})
+        if request.method == "PATCH":
+            for field in ["titre", "ordre", "resume"]:
+                if field in request.data:
+                    setattr(lecon, field, request.data[field])
+            lecon.save()
         blocs = [{
             "id": b.id, "type": b.type, "contenu": b.contenu, "code": b.code,
             "language": b.language, "ordre": b.ordre,
@@ -843,7 +848,7 @@ def mobile_formateur_lecon_detail(request, lecon_id):
 
 
 @csrf_exempt
-@api_view(["DELETE"])
+@api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def mobile_formateur_delete_bloc(request, bloc_id):
     try:
@@ -852,14 +857,26 @@ def mobile_formateur_delete_bloc(request, bloc_id):
         if not fp:
             return Response({"error": "Profil formateur requis"}, status=403)
         bloc = BlocPedagogique.objects.get(id=bloc_id, lecon__parcours__organisation=fp.organisation)
-        bloc.delete()
-        return Response({"deleted": True})
+        if request.method == "DELETE":
+            bloc.delete()
+            return Response({"deleted": True})
+        for field in ["type", "contenu", "code", "language", "ordre"]:
+            if field in request.data:
+                setattr(bloc, field, request.data[field])
+        media_file = request.FILES.get("media_file")
+        if media_file:
+            bloc.media_file = media_file
+        bloc.save()
+        return Response({
+            "id": bloc.id, "type": bloc.type, "ordre": bloc.ordre,
+            "media_url": request.build_absolute_uri(bloc.media_file.url) if bloc.media_file else None,
+        })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
 
 @csrf_exempt
-@api_view(["DELETE"])
+@api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def mobile_formateur_delete_quiz(request, quiz_id):
     try:
@@ -868,8 +885,14 @@ def mobile_formateur_delete_quiz(request, quiz_id):
         if not fp:
             return Response({"error": "Profil formateur requis"}, status=403)
         q = Quiz.objects.get(id=quiz_id, lecon__parcours__organisation=fp.organisation)
-        q.delete()
-        return Response({"deleted": True})
+        if request.method == "DELETE":
+            q.delete()
+            return Response({"deleted": True})
+        for field in ["question", "choix_a", "choix_b", "choix_c", "choix_d", "bonne_reponse", "explication"]:
+            if field in request.data:
+                setattr(q, field, request.data[field])
+        q.save()
+        return Response({"id": q.id, "question": q.question})
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -921,7 +944,7 @@ def mobile_formateur_projects(request, parcours_id):
 
 
 @csrf_exempt
-@api_view(["DELETE"])
+@api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def mobile_formateur_delete_project(request, project_id):
     try:
@@ -930,8 +953,24 @@ def mobile_formateur_delete_project(request, project_id):
         if not fp:
             return Response({"error": "Profil formateur requis"}, status=403)
         p = Project.objects.get(id=project_id, parcours__organisation=fp.organisation)
-        p.delete()
-        return Response({"deleted": True})
+        if request.method == "DELETE":
+            p.delete()
+            return Response({"deleted": True})
+        for field in ["titre", "description", "ordre", "language", "code"]:
+            if field in request.data:
+                setattr(p, field, request.data[field])
+        image = request.FILES.get("image")
+        video = request.FILES.get("video")
+        if image:
+            p.image = image
+        if video:
+            p.video = video
+        p.save()
+        return Response({
+            "id": p.id, "titre": p.titre,
+            "image": request.build_absolute_uri(p.image.url) if p.image else None,
+            "video": request.build_absolute_uri(p.video.url) if p.video else None,
+        })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
