@@ -264,3 +264,17 @@ def api_loyalty(request):
     loyalty, _ = LoyaltyAccount.objects.get_or_create(user=request.user)
     return Response(LoyaltyAccountSerializer(loyalty).data)
 
+
+# ── Devises ───────────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def api_currencies(request):
+    from .models import ExchangeRate
+    rates = ExchangeRate.objects.all().order_by('currency_code')
+    return Response([{
+        'currency_code': r.currency_code,
+        'currency_symbol': r.currency_symbol,
+        'rate_from_gnf': float(r.rate_from_gnf),
+    } for r in rates])
+

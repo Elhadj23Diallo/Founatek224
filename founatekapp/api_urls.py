@@ -28,5 +28,8 @@ urlpatterns = [
     # Avis & fidélité
     path('products/<int:product_id>/review/', api_views.api_submit_review, name='api_submit_review'),
     path('loyalty/', api_views.api_loyalty, name='api_loyalty'),
+
+    # Devises
+    path('currencies/', api_views.api_currencies, name='api_currencies'),
 ]
 
