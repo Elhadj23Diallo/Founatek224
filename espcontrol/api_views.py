@@ -1294,7 +1294,12 @@ def mobile_transparence_company(request):
         if request.method == "PATCH":
             company.name = request.data.get("name", company.name)
             company.currency = request.data.get("currency", company.currency)
-            company.save(update_fields=["name", "currency"])
+            update_fields = ["name", "currency"]
+            logo = request.FILES.get("logo")
+            if logo:
+                company.logo = logo
+                update_fields.append("logo")
+            company.save(update_fields=update_fields)
         return Response({
             "id": company.id,
             "name": company.name,
@@ -1361,6 +1366,10 @@ def mobile_transparence_create_product(request):
         if Product.objects.filter(sku=sku).exists():
             return Response({"error": "Ce SKU existe déjà"}, status=409)
         product = Product.objects.create(company=company, name=name, sku=sku)
+        image = request.FILES.get("image")
+        if image:
+            product.image = image
+            product.save(update_fields=["image"])
         price = request.data.get("price")
         prod_date = request.data.get("production_date")
         exp_date = request.data.get("expiry_date")
@@ -1405,6 +1414,26 @@ def mobile_transparence_update_pricing(request, product_id):
             pricing.expiry_date = exp_date
             pricing.save()
         return Response({"price": float(pricing.price), "expiry_date": str(pricing.expiry_date)})
+    except Product.DoesNotExist:
+        return Response({"error": "Produit introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_transparence_update_product_image(request, product_id):
+    try:
+        from product_transparency.models import Company, Product
+        company = Company.objects.filter(user=request.user).first()
+        product = Product.objects.get(id=product_id, company=company)
+        image = request.FILES.get("image")
+        if not image:
+            return Response({"error": "Aucune image envoyée"}, status=400)
+        product.image = image
+        product.save(update_fields=["image"])
+        return Response({"image": request.build_absolute_uri(product.image.url)})
     except Product.DoesNotExist:
         return Response({"error": "Produit introuvable"}, status=404)
     except Exception as e:

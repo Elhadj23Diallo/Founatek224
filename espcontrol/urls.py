@@ -169,6 +169,7 @@ urlpatterns = [
     path('api/mobile/transparence/products/', api_views.mobile_transparence_products, name='mobile_transparence_products'),
     path('api/mobile/transparence/products/create/', api_views.mobile_transparence_create_product, name='mobile_transparence_create_product'),
     path('api/mobile/transparence/products/<int:product_id>/pricing/', api_views.mobile_transparence_update_pricing, name='mobile_transparence_update_pricing'),
+    path('api/mobile/transparence/products/<int:product_id>/image/', api_views.mobile_transparence_update_product_image, name='mobile_transparence_update_product_image'),
     path('api/mobile/transparence/scan/<str:uuid>/', api_views.mobile_transparence_scan, name='mobile_transparence_scan'),
     path('api/mobile/transparence/sales/create/', api_views.mobile_transparence_create_sale, name='mobile_transparence_create_sale'),
 ]
