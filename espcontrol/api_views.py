@@ -1302,6 +1302,7 @@ def mobile_transparence_company(request):
             "currency": company.currency,
             "is_active": company.is_active,
             "created_at": company.created_at.isoformat(),
+            "logo": request.build_absolute_uri(company.logo.url) if company.logo else None,
         })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -1312,13 +1313,9 @@ def mobile_transparence_company(request):
 @permission_classes([IsAuthenticated])
 def mobile_transparence_products(request):
     try:
-        from product_transparency.models import Product
-        company = Company.objects.filter(user=request.user).first() if False else None
-        try:
-            from product_transparency.models import Company
-            company = Company.objects.filter(user=request.user).first()
-        except Exception:
-            pass
+        from product_transparency.models import Product, Company
+        from django.utils.timezone import now
+        company = Company.objects.filter(user=request.user).first()
         if company is None:
             return Response([])
         products = Product.objects.filter(company=company).prefetch_related("pricing")
@@ -1327,6 +1324,9 @@ def mobile_transparence_products(request):
             pricing = getattr(p, "pricing", None)
             qr = getattr(p, "qr", None)
             qr_url = f"https://founatek224.pythonanywhere.com/product_transparency/dashboard/products/{p.id}/qr/download/" if qr else None
+            status_label = None
+            if pricing:
+                status_label = "EXPIRÉ" if pricing.expiry_date < now().date() else "VALIDE"
             data.append({
                 "id": p.id,
                 "name": p.name,
@@ -1335,6 +1335,8 @@ def mobile_transparence_products(request):
                 "price": float(pricing.price) if pricing else None,
                 "expiry_date": pricing.expiry_date.isoformat() if pricing else None,
                 "production_date": pricing.production_date.isoformat() if pricing else None,
+                "status": status_label,
+                "image": request.build_absolute_uri(p.image.url) if p.image else None,
                 "qr_download_url": qr_url,
             })
         return Response(data)
@@ -1415,9 +1417,13 @@ def mobile_transparence_update_pricing(request, product_id):
 def mobile_transparence_scan(request, uuid):
     try:
         from product_transparency.models import Product, ProductPriceHistory
+        from django.utils.timezone import now
         p = Product.objects.select_related("company").get(uuid=uuid)
         pricing = getattr(p, "pricing", None)
         history = ProductPriceHistory.objects.filter(product=p).order_by("-changed_at")[:10]
+        status_label = None
+        if pricing:
+            status_label = "EXPIRÉ" if pricing.expiry_date < now().date() else "VALIDE"
         return Response({
             "id": p.id,
             "name": p.name,
@@ -1427,6 +1433,9 @@ def mobile_transparence_scan(request, uuid):
             "price": float(pricing.price) if pricing else None,
             "expiry_date": pricing.expiry_date.isoformat() if pricing else None,
             "production_date": pricing.production_date.isoformat() if pricing else None,
+            "status": status_label,
+            "image": request.build_absolute_uri(p.image.url) if p.image else None,
+            "company_logo": request.build_absolute_uri(p.company.logo.url) if p.company and p.company.logo else None,
             "price_history": [{
                 "price": float(h.price),
                 "changed_at": h.changed_at.isoformat(),
