@@ -241,8 +241,8 @@ def order_detail(request, pk):
     return render(request, 'store/order_detail.html', context)
 
 
-@login_required
-def order_receipt_pdf(request, pk):
+def build_order_receipt_pdf(order, currency_code='GNF'):
+    """Genere le PDF du recu de commande et retourne un buffer BytesIO pret a l'emploi."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import cm
@@ -251,12 +251,6 @@ def order_receipt_pdf(request, pk):
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
     import io
 
-    if request.user.is_staff:
-        order = get_object_or_404(Order, pk=pk)
-    else:
-        order = get_object_or_404(Order, pk=pk, user=request.user)
-
-    currency_code = request.session.get('currency_code', 'GNF')
     exchange_rate = None
     if currency_code != 'GNF':
         from .models import ExchangeRate
@@ -451,6 +445,18 @@ def order_receipt_pdf(request, pk):
 
     doc.build(story)
     buffer.seek(0)
+    return buffer
+
+
+@login_required
+def order_receipt_pdf(request, pk):
+    if request.user.is_staff:
+        order = get_object_or_404(Order, pk=pk)
+    else:
+        order = get_object_or_404(Order, pk=pk, user=request.user)
+
+    currency_code = request.session.get('currency_code', 'GNF')
+    buffer = build_order_receipt_pdf(order, currency_code)
 
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="recu-commande-{order.pk:06d}.pdf"'

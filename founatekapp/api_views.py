@@ -217,9 +217,28 @@ def api_checkout(request):
 
     cart.cart_items.all().delete()
 
+    from .signals import send_order_email, send_admin_order_notification
+    send_order_email(order, earned, loyalty)
+    send_admin_order_notification(order)
+
     data = OrderSerializer(order, context={'request': request}).data
     data['loyalty_points_earned'] = earned
     return Response(data, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_order_receipt_pdf(request, pk):
+    from django.http import HttpResponse
+    from .views import build_order_receipt_pdf
+    if request.user.is_staff:
+        order = get_object_or_404(Order, pk=pk)
+    else:
+        order = get_object_or_404(Order, pk=pk, user=request.user)
+    buffer = build_order_receipt_pdf(order, request.query_params.get('currency', 'GNF'))
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="recu-commande-{order.pk:06d}.pdf"'
+    return response
 
 
 # ── Avis produits ────────────────────────────────────────────────────────────

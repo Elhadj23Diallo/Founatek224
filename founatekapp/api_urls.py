@@ -23,6 +23,7 @@ urlpatterns = [
     path('orders/', api_views.api_order_list, name='api_orders'),
     path('orders/<int:pk>/', api_views.api_order_detail, name='api_order_detail'),
     path('orders/checkout/', api_views.api_checkout, name='api_checkout'),
+    path('orders/<int:pk>/receipt/', api_views.api_order_receipt_pdf, name='api_order_receipt_pdf'),
 
     # Avis & fidélité
     path('products/<int:product_id>/review/', api_views.api_submit_review, name='api_submit_review'),
