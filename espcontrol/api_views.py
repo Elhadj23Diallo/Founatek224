@@ -770,7 +770,14 @@ def mobile_formateur_create_bloc(request, lecon_id):
         language = request.data.get("language", "")
         ordre = request.data.get("ordre", 0)
         b = BlocPedagogique.objects.create(lecon=lecon, type=type_, contenu=contenu, code=code, language=language, ordre=ordre)
-        return Response({"id": b.id, "type": b.type, "ordre": b.ordre}, status=201)
+        media_file = request.FILES.get("media_file")
+        if media_file:
+            b.media_file = media_file
+            b.save(update_fields=["media_file"])
+        return Response({
+            "id": b.id, "type": b.type, "ordre": b.ordre,
+            "media_url": request.build_absolute_uri(b.media_file.url) if b.media_file else None,
+        }, status=201)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -818,9 +825,11 @@ def mobile_formateur_lecon_detail(request, lecon_id):
         if request.method == "DELETE":
             lecon.delete()
             return Response({"deleted": True})
-        blocs = list(BlocPedagogique.objects.filter(lecon=lecon).order_by("ordre").values(
-            "id", "type", "contenu", "code", "language", "ordre"
-        ))
+        blocs = [{
+            "id": b.id, "type": b.type, "contenu": b.contenu, "code": b.code,
+            "language": b.language, "ordre": b.ordre,
+            "media_url": request.build_absolute_uri(b.media_file.url) if b.media_file else None,
+        } for b in BlocPedagogique.objects.filter(lecon=lecon).order_by("ordre")]
         quiz_qs = Quiz.objects.filter(lecon=lecon).order_by("id")
         quiz = [{"id": q.id, "question": q.question, "choix_a": q.choix_a, "choix_b": q.choix_b,
                  "choix_c": q.choix_c, "choix_d": q.choix_d, "bonne_reponse": q.bonne_reponse,
@@ -860,6 +869,68 @@ def mobile_formateur_delete_quiz(request, quiz_id):
             return Response({"error": "Profil formateur requis"}, status=403)
         q = Quiz.objects.get(id=quiz_id, lecon__parcours__organisation=fp.organisation)
         q.delete()
+        return Response({"deleted": True})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def mobile_formateur_projects(request, parcours_id):
+    try:
+        from iot.models import Parcours, Project
+        fp = _get_formateur(request.user)
+        if not fp:
+            return Response({"error": "Profil formateur requis"}, status=403)
+        parcours = Parcours.objects.get(id=parcours_id, organisation=fp.organisation)
+
+        if request.method == "POST":
+            titre = request.data.get("titre", "")
+            description = request.data.get("description", "")
+            if not titre:
+                return Response({"error": "Titre requis"}, status=400)
+            p = Project.objects.create(
+                parcours=parcours, titre=titre, description=description,
+                ordre=request.data.get("ordre", 0),
+                language=request.data.get("language", ""),
+                code=request.data.get("code", ""),
+            )
+            image = request.FILES.get("image")
+            video = request.FILES.get("video")
+            update_fields = []
+            if image:
+                p.image = image; update_fields.append("image")
+            if video:
+                p.video = video; update_fields.append("video")
+            if update_fields:
+                p.save(update_fields=update_fields)
+            return Response({"id": p.id, "titre": p.titre}, status=201)
+
+        projects = Project.objects.filter(parcours=parcours).order_by("ordre")
+        return Response([{
+            "id": p.id, "titre": p.titre, "description": p.description,
+            "ordre": p.ordre, "language": p.language, "code": p.code,
+            "image": request.build_absolute_uri(p.image.url) if p.image else None,
+            "video": request.build_absolute_uri(p.video.url) if p.video else None,
+        } for p in projects])
+    except Parcours.DoesNotExist:
+        return Response({"error": "Parcours introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def mobile_formateur_delete_project(request, project_id):
+    try:
+        from iot.models import Project
+        fp = _get_formateur(request.user)
+        if not fp:
+            return Response({"error": "Profil formateur requis"}, status=403)
+        p = Project.objects.get(id=project_id, parcours__organisation=fp.organisation)
+        p.delete()
         return Response({"deleted": True})
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -945,6 +1016,7 @@ def mobile_education_lecons(request, parcours_id):
                     "code": b.code,
                     "language": b.language,
                     "ordre": b.ordre,
+                    "media_url": request.build_absolute_uri(b.media_file.url) if b.media_file else None,
                 })
             prog = Progression.objects.filter(user=request.user, lecon=l).first()
             quiz_count = Quiz.objects.filter(lecon=l).count()
@@ -1081,6 +1153,8 @@ def mobile_education_projects(request, parcours_id):
             "language": p.language,
             "code": p.code,
             "ordre": p.ordre,
+            "image": request.build_absolute_uri(p.image.url) if p.image else None,
+            "video": request.build_absolute_uri(p.video.url) if p.video else None,
         } for p in projects]
         return Response(data)
     except Exception as e:
@@ -1100,6 +1174,9 @@ def mobile_education_certificats(request):
             "score_final": c.score_final,
             "is_valid": c.is_valid,
             "created_at": c.created_at.isoformat(),
+            "pdf_url": request.build_absolute_uri(c.pdf.url) if c.pdf else None,
+            "qr_code_url": request.build_absolute_uri(c.qr_code.url) if c.qr_code else None,
+            "verify_url": f"https://founatek224.pythonanywhere.com/certificat/{c.uuid}/",
         } for c in certs]
         return Response(data)
     except Exception as e:
