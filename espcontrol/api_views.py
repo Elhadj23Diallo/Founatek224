@@ -1327,13 +1327,85 @@ def mobile_monetisation_recharge(request):
         provider = request.data.get("provider", "MTN")
         phone = request.data.get("phone_number", "")
         amount = float(request.data.get("amount", 0))
+        transaction_id = request.data.get("transaction_id", "")
         if amount <= 0 or not phone:
             return Response({"error": "Paramètres invalides"}, status=400)
         pay = PaymentRequest.objects.create(
             user=request.user, provider=provider,
             phone_number=phone, amount=amount, status="pending",
+            transaction_id=transaction_id or None,
         )
         return Response({"id": pay.id, "status": pay.status, "provider": pay.provider, "amount": pay.amount})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_merchant_numbers(request):
+    """Numeros Mobile Money du marchand a qui envoyer le paiement (flux manuel)."""
+    try:
+        from monetisation.models import MobileMoneyAccount
+        accounts = MobileMoneyAccount.objects.filter(is_active=True)
+        return Response([{
+            "id": a.id, "provider": a.provider, "phone_number": a.phone_number,
+            "owner_name": a.owner_name, "instructions": a.instructions,
+        } for a in accounts])
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_admin_pending(request):
+    """Liste des demandes de paiement en attente (reserve au staff)."""
+    if not request.user.is_staff:
+        return Response({"error": "Accès réservé aux administrateurs"}, status=403)
+    try:
+        from monetisation.models import PaymentRequest
+        pending = PaymentRequest.objects.filter(status="pending").order_by("-created_at")
+        return Response([{
+            "id": p.id, "username": p.user.username, "provider": p.provider,
+            "phone_number": p.phone_number, "amount": p.amount,
+            "transaction_id": p.transaction_id, "created_at": p.created_at.isoformat(),
+        } for p in pending])
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_admin_review(request, payment_id):
+    """Confirme ou refuse une demande de paiement (staff only). Body: {action: 'confirm'|'reject'}"""
+    if not request.user.is_staff:
+        return Response({"error": "Accès réservé aux administrateurs"}, status=403)
+    try:
+        from django.utils import timezone as _timezone
+        from monetisation.models import PaymentRequest, Wallet, Transaction
+        payment = PaymentRequest.objects.get(id=payment_id, status="pending")
+        action = request.data.get("action")
+        if action == "confirm":
+            payment.status = "success"
+            wallet, _ = Wallet.objects.get_or_create(user=payment.user, defaults={"balance": 0})
+            wallet.balance += payment.amount
+            wallet.save()
+            Transaction.objects.create(
+                user=payment.user, type="credit", amount=payment.amount,
+                description=f"Recharge {payment.provider} confirmée par {request.user.username}",
+            )
+        elif action == "reject":
+            payment.status = "failed"
+        else:
+            return Response({"error": "action doit être 'confirm' ou 'reject'"}, status=400)
+        payment.reviewed_by = request.user
+        payment.reviewed_at = _timezone.now()
+        payment.save()
+        return Response({"id": payment.id, "status": payment.status})
+    except PaymentRequest.DoesNotExist:
+        return Response({"error": "Demande introuvable ou déjà traitée"}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 

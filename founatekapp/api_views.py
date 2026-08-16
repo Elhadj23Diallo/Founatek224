@@ -307,3 +307,35 @@ def api_category_detail(request, slug):
         'products': ProductListSerializer(products, many=True, context={'request': request}).data,
     })
 
+
+# ── Confirmation admin des paiements Mobile Money (boutique) ──────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_admin_pending_orders(request):
+    """Commandes payees en Mobile Money en attente de confirmation (staff only)."""
+    if not request.user.is_staff:
+        return Response({'error': 'Accès réservé aux administrateurs'}, status=403)
+    orders = Order.objects.filter(payment_status='pending').exclude(payment_method='cash').order_by('-created_at')
+    return Response(OrderSerializer(orders, many=True, context={'request': request}).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_admin_review_order(request, order_id):
+    """Confirme ou refuse le paiement d'une commande (staff only). Body: {action: 'confirm'|'reject'}"""
+    if not request.user.is_staff:
+        return Response({'error': 'Accès réservé aux administrateurs'}, status=403)
+    order = get_object_or_404(Order, id=order_id, payment_status='pending')
+    action = request.data.get('action')
+    if action == 'confirm':
+        order.payment_status = 'paid'
+        order.status = 'confirmed'
+    elif action == 'reject':
+        order.payment_status = 'failed'
+        order.status = 'cancelled'
+    else:
+        return Response({'error': "action doit être 'confirm' ou 'reject'"}, status=400)
+    order.save()
+    return Response(OrderSerializer(order, context={'request': request}).data)
+

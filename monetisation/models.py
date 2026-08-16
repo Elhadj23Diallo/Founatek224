@@ -53,6 +53,24 @@ class PaymentRequest(models.Model):
     status = models.CharField(max_length=20, default='pending')  # pending, success, failed
     transaction_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='payment_requests_reviewed')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+
+class MobileMoneyAccount(models.Model):
+    """Numeros Mobile Money du marchand (Founatek) affiches aux clients pour paiement manuel,
+    en attendant une integration API complete (necessite une entreprise enregistree/RCCM)."""
+    provider = models.CharField(max_length=50)  # MTN, Orange, Moov, Wave
+    phone_number = models.CharField(max_length=20)
+    owner_name = models.CharField(max_length=100, help_text="Nom du titulaire du compte, affiche au client")
+    is_active = models.BooleanField(default=True)
+    instructions = models.CharField(max_length=255, blank=True, help_text="Instructions optionnelles affichees au client")
+
+    class Meta:
+        ordering = ['provider']
+
+    def __str__(self):
+        return f"{self.provider} — {self.phone_number}"
 
 
 # monetisation/models.py (ou espcontrol/models.py selon ton projet)

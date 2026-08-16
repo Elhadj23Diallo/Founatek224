@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Wallet, Transaction, Subscription, PaymentRequest, UsageLog, Referral, ReferralTransaction
+from .models import Wallet, Transaction, Subscription, PaymentRequest, UsageLog, Referral, ReferralTransaction, MobileMoneyAccount
 
 # Wallet
 @admin.register(Wallet)
@@ -24,9 +24,15 @@ class SubscriptionAdmin(admin.ModelAdmin):
 # PaymentRequest
 @admin.register(PaymentRequest)
 class PaymentRequestAdmin(admin.ModelAdmin):
-    list_display = ('user', 'provider', 'phone_number', 'amount', 'status', 'transaction_id', 'created_at')
+    list_display = ('user', 'provider', 'phone_number', 'amount', 'status', 'transaction_id', 'created_at', 'reviewed_by')
     list_filter = ('provider', 'status')
     search_fields = ('user__username', 'transaction_id', 'phone_number')
+
+# MobileMoneyAccount
+@admin.register(MobileMoneyAccount)
+class MobileMoneyAccountAdmin(admin.ModelAdmin):
+    list_display = ('provider', 'phone_number', 'owner_name', 'is_active')
+    list_filter = ('provider', 'is_active')
 
 # UsageLog
 @admin.register(UsageLog)

@@ -33,5 +33,9 @@ urlpatterns = [
     # Devises
     path('currencies/', api_views.api_currencies, name='api_currencies'),
     path('currency-preference/', api_views.api_currency_preference, name='api_currency_preference'),
+
+    # Admin — confirmation paiements Mobile Money
+    path('admin/orders/pending/', api_views.api_admin_pending_orders, name='api_admin_pending_orders'),
+    path('admin/orders/<int:order_id>/review/', api_views.api_admin_review_order, name='api_admin_review_order'),
 ]
 
