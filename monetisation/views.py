@@ -267,16 +267,17 @@ def subscription_view(request):
 
             return redirect('monetisation:payment_success')
 
-        # --- Paiement via Mobile Money ou autre provider ---
-        PaymentRequest.objects.create(
-            user=request.user,
-            provider=provider,
-            amount=amount,
-            status='pending',
-            transaction_id=str(uuid.uuid4())
-        )
-
-        return redirect('monetisation:wallet_dashboard')
+        # --- Provider non supporté pour l'abonnement (seuls wallet et paypal le sont) ---
+        plans_info = [
+            {'name': k, **v, 'price': PLAN_PRICES[k]}
+            for k, v in PLAN_LIMITS.items()
+        ]
+        return render(request, 'monetisation/abonnement.html', {
+            'subscription': sub,
+            'plans': plans_info,
+            'wallet': wallet,
+            'error': "Ce moyen de paiement n'est pas disponible pour l'abonnement. Rechargez votre wallet puis payez avec le solde."
+        })
 
     # --- Préparer les informations des plans pour le template ---
     plans_info = []

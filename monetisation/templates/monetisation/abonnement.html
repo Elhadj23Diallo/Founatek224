@@ -113,14 +113,15 @@ body {
             <label class="form-label"><i class="fas fa-wallet"></i> Méthode de paiement</label>
             <select name="provider" class="form-control-dark" id="provider-select">
                 {% if wallet.balance > 0 %}
-                <option value="wallet">Wallet (Solde: {{ wallet.balance }} USD)</option>
+                <option value="wallet">Wallet (Solde: {{ wallet.balance }} EUR)</option>
                 {% endif %}
                 <option value="paypal">PayPal / Carte Bancaire</option>
-                <option value="MTN">MTN MoMo</option>
-                <option value="Orange">Orange Money</option>
-                <option value="Moov">Moov Money</option>
-                <option value="Wave">Wave</option>
             </select>
+            <p style="color:#94a3b8; font-size:0.8rem; margin-top:8px;">
+                <i class="fas fa-circle-info"></i> Pour payer par Mobile Money, rechargez d'abord votre wallet
+                (<a href="{% url 'monetisation:monetisation_acheter_credit' %}" style="color:#22d3ee;">Acheter du crédit</a>),
+                puis payez votre abonnement avec le solde.
+            </p>
         </div>
 
         <button type="submit" class="btn-submit" id="submit-btn">
