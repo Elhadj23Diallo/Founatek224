@@ -308,6 +308,8 @@ def wallet_dashboard(request):
 # ---------------- Initier Paiement Mobile Money ----------------
 @login_required
 def init_mobile_money(request):
+    from .utils import gnf_to_eur, get_gnf_to_eur_rate
+    from .models import MobileMoneyAccount
     wallet = Wallet.objects.get(user=request.user)
 
     if request.method == 'POST':
@@ -319,15 +321,30 @@ def init_mobile_money(request):
         if amount <= 0:
             return render(request, 'monetisation/init_mobile_money.html', {
                 'wallet': wallet,
-                'error': "Veuillez saisir un montant valide."
+                'error': "Veuillez saisir un montant valide.",
+                'merchant_accounts': MobileMoneyAccount.objects.filter(is_active=True),
+                'gnf_to_eur_rate': get_gnf_to_eur_rate(),
             })
+
+        # PayPal facture directement en EUR. Le Mobile Money guineen se paie en GNF :
+        # on convertit vers EUR (devise interne du wallet) pour rester coherent.
+        if provider.lower() == 'paypal':
+            amount_eur = amount
+            amount_local = None
+            currency_local = 'EUR'
+        else:
+            amount_local = amount
+            currency_local = 'GNF'
+            amount_eur = gnf_to_eur(amount)
 
         # Créer un PaymentRequest
         payment = PaymentRequest.objects.create(
             user=request.user,
             provider=provider,
             phone_number=phone_number,
-            amount=amount,
+            amount=amount_eur,
+            amount_local=amount_local,
+            currency_local=currency_local,
             transaction_id=str(uuid.uuid4()),
             status='pending'
         )
@@ -336,16 +353,15 @@ def init_mobile_money(request):
         if provider.lower() == 'paypal':
             return redirect('monetisation:wallet_dashboard')
 
-        # Pour Mobile Money, normalement tu enverras une requête à l'API du fournisseur
-        # Ici on reste en simulation pour test
-        # Exemple :
-        # send_mobile_money_request(provider, phone_number, amount, payment.transaction_id)
-
+        # Pour Mobile Money, le paiement est manuel (envoi vers un numero marchand) :
+        # la demande reste 'pending' jusqu'a confirmation par un admin (email envoye automatiquement).
         return redirect('monetisation:wallet_dashboard')
 
     return render(request, 'monetisation/init_mobile_money.html', {
         'wallet': wallet,
-        'currency': 'EUR'  # ou 'EUR', selon ton paramètre PayPal
+        'currency': 'EUR',
+        'merchant_accounts': MobileMoneyAccount.objects.filter(is_active=True),
+        'gnf_to_eur_rate': get_gnf_to_eur_rate(),
     })
 
 
