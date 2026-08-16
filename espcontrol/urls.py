@@ -169,6 +169,7 @@ urlpatterns = [
     path('api/mobile/monetisation/paypal/create-order/', api_views.mobile_monetisation_paypal_create_order, name='mobile_monetisation_paypal_create_order'),
     path('api/mobile/monetisation/paypal/capture-order/', api_views.mobile_monetisation_paypal_capture_order, name='mobile_monetisation_paypal_capture_order'),
     path('api/mobile/monetisation/merchant-numbers/', api_views.mobile_monetisation_merchant_numbers, name='mobile_monetisation_merchant_numbers'),
+    path('api/mobile/monetisation/exchange-rate/', api_views.mobile_monetisation_exchange_rate, name='mobile_monetisation_exchange_rate'),
     path('api/mobile/monetisation/admin/pending/', api_views.mobile_monetisation_admin_pending, name='mobile_monetisation_admin_pending'),
     path('api/mobile/monetisation/admin/<int:payment_id>/review/', api_views.mobile_monetisation_admin_review, name='mobile_monetisation_admin_review'),
 

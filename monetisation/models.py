@@ -49,7 +49,9 @@ class PaymentRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     provider = models.CharField(max_length=50)  # MTN, Orange, Moov, Wave
     phone_number = models.CharField(max_length=20)
-    amount = models.FloatField()
+    amount = models.FloatField()  # Montant credite au wallet, en EUR (devise interne du wallet)
+    amount_local = models.FloatField(null=True, blank=True)  # Montant reellement envoye par l'utilisateur (ex: en GNF)
+    currency_local = models.CharField(max_length=3, default='GNF')  # Devise du montant envoye
     status = models.CharField(max_length=20, default='pending')  # pending, success, failed
     transaction_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

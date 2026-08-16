@@ -3,6 +3,28 @@ from .models import Subscription, UsageLog
 from datetime import timedelta
 
 # ------------------------------
+# ⚡ Conversion GNF <-> EUR (le wallet est stocke en EUR en interne pour PayPal,
+# mais le Mobile Money en Guinee se paie naturellement en GNF)
+# ------------------------------
+DEFAULT_GNF_PER_EUR = 10000  # taux de secours si non configure dans ExchangeRate (founatekapp)
+
+
+def get_gnf_to_eur_rate():
+    """Retourne le taux de conversion 1 GNF -> X EUR (utilise ExchangeRate 'EUR' de founatekapp si dispo)."""
+    try:
+        from founatekapp.models import ExchangeRate
+        rate = ExchangeRate.objects.filter(currency_code='EUR').first()
+        if rate:
+            return float(rate.rate_from_gnf)
+    except Exception:
+        pass
+    return 1 / DEFAULT_GNF_PER_EUR
+
+
+def gnf_to_eur(amount_gnf):
+    return round(float(amount_gnf) * get_gnf_to_eur_rate(), 4)
+
+# ------------------------------
 # ⚡ Définition des limites par plan
 # ------------------------------
 PLAN_LIMITS = {

@@ -24,7 +24,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
 # PaymentRequest
 @admin.register(PaymentRequest)
 class PaymentRequestAdmin(admin.ModelAdmin):
-    list_display = ('user', 'provider', 'phone_number', 'amount', 'status', 'transaction_id', 'created_at', 'reviewed_by')
+    list_display = ('user', 'provider', 'phone_number', 'amount_local', 'currency_local', 'amount', 'status', 'transaction_id', 'created_at', 'reviewed_by')
     list_filter = ('provider', 'status')
     search_fields = ('user__username', 'transaction_id', 'phone_number')
 

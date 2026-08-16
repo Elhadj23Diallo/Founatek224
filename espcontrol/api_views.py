@@ -1322,22 +1322,40 @@ def mobile_monetisation_upgrade(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def mobile_monetisation_recharge(request):
+    """Le client saisit un montant en GNF (naturel pour Mobile Money) ; converti automatiquement
+    en EUR pour le credit wallet (devise interne, requise pour PayPal/plans)."""
     try:
         from monetisation.models import PaymentRequest
+        from monetisation.utils import gnf_to_eur, get_gnf_to_eur_rate
         provider = request.data.get("provider", "MTN")
         phone = request.data.get("phone_number", "")
-        amount = float(request.data.get("amount", 0))
+        amount_gnf = float(request.data.get("amount_gnf", request.data.get("amount", 0)))
         transaction_id = request.data.get("transaction_id", "")
-        if amount <= 0 or not phone:
+        if amount_gnf <= 0 or not phone:
             return Response({"error": "Paramètres invalides"}, status=400)
+        amount_eur = gnf_to_eur(amount_gnf)
         pay = PaymentRequest.objects.create(
             user=request.user, provider=provider,
-            phone_number=phone, amount=amount, status="pending",
-            transaction_id=transaction_id or None,
+            phone_number=phone, amount=amount_eur,
+            amount_local=amount_gnf, currency_local="GNF",
+            status="pending", transaction_id=transaction_id or None,
         )
-        return Response({"id": pay.id, "status": pay.status, "provider": pay.provider, "amount": pay.amount})
+        return Response({
+            "id": pay.id, "status": pay.status, "provider": pay.provider,
+            "amount_gnf": amount_gnf, "amount_eur": amount_eur,
+            "rate": get_gnf_to_eur_rate(),
+        })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_exchange_rate(request):
+    """Taux GNF -> EUR utilise pour les recharges Mobile Money."""
+    from monetisation.utils import get_gnf_to_eur_rate
+    return Response({"gnf_to_eur": get_gnf_to_eur_rate()})
 
 
 @csrf_exempt
@@ -1369,6 +1387,7 @@ def mobile_monetisation_admin_pending(request):
         return Response([{
             "id": p.id, "username": p.user.username, "provider": p.provider,
             "phone_number": p.phone_number, "amount": p.amount,
+            "amount_local": p.amount_local, "currency_local": p.currency_local,
             "transaction_id": p.transaction_id, "created_at": p.created_at.isoformat(),
         } for p in pending])
     except Exception as e:
