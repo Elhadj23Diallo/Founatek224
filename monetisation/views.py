@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils import timezone
@@ -117,6 +118,7 @@ def capture_paypal_order(request):
 
 # ---------------- Dashboard ----------------
 @login_required
+@never_cache
 def dashboard(request):
     wallet = Wallet.objects.get(user=request.user)
     subscription = Subscription.objects.get(user=request.user)
@@ -186,6 +188,7 @@ PLAN_PRICES = {
 }
 
 @login_required
+@never_cache
 def subscription_view(request):
     sub = Subscription.objects.get(user=request.user)
     wallet = Wallet.objects.get(user=request.user)
@@ -296,6 +299,7 @@ def subscription_view(request):
     })
 # ---------------- Dashboard Wallet ----------------
 @login_required
+@never_cache
 def wallet_dashboard(request):
     wallet = Wallet.objects.get(user=request.user)
     payments = PaymentRequest.objects.filter(user=request.user).order_by('-created_at')
@@ -417,23 +421,6 @@ def mobile_money_callback(request):
 from monetisation.quota import get_limits_for_user
 from monetisation.models import UsageLog
 from django.utils import timezone
-
-def dashboard(request):
-    wallet = Wallet.objects.get(user=request.user)
-    subscription = Subscription.objects.get(user=request.user)
-    limits, plan = get_limits_for_user(request.user)
-    usage = UsageLog.objects.filter(user=request.user, date=timezone.now().date()).first()
-    usage = usage or type("u", (), {"api_calls": 0, "device_count": 0})()
-    return render(request, 'monetisation/dashboard.html', {
-        'wallet': wallet,
-        'subscription': subscription,
-        'limits': limits,
-        'usage': usage,
-        'plan': plan
-    })
-
-
-
 
 
 @login_required
