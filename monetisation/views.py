@@ -120,17 +120,22 @@ def capture_paypal_order(request):
 @login_required
 @never_cache
 def dashboard(request):
+    from monetisation.quota import get_limits_for_user
+    from .models import UsageLog
+
     wallet = Wallet.objects.get(user=request.user)
     subscription = Subscription.objects.get(user=request.user)
-    usage, _ = UsageLog.objects.get_or_create(user=request.user, date=timezone.now().date())
-    limits = get_plan_limits(request.user)
+    limits, plan = get_limits_for_user(request.user)
+    usage = UsageLog.objects.filter(user=request.user, date=timezone.now().date()).first()
+    usage = usage or type("u", (), {"api_calls": 0, "device_count": 0})()
 
     return render(request, 'monetisation/dashboard.html', {
         'wallet': wallet,
         'subscription': subscription,
         'usage': usage,
         'limits': limits,
-        'currency': settings.PAYPAL_CURRENCY  # ⚡ Ajout de la devise dynamique
+        'plan': plan,
+        'currency': 'EUR'
     })
 
 
