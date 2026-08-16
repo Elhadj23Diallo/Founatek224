@@ -180,4 +180,25 @@ urlpatterns = [
     path('api/mobile/transparence/qr-labels/pdf/', api_views.mobile_transparence_qr_labels_pdf, name='mobile_transparence_qr_labels_pdf'),
     path('api/mobile/transparence/scan/<str:uuid>/', api_views.mobile_transparence_scan, name='mobile_transparence_scan'),
     path('api/mobile/transparence/sales/create/', api_views.mobile_transparence_create_sale, name='mobile_transparence_create_sale'),
+
+    # ── Qualité de l'air (multi-villes, prévision, alertes) ────────────────────
+    path('api/mobile/air/map/', api_views.mobile_air_map, name='mobile_air_map'),
+    path('api/mobile/air/city/<str:city>/', api_views.mobile_air_city_latest, name='mobile_air_city_latest'),
+    path('api/mobile/air/forecast/', api_views.mobile_air_forecast, name='mobile_air_forecast'),
+    path('api/mobile/air/alert-now/<str:city>/', api_views.mobile_air_alert_now, name='mobile_air_alert_now'),
+
+    # ── Irrigation ML ────────────────────────────────────────────────────────
+    path('api/mobile/irrigation/predict/', api_views.mobile_irrigation_prediction, name='mobile_irrigation_prediction'),
+
+    # ── Exports Excel ────────────────────────────────────────────────────────
+    path('api/mobile/export/excel/', api_views.mobile_export_data_excel, name='mobile_export_data_excel'),
+
+    # ── Archives de surveillance ─────────────────────────────────────────────
+    path('api/mobile/surveillance/archive/', api_views.mobile_surveillance_archive, name='mobile_surveillance_archive'),
+    path('api/mobile/surveillance/archive/zip/', api_views.mobile_surveillance_download_zip, name='mobile_surveillance_download_zip'),
+
+    # ── Dashboard "univers" + alertes par capteur ───────────────────────────
+    path('api/mobile/univers/', api_views.mobile_dashboard_univers, name='mobile_dashboard_univers'),
+    path('api/mobile/alerts/sensor/<str:sensor>/graph/', api_views.mobile_alert_graph_data, name='mobile_alert_graph_data'),
+    path('api/mobile/alerts/sensor/<str:sensor>/', api_views.mobile_alerts_by_sensor, name='mobile_alerts_by_sensor'),
 ]

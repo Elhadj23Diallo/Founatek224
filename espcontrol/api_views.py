@@ -1909,3 +1909,364 @@ def mobile_profile(request):
             "alerts":   AgentAlert.objects.filter(user=user).count(),
         },
     })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODULE QUALITE DE L'AIR — dashboard multi-villes, prevision, alertes
+# ══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_air_map(request):
+    """Carte multi-villes (Conakry, Dakar, Abidjan, Lagos, Nairobi)."""
+    try:
+        from espcontrol.models import AirReading
+        cities = ["conakry", "dakar", "abidjan", "lagos", "nairobi"]
+        data = []
+        for city in cities:
+            reading = AirReading.objects.filter(source__icontains=city.upper(), is_active=True).order_by("-simulated_time").first()
+            if not reading:
+                continue
+            data.append({
+                "city": city, "lat": reading.latitude, "lon": reading.longitude,
+                "pm2p5": reading.pm2p5, "pm10": reading.pm10, "co": reading.co, "no2": reading.no2,
+                "confidence": reading.confidence, "origin": reading.origin, "source": reading.source,
+            })
+        return Response({"data": data})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_air_city_latest(request, city):
+    """Derniere lecture (reelle/virtuelle/hybride) pour une ville donnee."""
+    try:
+        from espcontrol.ml.services.air_fusion import get_latest_air_reading
+        reading = get_latest_air_reading(city)
+        if not reading:
+            return Response({"error": "no data"}, status=404)
+        return Response({
+            "city": city, "origin": reading.origin, "confidence": reading.confidence,
+            "simulated_time": reading.simulated_time.isoformat(), "created_at": reading.created_at.isoformat(),
+            "location": {"lat": reading.latitude, "lon": reading.longitude},
+            "data": {"pm2p5": reading.pm2p5, "pm10": reading.pm10, "co": reading.co, "no2": reading.no2},
+            "source": reading.source,
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_air_forecast(request):
+    """Prevision qualite de l'air a 3h (Conakry) + alertes associees."""
+    try:
+        from espcontrol.ml.services.air_predictor import predict_conakry_next_3h
+        from espcontrol.ml.services.air_alerts import evaluate_air_quality
+        prediction_data = predict_conakry_next_3h()
+        alerts = evaluate_air_quality(prediction_data["prediction"])
+        return Response({
+            "from_time": prediction_data.get("from_time"),
+            "to_time": prediction_data.get("to_time"),
+            "prediction": prediction_data.get("prediction"),
+            "global_status": alerts.get("global_status"),
+            "alerts": alerts.get("alerts"),
+        })
+    except FileNotFoundError as e:
+        return Response({"error": "Donnees ML manquantes", "detail": str(e)}, status=503)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_air_alert_now(request, city):
+    """Alerte immediate basee sur la derniere mesure reelle/virtuelle d'une ville."""
+    try:
+        from espcontrol.models import AirReading
+        from espcontrol.ml.services.air_alerts import evaluate_air_alert_now
+        reading = AirReading.objects.filter(source__icontains=city.upper(), is_active=True).order_by("-simulated_time").first()
+        if not reading:
+            return Response({"alert": None})
+        alert = evaluate_air_alert_now(reading)
+        return Response({"city": city, "alert": alert})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODULE IRRIGATION ML
+# ══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_irrigation_prediction(request):
+    """Body: {temperature_c, humidity_air, rainfall_mm, hour} -> {irrigation: 'ON'|'OFF'}"""
+    try:
+        import pandas as pd
+        import joblib
+        from pathlib import Path
+        from .MAL.features import FEATURES
+    except Exception as e:
+        return Response({"error": "Dépendances irrigation indisponibles", "detail": str(e)}, status=503)
+    try:
+        required = ["temperature_c", "humidity_air", "rainfall_mm", "hour"]
+        missing = [k for k in required if k not in request.data]
+        if missing:
+            return Response({"error": "Champs manquants", "missing": missing}, status=400)
+
+        model_path = Path(__file__).resolve().parent / "MAL" / "irrigation_model.pkl"
+        if not model_path.exists():
+            return Response({"error": "Modèle indisponible sur le serveur"}, status=503)
+        model = joblib.load(model_path)
+
+        sample_df = pd.DataFrame([{
+            "temperature_c": request.data["temperature_c"],
+            "humidity_air": request.data["humidity_air"],
+            "rainfall_mm": request.data["rainfall_mm"],
+            "hour": request.data["hour"],
+        }], columns=FEATURES)
+        prediction = model.predict(sample_df)[0]
+        return Response({"irrigation": "ON" if int(prediction) == 1 else "OFF", "decision": int(prediction)})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXPORTS EXCEL
+# ══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_export_data_excel(request):
+    """Export multi-feuilles (DHT11, Gaz, NTC, Qualite de l'air) au format xlsx.
+    Query params optionnels : start_date, end_date (AAAA-MM-JJ)."""
+    try:
+        import openpyxl
+        from openpyxl.styles import Font
+        from django.http import HttpResponse
+        from .models import SoilData as _SoilData  # noqa
+        from monetisation.models import Subscription
+
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+        user = request.user
+
+        workbook = openpyxl.Workbook()
+        header_font = Font(bold=True)
+
+        # ── DHT11 (reserve aux plans basic/pro, comme sur le site) ──
+        sub = Subscription.objects.filter(user=user).first()
+        plan = sub.plan if sub else "free"
+        dht_sheet = workbook.active
+        dht_sheet.title = "DHT11"
+        if plan in ("basic", "pro") or user.is_superuser:
+            dht_data = DHTData.objects.filter(user=user)
+            if start_date and end_date:
+                dht_data = dht_data.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+            dht_sheet.append(["Date", "Température (°C)", "Humidité (%)"])
+            for entry in dht_data.order_by("-created_at"):
+                dht_sheet.append([entry.created_at.strftime("%Y-%m-%d %H:%M:%S"), entry.temperature, entry.humidity])
+        else:
+            dht_sheet.append(["Export DHT11 réservé aux plans Basic et Pro. Passez à un plan supérieur dans l'onglet Monétisation."])
+        for cell in dht_sheet[1]:
+            cell.font = header_font
+
+        # ── Gaz ──
+        gas_sheet = workbook.create_sheet("Gaz")
+        gas_data = SensorData.objects.filter(user=user)
+        if start_date and end_date:
+            gas_data = gas_data.filter(timestamp__date__gte=start_date, timestamp__date__lte=end_date)
+        gas_sheet.append(["Date", "Température (°C)", "Humidité (%)", "CO2 (ppm)", "Type de Gaz"])
+        for entry in gas_data.order_by("-timestamp"):
+            gas_sheet.append([entry.timestamp.strftime("%Y-%m-%d %H:%M:%S"), entry.temperature, entry.humidity, entry.co2, entry.gaz_type])
+        for cell in gas_sheet[1]:
+            cell.font = header_font
+
+        # ── NTC ──
+        ntc_sheet = workbook.create_sheet("NTC")
+        ntc_data = NtcSensorData.objects.filter(user=user)
+        if start_date and end_date:
+            ntc_data = ntc_data.filter(timestamp__date__gte=start_date, timestamp__date__lte=end_date)
+        ntc_sheet.append(["Date et heure", "Température (°C)"])
+        for entry in ntc_data.order_by("-timestamp"):
+            ntc_sheet.append([entry.timestamp.strftime("%Y-%m-%d %H:%M:%S"), entry.temperature])
+        for cell in ntc_sheet[1]:
+            cell.font = header_font
+
+        # ── Qualite de l'air (tous appareils, 1000 dernieres mesures) ──
+        air_sheet = workbook.create_sheet("Qualité Air")
+        devices = Device.objects.filter(user=user)
+        air_data = AppareilData.objects.filter(device__in=devices).order_by("-received_at")[:1000]
+        air_sheet.append(["Horodatage", "Appareil", "PM2.5 (µg/m³)", "PM10 (µg/m³)", "Température (°C)", "Humidité (%)", "Gaz (PPM)", "Latitude", "Longitude"])
+        for entry in air_data:
+            p = entry.payload or {}
+            air_sheet.append([
+                entry.received_at.strftime("%d/%m/%Y %H:%M:%S"), entry.device.name,
+                p.get("pm2p5", "N/A"), p.get("pm10", "N/A"), p.get("temperature", "N/A"),
+                p.get("humidity", "N/A"), p.get("mq135_ppm", "N/A"), p.get("latitude", "N/A"), p.get("longitude", "N/A"),
+            ])
+        for cell in air_sheet[1]:
+            cell.font = header_font
+
+        for sheet in workbook.worksheets:
+            for col_cells in sheet.columns:
+                sheet.column_dimensions[col_cells[0].column_letter].width = 22
+
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        filename = f"Founatek_Export_{timezone.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        workbook.save(response)
+        return response
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ARCHIVES DE SURVEILLANCE (photos avec detection de mouvement)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_surveillance_archive(request):
+    """Galerie paginee des photos avec detection de mouvement. Query: page, page_size."""
+    try:
+        page = max(1, int(request.query_params.get("page", 1)))
+        page_size = min(50, max(1, int(request.query_params.get("page_size", 20))))
+        qs = UploadedImage.objects.filter(user=request.user, has_motion=True).order_by("-created_at")
+        total = qs.count()
+        start = (page - 1) * page_size
+        items = qs[start:start + page_size]
+        return Response({
+            "count": total, "page": page, "page_size": page_size,
+            "has_more": start + page_size < total,
+            "results": [{
+                "id": img.id,
+                "image_url": request.build_absolute_uri(img.image.url) if img.image else None,
+                "created_at": img.created_at.isoformat(),
+                "camera_id": getattr(img, "camera_id", None),
+            } for img in items],
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_surveillance_download_zip(request):
+    """Telecharge un zip des 50 dernieres photos avec detection de mouvement."""
+    try:
+        import zipfile
+        import os
+        from django.http import HttpResponse
+        images = UploadedImage.objects.filter(user=request.user, has_motion=True).order_by("-created_at")[:50]
+        if not images:
+            return Response({"error": "Aucune image"}, status=404)
+        response = HttpResponse(content_type="application/zip")
+        now_str = timezone.now().strftime("%Y%m%d_%H%M")
+        response["Content-Disposition"] = f'attachment; filename="Preuves_Founatek_{now_str}.zip"'
+        with zipfile.ZipFile(response, "w") as zip_file:
+            for img in images:
+                if img.image:
+                    try:
+                        zip_file.write(img.image.path, arcname=os.path.basename(img.image.path))
+                    except Exception:
+                        pass
+        return response
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DASHBOARD "UNIVERS" MULTI-APPAREILS + ALERTES PAR CAPTEUR
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _detect_anomalies_for_device(device, window=50, sigma_threshold=2):
+    import numpy as _np
+    data_points = list(AppareilData.objects.filter(device=device).order_by("-received_at")[:window])
+    if not data_points:
+        return []
+    sensors = ["temperature", "humidity", "soil_moisture", "ultrason", "mq135_ppm", "pm2p5", "pm10"]
+    anomalies = []
+    for sensor in sensors:
+        values = [d.payload.get(sensor) for d in data_points if d.payload and isinstance(d.payload.get(sensor), (int, float))]
+        if len(values) < 5:
+            continue
+        mean = _np.mean(values)
+        std = _np.std(values)
+        latest_value = values[0]
+        if std > 0 and abs(latest_value - mean) > sigma_threshold * std:
+            anomalies.append({"sensor": sensor, "value": latest_value, "mean": round(float(mean), 2), "std": round(float(std), 2)})
+    return anomalies
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_dashboard_univers(request):
+    """Vue d'ensemble multi-appareils avec detection d'anomalies (Z-score) par capteur."""
+    try:
+        devices = Device.objects.filter(user=request.user)
+        devices_data = []
+        for device in devices:
+            data_points = list(AppareilData.objects.filter(device=device).order_by("-received_at")[:50])
+            anomalies = _detect_anomalies_for_device(device, window=50, sigma_threshold=2)
+            devices_data.append({
+                "device": {"id": device.id, "name": device.name, "device_id": device.device_id, "is_active": device.is_active},
+                "data_points": [{
+                    "id": p.id, "received_at": p.received_at.isoformat(), "payload": p.payload,
+                } for p in reversed(data_points)],
+                "has_anomaly": bool(anomalies),
+                "anomalies": anomalies,
+            })
+        alerts = AgentAlert.objects.filter(user=request.user, is_read=False).order_by("-created_at")[:20]
+        return Response({
+            "devices": devices_data,
+            "alerts": [{
+                "id": a.id, "message": a.message, "level": a.level, "sensor": a.sensor,
+                "created_at": a.created_at.isoformat(),
+            } for a in alerts],
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_alert_graph_data(request, sensor):
+    """Donnees pour un graphique d'evolution des alertes d'un capteur donne."""
+    try:
+        alerts = AgentAlert.objects.filter(user=request.user, sensor=sensor).order_by("created_at")[:200]
+        return Response({
+            "labels": [a.created_at.strftime("%H:%M") for a in alerts],
+            "values": [a.value for a in alerts],
+            "levels": [a.level for a in alerts],
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_alerts_by_sensor(request, sensor):
+    """Historique des 100 dernieres alertes pour un capteur donne."""
+    try:
+        alerts = AgentAlert.objects.filter(user=request.user, sensor=sensor).order_by("-created_at")[:100]
+        return Response([{
+            "message": a.message, "value": a.value, "level": a.level,
+            "created_at": a.created_at.isoformat(),
+            "device": a.device.device_id if a.device else None,
+        } for a in alerts])
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
