@@ -200,6 +200,17 @@ class ExchangeRate(models.Model):
     class Meta:
         ordering = ['currency_code']
 
+
+class CurrencyPreference(models.Model):
+    """Devise d'affichage preferee par l'utilisateur (persistee cote serveur pour le mobile,
+    equivalent de la session 'currency_code' utilisee cote site web)."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='currency_preference')
+    currency_code = models.CharField(max_length=3, default='GNF')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.user.username} -> {self.currency_code}'
+
     def __str__(self):
         return f'{self.currency_code} ({self.currency_symbol})'
 

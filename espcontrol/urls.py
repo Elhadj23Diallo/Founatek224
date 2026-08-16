@@ -165,6 +165,9 @@ urlpatterns = [
     path('api/mobile/monetisation/upgrade/', api_views.mobile_monetisation_upgrade, name='mobile_monetisation_upgrade'),
     path('api/mobile/monetisation/referral/', api_views.mobile_monetisation_referral, name='mobile_monetisation_referral'),
     path('api/mobile/monetisation/convert/', api_views.mobile_monetisation_convert, name='mobile_monetisation_convert'),
+    path('api/mobile/monetisation/transactions/', api_views.mobile_monetisation_transactions, name='mobile_monetisation_transactions'),
+    path('api/mobile/monetisation/paypal/create-order/', api_views.mobile_monetisation_paypal_create_order, name='mobile_monetisation_paypal_create_order'),
+    path('api/mobile/monetisation/paypal/capture-order/', api_views.mobile_monetisation_paypal_capture_order, name='mobile_monetisation_paypal_capture_order'),
 
     # ── Transparence Produit ───────────────────────────────────────────────────
     path('api/mobile/transparence/company/', api_views.mobile_transparence_company, name='mobile_transparence_company'),
@@ -172,6 +175,9 @@ urlpatterns = [
     path('api/mobile/transparence/products/create/', api_views.mobile_transparence_create_product, name='mobile_transparence_create_product'),
     path('api/mobile/transparence/products/<int:product_id>/pricing/', api_views.mobile_transparence_update_pricing, name='mobile_transparence_update_pricing'),
     path('api/mobile/transparence/products/<int:product_id>/image/', api_views.mobile_transparence_update_product_image, name='mobile_transparence_update_product_image'),
+    path('api/mobile/transparence/products/<int:product_id>/edit/', api_views.mobile_transparence_update_product, name='mobile_transparence_update_product'),
+    path('api/mobile/transparence/products/<int:product_id>/qr/', api_views.mobile_transparence_download_qr, name='mobile_transparence_download_qr'),
+    path('api/mobile/transparence/qr-labels/pdf/', api_views.mobile_transparence_qr_labels_pdf, name='mobile_transparence_qr_labels_pdf'),
     path('api/mobile/transparence/scan/<str:uuid>/', api_views.mobile_transparence_scan, name='mobile_transparence_scan'),
     path('api/mobile/transparence/sales/create/', api_views.mobile_transparence_create_sale, name='mobile_transparence_create_sale'),
 ]

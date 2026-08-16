@@ -10,6 +10,7 @@ urlpatterns = [
 
     # Catalogue
     path('categories/', api_views.CategoryListView.as_view(), name='api_categories'),
+    path('categories/<slug:slug>/', api_views.api_category_detail, name='api_category_detail'),
     path('products/', api_views.ProductListView.as_view(), name='api_products'),
     path('products/<slug:slug>/', api_views.ProductDetailView.as_view(), name='api_product_detail'),
 
@@ -31,5 +32,6 @@ urlpatterns = [
 
     # Devises
     path('currencies/', api_views.api_currencies, name='api_currencies'),
+    path('currency-preference/', api_views.api_currency_preference, name='api_currency_preference'),
 ]
 

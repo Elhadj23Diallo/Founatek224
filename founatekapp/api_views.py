@@ -278,3 +278,32 @@ def api_currencies(request):
         'rate_from_gnf': float(r.rate_from_gnf),
     } for r in rates])
 
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def api_currency_preference(request):
+    """Lit ou definit la devise d'affichage preferee de l'utilisateur (persistee cote serveur)."""
+    from .models import CurrencyPreference, ExchangeRate
+    pref, _ = CurrencyPreference.objects.get_or_create(user=request.user)
+    if request.method == 'PUT':
+        code = (request.data.get('currency_code') or 'GNF').upper()
+        if code != 'GNF' and not ExchangeRate.objects.filter(currency_code=code).exists():
+            return Response({'error': 'Devise inconnue'}, status=400)
+        pref.currency_code = code
+        pref.save()
+    return Response({'currency_code': pref.currency_code})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def api_category_detail(request, slug):
+    """Infos d'une categorie + ses produits en un seul appel."""
+    from .models import Category, Product
+    from .serializers import CategorySerializer, ProductListSerializer
+    category = get_object_or_404(Category, slug=slug)
+    products = Product.objects.filter(category=category, is_active=True)
+    return Response({
+        'category': CategorySerializer(category, context={'request': request}).data,
+        'products': ProductListSerializer(products, many=True, context={'request': request}).data,
+    })
+

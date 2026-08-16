@@ -1394,6 +1394,124 @@ def mobile_monetisation_convert(request):
         return Response({"error": str(e)}, status=500)
 
 
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_transactions(request):
+    """Historique complet des transactions wallet (pagine par page= et page_size=)."""
+    try:
+        from monetisation.models import Transaction
+        page = max(1, int(request.query_params.get("page", 1)))
+        page_size = min(100, max(1, int(request.query_params.get("page_size", 30))))
+        qs = Transaction.objects.filter(user=request.user).order_by("-timestamp")
+        total = qs.count()
+        start = (page - 1) * page_size
+        items = qs[start:start + page_size]
+        return Response({
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "has_more": start + page_size < total,
+            "results": [{
+                "id": t.id, "type": t.type, "amount": t.amount,
+                "description": t.description, "timestamp": t.timestamp.isoformat(),
+            } for t in items],
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_paypal_create_order(request):
+    """Cree un ordre PayPal reel. Body: {amount, type: 'credit'|'subscription', plan?}"""
+    try:
+        import requests as _requests
+        from django.conf import settings as _settings
+        amount = request.data.get("amount")
+        payment_type = request.data.get("type", "credit")
+        plan = request.data.get("plan")
+        if not amount:
+            return Response({"error": "Montant requis"}, status=400)
+        url = f"{_settings.PAYPAL_API_BASE}/v2/checkout/orders"
+        auth = (_settings.PAYPAL_CLIENT_ID, _settings.PAYPAL_SECRET)
+        payload = {
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "amount": {"currency_code": "EUR", "value": str(amount)},
+                "custom_id": f"{payment_type}|{plan or ''}",
+            }],
+        }
+        resp = _requests.post(url, json=payload, auth=auth, timeout=10)
+        if resp.status_code == 201:
+            return Response(resp.json(), status=201)
+        return Response({"error": "Impossible de creer la commande PayPal"}, status=400)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_paypal_capture_order(request):
+    """Capture un ordre PayPal et credite le wallet / active l'abonnement. Body: {orderID}"""
+    try:
+        import requests as _requests
+        from django.conf import settings as _settings
+        from django.utils import timezone as _timezone
+        from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest, ReferralTransaction
+
+        order_id = request.data.get("orderID")
+        if not order_id:
+            return Response({"error": "orderID requis"}, status=400)
+
+        url = f"{_settings.PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture"
+        auth = (_settings.PAYPAL_CLIENT_ID, _settings.PAYPAL_SECRET)
+        resp = _requests.post(url, auth=auth, timeout=10)
+        result = resp.json()
+
+        if result.get("status") != "COMPLETED":
+            return Response({"success": False, "error": "Paiement non complete"}, status=400)
+
+        purchase_unit = result["purchase_units"][0]
+        custom_id = purchase_unit.get("custom_id", "")
+        amount = float(purchase_unit["payments"]["captures"][0]["amount"]["value"])
+        payment_type, plan = custom_id.split("|") if "|" in custom_id else ("credit", "")
+
+        wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
+
+        if payment_type == "credit":
+            wallet.balance += amount
+            wallet.save()
+            Transaction.objects.create(user=request.user, type="credit", amount=amount, description="Recharge via PayPal")
+        elif payment_type == "subscription" and plan:
+            sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
+            sub.plan = plan
+            sub.end_date = None if plan == "free" else _timezone.now().date().replace(year=_timezone.now().year + 1)
+            sub.save()
+            Transaction.objects.create(user=request.user, type="subscription", amount=amount, description=f"Abonnement {plan} via PayPal")
+
+        if hasattr(request.user, "referred_by"):
+            ref = request.user.referred_by
+            commission_points = amount * 0.05 * 1000
+            ReferralTransaction.objects.create(
+                referral=ref, amount=commission_points,
+                description=f"Commission sur {payment_type} de {request.user.username}", converted=False,
+            )
+
+        try:
+            payment = PaymentRequest.objects.get(user=request.user, amount=amount, status="pending", provider="paypal")
+            payment.status = "success"
+            payment.save()
+        except PaymentRequest.DoesNotExist:
+            pass
+
+        return Response({"success": True, "new_balance": wallet.balance})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MODULE TRANSPARENCE PRODUIT
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1552,6 +1670,78 @@ def mobile_transparence_update_product_image(request, product_id):
         return Response({"image": request.build_absolute_uri(product.image.url)})
     except Product.DoesNotExist:
         return Response({"error": "Produit introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def mobile_transparence_update_product(request, product_id):
+    """Edition complete (nom/SKU + image optionnelle) d'un produit existant."""
+    try:
+        from product_transparency.models import Company, Product
+        company = Company.objects.filter(user=request.user).first()
+        product = Product.objects.get(id=product_id, company=company)
+        name = request.data.get("name")
+        sku = request.data.get("sku")
+        if sku and Product.objects.filter(sku=sku).exclude(id=product.id).exists():
+            return Response({"error": "Ce SKU existe déjà"}, status=409)
+        if name:
+            product.name = name
+        if sku:
+            product.sku = sku
+        image = request.FILES.get("image")
+        if image:
+            product.image = image
+        product.save()
+        return Response({
+            "id": product.id, "name": product.name, "sku": product.sku,
+            "image": request.build_absolute_uri(product.image.url) if product.image else None,
+        })
+    except Product.DoesNotExist:
+        return Response({"error": "Produit introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_transparence_download_qr(request, product_id):
+    """Telecharge le QR code PNG d'un produit."""
+    try:
+        from django.http import FileResponse, Http404
+        from product_transparency.models import Company, Product
+        company = Company.objects.filter(user=request.user).first()
+        product = Product.objects.filter(id=product_id, company=company).select_related("qr").first()
+        if not product or not hasattr(product, "qr") or not product.qr.qr_code:
+            raise Http404("QR code introuvable")
+        return FileResponse(product.qr.qr_code.open("rb"), as_attachment=True, filename=f"{product.sku}_QR.png")
+    except Http404:
+        return Response({"error": "QR code introuvable"}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_transparence_qr_labels_pdf(request):
+    """Genere un PDF de planches d'etiquettes QR pour tous les produits de l'entreprise."""
+    try:
+        from django.http import FileResponse
+        from product_transparency.models import Company, Product
+        from product_transparency.services.qr_label_pdf import generate_qr_labels_pdf
+        company = Company.objects.filter(user=request.user).first()
+        if not company:
+            return Response({"error": "Aucune entreprise associée"}, status=400)
+        per_page = int(request.query_params.get("per_page", 12))
+        products = list(Product.objects.filter(company=company, qr__isnull=False).select_related("company", "qr"))
+        if not products:
+            return Response({"error": "Aucun produit avec QR code"}, status=400)
+        pdf_buffer = generate_qr_labels_pdf(products, per_page)
+        return FileResponse(pdf_buffer, as_attachment=True, filename="qr_labels.pdf", content_type="application/pdf")
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
