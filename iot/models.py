@@ -171,12 +171,18 @@ class Quiz(models.Model):
     choix_c = models.CharField(max_length=255, blank=True, null=True)
     choix_d = models.CharField(max_length=255, blank=True, null=True)
 
-    bonne_reponse = models.CharField(
-        choices=[('A', 'A'), ('B', 'B'), ('C', 'C'), ('D', 'D')],
-        max_length=1
+    # Une ou plusieurs lettres separees par des virgules, ex: "A" ou "A,C"
+    bonne_reponse = models.CharField(max_length=10, default="A")
+
+    plusieurs_reponses = models.BooleanField(
+        default=False,
+        help_text="Coche si cette question accepte plusieurs bonnes réponses (cases à cocher au lieu de bouton radio)."
     )
 
     explication = models.TextField(blank=True, null=True)
+
+    def bonnes_reponses_set(self):
+        return {r.strip().upper() for r in self.bonne_reponse.split(",") if r.strip()}
 
     def __str__(self):
         return f"Quiz - {self.lecon.titre}"

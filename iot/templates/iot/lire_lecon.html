@@ -233,22 +233,27 @@
                             {{ quiz.question }}
                         </p>
 
+                        {% if quiz.plusieurs_reponses %}
+                            <p style="font-size:0.8rem; color:#94a3b8;"><i class="fas fa-check-double"></i> Plusieurs réponses possibles</p>
+                        {% endif %}
+
+                        {% with input_type=quiz.plusieurs_reponses|yesno:"checkbox,radio" %}
                         <label>
-                            <input type="radio" name="quiz_{{ quiz.id }}" value="A">
+                            <input type="{{ input_type }}" name="quiz_{{ quiz.id }}" value="A">
                             {{ quiz.choix_a }}
                         </label>
 
                         <br>
 
                         <label>
-                            <input type="radio" name="quiz_{{ quiz.id }}" value="B">
+                            <input type="{{ input_type }}" name="quiz_{{ quiz.id }}" value="B">
                             {{ quiz.choix_b }}
                         </label>
 
                         {% if quiz.choix_c %}
                             <br>
                             <label>
-                                <input type="radio" name="quiz_{{ quiz.id }}" value="C">
+                                <input type="{{ input_type }}" name="quiz_{{ quiz.id }}" value="C">
                                 {{ quiz.choix_c }}
                             </label>
                         {% endif %}
@@ -256,10 +261,11 @@
                         {% if quiz.choix_d %}
                             <br>
                             <label>
-                                <input type="radio" name="quiz_{{ quiz.id }}" value="D">
+                                <input type="{{ input_type }}" name="quiz_{{ quiz.id }}" value="D">
                                 {{ quiz.choix_d }}
                             </label>
                         {% endif %}
+                        {% endwith %}
 
                     </div>
 

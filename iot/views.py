@@ -369,7 +369,13 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
 
         for quiz in quizzes:
             reponse = reponses.get(str(quiz.id))
-            if reponse and reponse == quiz.bonne_reponse:
+            if not reponse:
+                continue
+            if isinstance(reponse, list):
+                reponse_set = {str(r).strip().upper() for r in reponse}
+            else:
+                reponse_set = {r.strip().upper() for r in str(reponse).split(",") if r.strip()}
+            if reponse_set == quiz.bonnes_reponses_set():
                 bonnes += 1
 
         score = round((bonnes / total) * 100, 2)
@@ -500,15 +506,15 @@ def lire_lecon(request, lecon_id):
         total = quizzes.count()
 
         for quiz in quizzes:
-            reponse = request.POST.get(f"quiz_{quiz.id}")
-            if reponse is None:
+            reponses = request.POST.getlist(f"quiz_{quiz.id}")
+            if not reponses:
                 messages.warning(
                     request,
                     "⚠️ Veuillez répondre à toutes les questions."
                 )
                 return redirect("iot:lire_lecon", lecon_id=lecon.id)
 
-            if reponse == quiz.bonne_reponse:
+            if {r.upper() for r in reponses} == quiz.bonnes_reponses_set():
                 bonnes_reponses += 1
 
         score = round((bonnes_reponses / total) * 100, 2)

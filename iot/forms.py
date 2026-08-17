@@ -196,6 +196,7 @@ class QuizForm(forms.ModelForm):
             "choix_b",
             "choix_c",
             "choix_d",
+            "plusieurs_reponses",
             "bonne_reponse",
             "explication",
         ]
@@ -211,8 +212,10 @@ class QuizForm(forms.ModelForm):
             "choix_b": forms.TextInput(attrs={"class": "form-control"}),
             "choix_c": forms.TextInput(attrs={"class": "form-control"}),
             "choix_d": forms.TextInput(attrs={"class": "form-control"}),
-            "bonne_reponse": forms.Select(attrs={
-                "class": "form-select"
+            "plusieurs_reponses": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "bonne_reponse": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Ex: A  ou  A,C pour plusieurs réponses",
             }),
             "explication": forms.Textarea(attrs={
                 "class": "form-control",

@@ -833,6 +833,7 @@ def mobile_formateur_create_quiz(request, lecon_id):
         choix_c = request.data.get("choix_c", "")
         choix_d = request.data.get("choix_d", "")
         bonne_reponse = request.data.get("bonne_reponse", "A").upper()
+        plusieurs_reponses = str(request.data.get("plusieurs_reponses", "false")).lower() in ("true", "1")
         explication = request.data.get("explication", "")
         if not question or not choix_a or not choix_b:
             return Response({"error": "Question, choix A et B requis"}, status=400)
@@ -840,7 +841,8 @@ def mobile_formateur_create_quiz(request, lecon_id):
             lecon=lecon, question=question,
             choix_a=choix_a, choix_b=choix_b,
             choix_c=choix_c or None, choix_d=choix_d or None,
-            bonne_reponse=bonne_reponse, explication=explication,
+            bonne_reponse=bonne_reponse, plusieurs_reponses=plusieurs_reponses,
+            explication=explication,
         )
         return Response({"id": q.id, "question": q.question}, status=201)
     except Exception as e:
@@ -873,6 +875,7 @@ def mobile_formateur_lecon_detail(request, lecon_id):
         quiz_qs = Quiz.objects.filter(lecon=lecon).order_by("id")
         quiz = [{"id": q.id, "question": q.question, "choix_a": q.choix_a, "choix_b": q.choix_b,
                  "choix_c": q.choix_c, "choix_d": q.choix_d, "bonne_reponse": q.bonne_reponse,
+                 "plusieurs_reponses": q.plusieurs_reponses,
                  "explication": q.explication} for q in quiz_qs]
         return Response({"id": lecon.id, "titre": lecon.titre, "ordre": lecon.ordre,
                          "resume": lecon.resume, "blocs": blocs, "quiz": quiz})
@@ -926,6 +929,8 @@ def mobile_formateur_delete_quiz(request, quiz_id):
         for field in ["question", "choix_a", "choix_b", "choix_c", "choix_d", "bonne_reponse", "explication"]:
             if field in request.data:
                 setattr(q, field, request.data[field])
+        if "plusieurs_reponses" in request.data:
+            q.plusieurs_reponses = str(request.data.get("plusieurs_reponses")).lower() in ("true", "1")
         q.save()
         return Response({"id": q.id, "question": q.question})
     except Exception as e:
@@ -1190,6 +1195,7 @@ def mobile_education_quiz(request, lecon_id):
                 "id": q.id,
                 "question": q.question,
                 "choices": choices,
+                "plusieurs_reponses": q.plusieurs_reponses,
             })
         return Response(data)
     except Exception as e:
@@ -1214,14 +1220,18 @@ def mobile_education_submit_quiz(request, lecon_id):
         correct = 0
         details = []
         for q in quizzes:
-            user_ans = answers.get(str(q.id), "")
-            is_correct = user_ans.upper() == q.bonne_reponse
+            raw_ans = answers.get(str(q.id), "")
+            if isinstance(raw_ans, list):
+                user_ans_set = {str(r).strip().upper() for r in raw_ans}
+            else:
+                user_ans_set = {r.strip().upper() for r in str(raw_ans).split(",") if r.strip()}
+            is_correct = bool(user_ans_set) and user_ans_set == q.bonnes_reponses_set()
             if is_correct:
                 correct += 1
             details.append({
                 "id": q.id,
                 "question": q.question,
-                "your_answer": user_ans,
+                "your_answer": ",".join(sorted(user_ans_set)),
                 "correct_answer": q.bonne_reponse,
                 "is_correct": is_correct,
                 "explication": q.explication,
