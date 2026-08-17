@@ -17,14 +17,23 @@ class Command(BaseCommand):
     help = "Seed du parcours Electronique embarquee (station environnementale connectee)"
 
     def handle(self, *args, **options):
-        org = Organisation.objects.filter(nom="Founatek Academy").first()
-        if not org:
-            self.stdout.write(self.style.ERROR("Organisation 'Founatek Academy' introuvable."))
-            return
         formateur = User.objects.filter(username="elhadj").first()
         if not formateur:
             self.stdout.write(self.style.ERROR("Utilisateur 'elhadj' introuvable."))
             return
+
+        org = Organisation.objects.filter(nom="Founatek Academy").first()
+        if not org and hasattr(formateur, "formateur_profile"):
+            org = formateur.formateur_profile.organisation
+        if not org:
+            org = Organisation.objects.first()
+        if not org:
+            org = Organisation.objects.create(nom="Founatek Academy", type="Entreprise")
+            self.stdout.write(self.style.WARNING(f"Organisation créée automatiquement : {org.nom}"))
+        if not hasattr(formateur, "formateur_profile"):
+            from iot.models import FormateurProfile
+            FormateurProfile.objects.create(user=formateur, organisation=org)
+            self.stdout.write(self.style.WARNING(f"FormateurProfile créé automatiquement pour {formateur.username}"))
 
         parcours, created = Parcours.objects.update_or_create(
             titre="Électronique embarquée : Station de mesure environnementale connectée",
