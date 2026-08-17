@@ -637,6 +637,8 @@ def _get_formateur(user):
 def mobile_formateur_dashboard(request):
     try:
         from iot.models import Parcours, Lecon, Progression, Certification, FormateurProfile
+        from django.db.models import Avg
+        from django.utils import timezone as _tz
         fp = _get_formateur(request.user)
         if not fp:
             return Response({"error": "Profil formateur introuvable"}, status=403)
@@ -647,14 +649,47 @@ def mobile_formateur_dashboard(request):
             # Formateur sans organisation : montrer tous les parcours publiés
             parcours_qs = Parcours.objects.all()
         total_lecons = Lecon.objects.filter(parcours__in=parcours_qs).count()
-        total_apprenants = Progression.objects.filter(lecon__parcours__in=parcours_qs).values("user").distinct().count()
+        progressions_qs = Progression.objects.filter(lecon__parcours__in=parcours_qs)
+        total_apprenants = progressions_qs.values("user").distinct().count()
         total_certs = Certification.objects.filter(parcours__in=parcours_qs).count()
+        avg_score = progressions_qs.filter(completed=True).aggregate(avg=Avg("score"))["avg"] or 0
+
+        top_parcours = []
+        for p in parcours_qs:
+            total_l = p.lecons.count()
+            if total_l == 0:
+                continue
+            apprenants_p = Progression.objects.filter(lecon__parcours=p).values("user").distinct().count()
+            completions = Progression.objects.filter(lecon__parcours=p, completed=True).count()
+            taux = round((completions / (total_l * apprenants_p)) * 100, 1) if apprenants_p else 0
+            top_parcours.append({"id": p.id, "titre": p.titre, "apprenants": apprenants_p, "taux": min(taux, 100)})
+        top_parcours.sort(key=lambda x: x["apprenants"], reverse=True)
+        top_parcours = top_parcours[:6]
+
+        today = _tz.now().date()
+        week = []
+        for i in range(6, -1, -1):
+            day = today - _tz.timedelta(days=i)
+            week.append({"date": day.strftime("%d/%m"), "count": progressions_qs.filter(completed=True, updated_at__date=day).count()})
+
+        recent_activity = [
+            {
+                "user": a.user.username, "lecon": a.lecon.titre, "parcours": a.lecon.parcours.titre,
+                "completed": a.completed, "score": a.score, "updated_at": a.updated_at.isoformat(),
+            }
+            for a in progressions_qs.select_related("user", "lecon", "lecon__parcours").order_by("-updated_at")[:8]
+        ]
+
         return Response({
             "organisation": org.nom if org else "Formateur",
             "total_parcours": parcours_qs.count(),
             "total_lecons": total_lecons,
             "total_apprenants": total_apprenants,
             "total_certifications": total_certs,
+            "avg_score": round(avg_score, 1),
+            "top_parcours": top_parcours,
+            "week_activity": week,
+            "recent_activity": recent_activity,
             "parcours": [
                 {
                     "id": p.id,
@@ -1002,6 +1037,58 @@ def mobile_formateur_progressions(request):
 # ══════════════════════════════════════════════════════════════════════════════
 # MODULE EDUCATION (iot)
 # ══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_education_stats(request):
+    """Tableau de bord personnel de l'apprenant : progression, score moyen, certificats, activite recente."""
+    try:
+        from iot.models import Parcours, Progression, Certification
+        from django.db.models import Avg
+        progressions = Progression.objects.filter(user=request.user).select_related("lecon", "lecon__parcours")
+        parcours_ids = set(progressions.values_list("lecon__parcours_id", flat=True))
+
+        parcours_stats = []
+        for pid in parcours_ids:
+            p = Parcours.objects.get(id=pid)
+            total = p.lecons.count()
+            if total == 0:
+                continue
+            done = progressions.filter(lecon__parcours=p, completed=True).count()
+            pct = min(round((done / total) * 100), 100)
+            parcours_stats.append({
+                "id": p.id, "titre": p.titre, "total": total, "done": done,
+                "pct": pct, "termine": done >= total,
+            })
+        parcours_stats.sort(key=lambda x: x["pct"], reverse=True)
+
+        avg_score = progressions.filter(completed=True).aggregate(avg=Avg("score"))["avg"] or 0
+        certificats = Certification.objects.filter(user=request.user).select_related("parcours").order_by("-created_at")
+
+        recent_activity = [
+            {
+                "lecon": a.lecon.titre, "parcours": a.lecon.parcours.titre,
+                "completed": a.completed, "score": a.score, "updated_at": a.updated_at.isoformat(),
+            }
+            for a in progressions.order_by("-updated_at")[:8]
+        ]
+
+        return Response({
+            "nb_en_cours": sum(1 for s in parcours_stats if not s["termine"]),
+            "nb_termines": sum(1 for s in parcours_stats if s["termine"]),
+            "avg_score": round(avg_score, 1),
+            "nb_certificats": certificats.count(),
+            "certificats": [
+                {"id": c.id, "parcours": c.parcours.titre, "score_final": c.score_final, "created_at": c.created_at.isoformat()}
+                for c in certificats[:5]
+            ],
+            "parcours_stats": parcours_stats,
+            "recent_activity": recent_activity,
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
 
 @csrf_exempt
 @api_view(["GET"])

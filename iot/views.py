@@ -13,6 +13,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.models import Group
 from rest_framework.authtoken.models import Token
 import uuid
+import json
 from .utils.certification import ensure_certificat_pdf
 from .models import Lecon, Progression
 from iot.utils.pdf import generer_certificat_pdf
@@ -666,9 +667,42 @@ def profil(request):
 @formateur_required
 def formateur_dashboard(request):
     org = request.user.formateur_profile.organisation
+    parcours_qs = Parcours.objects.filter(organisation=org)
+    progressions_qs = Progression.objects.filter(lecon__parcours__organisation=org)
+
+    nb_apprenants = progressions_qs.values("user").distinct().count()
+    avg_score = progressions_qs.filter(completed=True).aggregate(avg=Avg("score"))["avg"] or 0
+    nb_certificats = Certification.objects.filter(parcours__organisation=org).count()
+
+    top_parcours = []
+    for p in parcours_qs:
+        total_lecons = p.lecons.count()
+        if total_lecons == 0:
+            continue
+        completions = Progression.objects.filter(lecon__parcours=p, completed=True).count()
+        apprenants_p = Progression.objects.filter(lecon__parcours=p).values("user").distinct().count()
+        taux = round((completions / (total_lecons * apprenants_p)) * 100, 1) if apprenants_p else 0
+        top_parcours.append({
+            "titre": p.titre, "apprenants": apprenants_p,
+            "completions": completions, "taux": min(taux, 100),
+        })
+    top_parcours.sort(key=lambda x: x["apprenants"], reverse=True)
+    top_parcours = top_parcours[:6]
+
+    recent_activity = (
+        progressions_qs.select_related("user", "lecon", "lecon__parcours")
+        .order_by("-updated_at")[:8]
+    )
+
+    today = timezone.now().date()
+    week_labels, week_counts = [], []
+    for i in range(6, -1, -1):
+        day = today - timezone.timedelta(days=i)
+        week_labels.append(day.strftime("%d/%m"))
+        week_counts.append(progressions_qs.filter(completed=True, updated_at__date=day).count())
 
     context = {
-        "nb_parcours": Parcours.objects.filter(organisation=org).count(),
+        "nb_parcours": parcours_qs.count(),
         "nb_lecons": Lecon.objects.filter(parcours__organisation=org).count(),
         "nb_blocs": BlocPedagogique.objects.filter(
             lecon__parcours__organisation=org
@@ -679,8 +713,54 @@ def formateur_dashboard(request):
         "nb_projects": Project.objects.filter(
             parcours__organisation=org
         ).count(),
+        "nb_apprenants": nb_apprenants,
+        "avg_score": round(avg_score, 1),
+        "nb_certificats": nb_certificats,
+        "top_parcours": top_parcours,
+        "recent_activity": recent_activity,
+        "week_labels": json.dumps(week_labels),
+        "week_counts": json.dumps(week_counts),
     }
     return render(request, "iot/dashboard.html", context)
+
+
+@login_required
+def apprenant_dashboard(request):
+    user = request.user
+    progressions = Progression.objects.filter(user=user).select_related("lecon", "lecon__parcours")
+
+    parcours_ids = set(progressions.values_list("lecon__parcours_id", flat=True))
+    parcours_stats = []
+    for pid in parcours_ids:
+        p = Parcours.objects.get(id=pid)
+        total = p.lecons.count()
+        if total == 0:
+            continue
+        done = progressions.filter(lecon__parcours=p, completed=True).count()
+        pct = round((done / total) * 100)
+        parcours_stats.append({
+            "parcours": p, "total": total, "done": done,
+            "pct": min(pct, 100), "termine": done >= total,
+        })
+    parcours_stats.sort(key=lambda x: x["pct"], reverse=True)
+
+    nb_en_cours = sum(1 for s in parcours_stats if not s["termine"])
+    nb_termines = sum(1 for s in parcours_stats if s["termine"])
+    avg_score = progressions.filter(completed=True).aggregate(avg=Avg("score"))["avg"] or 0
+    certificats = Certification.objects.filter(user=user).select_related("parcours").order_by("-created_at")
+
+    recent_activity = progressions.order_by("-updated_at")[:8]
+
+    context = {
+        "parcours_stats": parcours_stats,
+        "nb_en_cours": nb_en_cours,
+        "nb_termines": nb_termines,
+        "avg_score": round(avg_score, 1),
+        "nb_certificats": certificats.count(),
+        "certificats": certificats[:5],
+        "recent_activity": recent_activity,
+    }
+    return render(request, "iot/apprenant_dashboard.html", context)
 
 
 

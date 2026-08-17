@@ -152,6 +152,7 @@ urlpatterns = [
     path('api/mobile/formateur/progressions/', api_views.mobile_formateur_progressions, name='mobile_formateur_progressions'),
 
     # ── Education (iot) ────────────────────────────────────────────────────────
+    path('api/mobile/education/stats/', api_views.mobile_education_stats, name='mobile_education_stats'),
     path('api/mobile/education/parcours/', api_views.mobile_education_parcours, name='mobile_education_parcours'),
     path('api/mobile/education/parcours/<int:parcours_id>/lecons/', api_views.mobile_education_lecons, name='mobile_education_lecons'),
     path('api/mobile/education/parcours/<int:parcours_id>/projects/', api_views.mobile_education_projects, name='mobile_education_projects'),

@@ -140,7 +140,11 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
+                    {% if user.is_staff or user.is_superuser %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'iot:apprenant_dashboard' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
+                    {% endif %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'menu_page' %}"><i class="fas fa-cubes me-1"></i>Founatek Ecosystem</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="quizDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -160,7 +164,11 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'iot:faq_certification' %}"><i class="fas fa-info-circle me-1"></i>FAQ Certif</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'iot:landing' %}"><i class="fas fa-rocket me-1"></i>Landing</a></li>
                     {% if user.is_authenticated %}
-                        <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
+                        {% if user.is_staff or user.is_superuser %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
+                        {% else %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'iot:apprenant_dashboard' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
+                        {% endif %}
                         {% if is_abonne %}
                             <li class="nav-item"><a class="nav-link text-neon-green" href="#"><i class="fas fa-star me-1"></i>Abonné</a></li>
                         {% endif %}
