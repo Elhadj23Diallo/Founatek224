@@ -117,6 +117,8 @@
         border-radius: 20px; padding: 25px;
     }
     .chart-card h3 { font-family: 'Orbitron'; font-size: 1rem; color: #00ff99; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 1px; }
+    .chart-wrap { position: relative; height: 220px; }
+    @media (max-width: 600px) { .chart-wrap { height: 170px; } }
 
     .rank-list { list-style: none; padding: 0; margin: 0; }
     .rank-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -157,6 +159,27 @@
         .node-block { padding: 15px 10px; }
         .node-label { font-size: 0.8rem; }
         .stat-value { font-size: 1.4rem; }
+
+        /* Stats / graphiques / classements */
+        .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 30px; }
+        .kpi-card { padding: 14px; gap: 10px; }
+        .kpi-icon { width: 40px; height: 40px; font-size: 1.1rem; border-radius: 10px; }
+        .kpi-value { font-size: 1.2rem; }
+        .kpi-label { font-size: 0.7rem; }
+
+        .chart-card { padding: 16px; border-radius: 14px; }
+        .chart-card h3 { font-size: 0.85rem; margin-bottom: 14px; }
+
+        .rank-title { white-space: normal; }
+        .rank-sub { font-size: 0.7rem; }
+
+        .activity-item { flex-wrap: wrap; gap: 4px 10px; }
+        .activity-text { flex-basis: 100%; order: 2; font-size: 0.8rem; }
+        .activity-time { order: 3; }
+    }
+
+    @media (max-width: 400px) {
+        .kpi-grid { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -191,7 +214,7 @@
     <div class="charts-row">
         <div class="chart-card">
             <h3><i class="fas fa-chart-line"></i> Complétions de leçons — 7 derniers jours</h3>
-            <canvas id="weekChart" height="110"></canvas>
+            <div class="chart-wrap"><canvas id="weekChart"></canvas></div>
         </div>
         <div class="chart-card">
             <h3><i class="fas fa-trophy"></i> Top Parcours</h3>
@@ -332,6 +355,8 @@ new Chart(document.getElementById('weekChart'), {
         }]
     },
     options: {
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
             x: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } },
