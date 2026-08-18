@@ -60,6 +60,27 @@ class FormateurProfile(models.Model):
         return f"{self.user.username} - {self.organisation.nom}"
 
 
+class FormateurFollow(models.Model):
+    """Abonnement d'un apprenant a un formateur, pour etre notifie de ses publications."""
+    follower = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="formateurs_suivis"
+    )
+    formateur = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="abonnes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("follower", "formateur")
+
+    def __str__(self):
+        return f"{self.follower.username} suit {self.formateur.username}"
+
+
 
 class Parcours(models.Model):
     organisation = models.ForeignKey(

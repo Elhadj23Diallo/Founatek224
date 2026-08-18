@@ -191,6 +191,17 @@
     <div class="course-header">
         <h1 class="course-title">{{ parcours.titre }}</h1>
         <p class="course-desc">{{ parcours.description }}</p>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; color:#8892b0; font-size:0.85rem;">
+            <i class="fas fa-chalkboard-teacher"></i> {{ parcours.created_by.username }} · {{ parcours.organisation.nom }}
+            {% if parcours.created_by != request.user %}
+            <form method="post" action="{% url 'iot:toggle_follow_formateur' parcours.created_by.id %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" style="font-size:0.7rem; font-weight:bold; padding:3px 10px; border-radius:8px; border:1px solid {% if is_following %}#00ff99{% else %}#a855f7{% endif %}; color:{% if is_following %}#00ff99{% else %}#a855f7{% endif %}; background:transparent; cursor:pointer; text-transform:uppercase;">
+                    {% if is_following %}<i class="fas fa-check"></i> Suivi{% else %}+ Suivre{% endif %}
+                </button>
+            </form>
+            {% endif %}
+        </div>
         <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-top:10px;">
             {% if parcours.duree_totale_minutes %}
             <span style="color:#8892b0; font-size:0.85rem;">

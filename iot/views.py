@@ -38,7 +38,7 @@ from .forms import (
 
 from .models import (
     Parcours, Lecon, BlocPedagogique,
-    Quiz, Progression, Project, Certification, Organisation
+    Quiz, Progression, Project, Certification, Organisation, FormateurFollow
 )
 
 from .serializers import (
@@ -482,11 +482,45 @@ def parcours_materiel_pdf(request, parcours_id):
 
 @login_required
 def liste_parcours(request):
-    parcours = Parcours.objects.filter(is_published=True)
+    from django.db.models import Q
+    parcours = Parcours.objects.filter(is_published=True).select_related("created_by", "organisation")
+
+    query = request.GET.get("q", "").strip()
+    if query:
+        parcours = parcours.filter(
+            Q(titre__icontains=query) |
+            Q(description__icontains=query) |
+            Q(lecons__titre__icontains=query) |
+            Q(created_by__username__icontains=query) |
+            Q(organisation__nom__icontains=query)
+        ).distinct()
+
+    following_ids = set(
+        FormateurFollow.objects.filter(follower=request.user).values_list("formateur_id", flat=True)
+    )
 
     return render(request, "iot/liste_parcours.html", {
-        "parcours": parcours
+        "parcours": parcours,
+        "query": query,
+        "following_ids": following_ids,
     })
+
+
+@login_required
+def toggle_follow_formateur(request, formateur_id):
+    formateur = get_object_or_404(User, id=formateur_id)
+    if formateur == request.user:
+        messages.error(request, "Vous ne pouvez pas vous suivre vous-même.")
+        return redirect(request.META.get("HTTP_REFERER", "iot:liste_parcours"))
+
+    follow, created = FormateurFollow.objects.get_or_create(follower=request.user, formateur=formateur)
+    if created:
+        messages.success(request, f"✅ Vous suivez désormais {formateur.username}. Vous serez notifié de ses nouveaux cours.")
+    else:
+        follow.delete()
+        messages.info(request, f"Vous ne suivez plus {formateur.username}.")
+
+    return redirect(request.META.get("HTTP_REFERER", "iot:liste_parcours"))
 
 
 @login_required
@@ -518,9 +552,12 @@ def liste_lecons(request, parcours_id):
             "score": progression.score if progression else None,
         })
 
+    is_following = FormateurFollow.objects.filter(follower=request.user, formateur=parcours.created_by).exists()
+
     return render(request, "iot/liste_lecons.html", {
         "parcours": parcours,
         "lecons_data": lecons_data,
+        "is_following": is_following,
     })
 
 

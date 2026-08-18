@@ -1107,8 +1107,24 @@ def mobile_education_stats(request):
 @permission_classes([IsAuthenticated])
 def mobile_education_parcours(request):
     try:
-        from iot.models import Parcours, Lecon, Progression, Certification
-        parcours_qs = Parcours.objects.select_related("organisation").filter(is_published=True)
+        from django.db.models import Q
+        from iot.models import Parcours, Lecon, Progression, Certification, FormateurFollow
+        parcours_qs = Parcours.objects.select_related("organisation", "created_by").filter(is_published=True)
+
+        query = (request.query_params.get("q") or "").strip()
+        if query:
+            parcours_qs = parcours_qs.filter(
+                Q(titre__icontains=query) |
+                Q(description__icontains=query) |
+                Q(lecons__titre__icontains=query) |
+                Q(created_by__username__icontains=query) |
+                Q(organisation__nom__icontains=query)
+            ).distinct()
+
+        following_ids = set(
+            FormateurFollow.objects.filter(follower=request.user).values_list("formateur_id", flat=True)
+        )
+
         data = []
         for p in parcours_qs:
             lecons = Lecon.objects.filter(parcours=p)
@@ -1124,6 +1140,9 @@ def mobile_education_parcours(request):
                 "niveau": p.niveau,
                 "certifiant": p.certifiant,
                 "organisation": p.organisation.nom if p.organisation else "",
+                "formateur_id": p.created_by_id,
+                "formateur_username": p.created_by.username if p.created_by else "",
+                "is_following_formateur": p.created_by_id in following_ids,
                 "total_lecons": total,
                 "completed_lecons": completed,
                 "pourcentage": pct,
@@ -1134,6 +1153,28 @@ def mobile_education_parcours(request):
                 "has_materiel": bool(p.materiel_requis),
             })
         return Response(data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_toggle_follow_formateur(request, formateur_id):
+    try:
+        from django.contrib.auth.models import User
+        from iot.models import FormateurFollow
+        formateur = User.objects.get(id=formateur_id)
+        if formateur == request.user:
+            return Response({"error": "Vous ne pouvez pas vous suivre vous-même."}, status=400)
+        follow = FormateurFollow.objects.filter(follower=request.user, formateur=formateur).first()
+        if follow:
+            follow.delete()
+            return Response({"following": False})
+        FormateurFollow.objects.create(follower=request.user, formateur=formateur)
+        return Response({"following": True})
+    except User.DoesNotExist:
+        return Response({"error": "Formateur introuvable"}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 

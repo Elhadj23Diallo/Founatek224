@@ -154,6 +154,7 @@ urlpatterns = [
     # ── Education (iot) ────────────────────────────────────────────────────────
     path('api/mobile/education/stats/', api_views.mobile_education_stats, name='mobile_education_stats'),
     path('api/mobile/education/parcours/', api_views.mobile_education_parcours, name='mobile_education_parcours'),
+    path('api/mobile/education/formateur/<int:formateur_id>/follow/', api_views.mobile_toggle_follow_formateur, name='mobile_toggle_follow_formateur'),
     path('api/mobile/education/parcours/<int:parcours_id>/lecons/', api_views.mobile_education_lecons, name='mobile_education_lecons'),
     path('api/mobile/education/parcours/<int:parcours_id>/projects/', api_views.mobile_education_projects, name='mobile_education_projects'),
     path('api/mobile/education/lecons/<int:lecon_id>/quiz/', api_views.mobile_education_quiz, name='mobile_education_quiz'),
