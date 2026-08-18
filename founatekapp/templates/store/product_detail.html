@@ -3,6 +3,50 @@
 {% load shop_extras %}
 
 {% block content %}
+<style>
+.img-lightbox {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,0.92);
+  display: flex; align-items: center; justify-content: center;
+}
+.lightbox-stage {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  overflow: auto;
+  touch-action: pinch-zoom;
+}
+.lightbox-stage img {
+  max-width: 92vw; max-height: 88vh;
+  object-fit: contain;
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+  transform-origin: center center;
+  user-select: none;
+}
+.lightbox-stage img.zoomed {
+  cursor: zoom-out;
+  transform: scale(2.2);
+  max-width: none; max-height: none;
+}
+.lightbox-close {
+  position: absolute; top: 16px; right: 20px;
+  background: transparent; border: none; color: #fff;
+  font-size: 2.2rem; line-height: 1; cursor: pointer; z-index: 2001;
+}
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  background: rgba(255,255,255,0.12); border: none; color: #fff;
+  font-size: 1.3rem; width: 44px; height: 44px; border-radius: 50%;
+  cursor: pointer; z-index: 2001;
+}
+.lightbox-nav:hover { background: rgba(255,255,255,0.25); }
+.lightbox-prev { left: 16px; }
+.lightbox-next { right: 16px; }
+.lightbox-hint {
+  position: absolute; bottom: 18px; left: 0; right: 0;
+  text-align: center; color: #aaa; font-size: 0.8rem;
+}
+</style>
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="{% url 'founatekapp:home' %}">Accueil</a></li>
@@ -51,8 +95,9 @@
             <div class="carousel-item {% if forloop.first %}active{% endif %}">
               <img src="{{ img_url }}"
                    class="d-block w-100"
-                   style="height:300px; object-fit:contain; background:#111;"
-                   alt="{{ product.name }} â€” vue {{ forloop.counter }}">
+                   style="height:300px; object-fit:contain; background:#111; cursor:zoom-in;"
+                   alt="{{ product.name }} â€” vue {{ forloop.counter }}"
+                   onclick="openLightbox({{ forloop.counter0 }})">
             </div>
             {% empty %}
             <div class="carousel-item active">
@@ -84,6 +129,18 @@
         {% endif %}
       </div>
     </div>
+
+    {# lightbox zoom plein ecran, style Amazon #}
+    <div id="imgLightbox" class="img-lightbox" style="display:none;">
+      <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Fermer">&times;</button>
+      <button type="button" class="lightbox-nav lightbox-prev" onclick="lightboxStep(-1)" aria-label="Precedente">&#10094;</button>
+      <div class="lightbox-stage" id="lightboxStage">
+        <img id="lightboxImg" src="" alt="" draggable="false">
+      </div>
+      <button type="button" class="lightbox-nav lightbox-next" onclick="lightboxStep(1)" aria-label="Suivante">&#10095;</button>
+      <div class="lightbox-hint">Touchez/cliquez pour zoomer &mdash; pincez pour zoomer sur mobile</div>
+    </div>
+
     {% endwith %}
   </div>
 
@@ -271,6 +328,46 @@ function updateActive(index) {
 }
 
 carousel.addEventListener('slid.bs.carousel', e => { updateActive(e.to); });
+
+// ── Lightbox zoom plein ecran ──
+const allImages = [{% for img_url in product.get_all_images %}"{{ img_url|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+const lightbox = document.getElementById('imgLightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+let lightboxIndex = 0;
+
+window.openLightbox = function(index) {
+  if (!allImages.length) return;
+  lightboxIndex = index;
+  lightboxImg.src = allImages[lightboxIndex];
+  lightboxImg.classList.remove('zoomed');
+  lightbox.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+};
+
+window.closeLightbox = function() {
+  lightbox.style.display = 'none';
+  lightboxImg.classList.remove('zoomed');
+  document.body.style.overflow = '';
+};
+
+window.lightboxStep = function(dir) {
+  lightboxIndex = (lightboxIndex + dir + allImages.length) % allImages.length;
+  lightboxImg.src = allImages[lightboxIndex];
+  lightboxImg.classList.remove('zoomed');
+  bsCarousel.to(lightboxIndex);
+};
+
+lightboxImg.addEventListener('click', () => { lightboxImg.classList.toggle('zoomed'); });
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', (e) => {
+  if (lightbox.style.display !== 'flex') return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft') lightboxStep(-1);
+  if (e.key === 'ArrowRight') lightboxStep(1);
+});
+thumbs.forEach((t) => {
+  t.addEventListener('dblclick', () => openLightbox(parseInt(t.dataset.index, 10)));
+});
 });
 </script>
 {% endblock %}
