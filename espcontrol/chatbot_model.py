@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL   = "llama-3.3-70b-versatile"
+GROQ_MODEL   = "openai/gpt-oss-120b"
 
 def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout=8):
     try:
@@ -44,6 +44,7 @@ def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout
             "model": GROQ_MODEL,
             "max_tokens": max_tokens,
             "temperature": 0.4,
+            "reasoning_effort": "low",
             "messages": messages,
         }
         resp = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=timeout)
