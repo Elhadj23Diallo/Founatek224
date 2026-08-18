@@ -18,7 +18,7 @@ from .views import (
     project_list, project_create, project_update,
     formateur_progressions, formateur_progressions_pdf,
     verifier_certificat, organisation_dashboard, profil,
-    apprenant_dashboard,
+    apprenant_dashboard, parcours_materiel_pdf,
 )
 
 router = DefaultRouter()
@@ -69,6 +69,7 @@ urlpatterns = [
     path("formateur/progressions/", formateur_progressions, name="formateur_progressions"),
     path("formateur/progressions/pdf/", formateur_progressions_pdf, name="formateur_progressions_pdf"),
     path("formateur/progressions/excel/", formateur_progressions_excel, name="formateur_progressions_excel"),
+    path("parcours/<int:parcours_id>/materiel/pdf/", parcours_materiel_pdf, name="parcours_materiel_pdf"),
     path("parcours/<int:parcours_id>/", liste_lecons, name="liste_lecons"),
     path("parcours/", liste_parcours, name="liste_parcours"),
     path("apprenant/", apprenant_dashboard, name="apprenant_dashboard"),

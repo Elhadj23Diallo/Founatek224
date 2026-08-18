@@ -51,6 +51,18 @@ class Command(BaseCommand):
                     "exactement le genre d'objet qui, dans une chambre d'étudiant, peut devenir le prototype "
                     "d'un vrai produit."
                 ),
+                materiel_requis=(
+                    "1x carte ESP32 (DevKit V1 ou équivalent)\n"
+                    "1x capteur DHT22 (température/humidité)\n"
+                    "1x capteur MQ135 (qualité de l'air / gaz)\n"
+                    "1x écran OLED 0.96\" I2C (SSD1306, adresse 0x3C)\n"
+                    "1x breadboard\n"
+                    "Fils de connexion (jumper wires) mâle-mâle et mâle-femelle\n"
+                    "1x résistance 220-330 ohms (pour les exercices LED de la leçon 3)\n"
+                    "1x LED (pour les exercices de la leçon 3)\n"
+                    "1x câble USB pour programmer l'ESP32\n"
+                    "Un ordinateur avec l'IDE Arduino installé (gratuit, arduino.cc)"
+                ),
             ),
         )
         self.stdout.write(self.style.SUCCESS(f"Parcours {'créé' if created else 'mis à jour'} : {parcours.titre} (id={parcours.id})"))
@@ -65,6 +77,7 @@ class Command(BaseCommand):
                 titre=data["titre"],
                 ordre=data["ordre"],
                 resume=data["resume"],
+                duree_minutes=data.get("duree_minutes", 20),
             )
             for i, bloc in enumerate(data["blocs"], start=1):
                 BlocPedagogique.objects.create(
@@ -115,6 +128,7 @@ class Command(BaseCommand):
                 "ordre": 1,
                 "titre": "Le projet : pourquoi construire une station connectée ?",
                 "resume": "Présentation du projet final, du matériel nécessaire, et de la philosophie du cours.",
+                "duree_minutes": 15,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "Il est une heure du matin, quelque part dans une petite chambre. Un jeune ingénieur "
@@ -180,6 +194,7 @@ class Command(BaseCommand):
                 "ordre": 2,
                 "titre": "Le cerveau du montage : le microcontrôleur ESP32",
                 "resume": "Comprendre ce qu'est un microcontrôleur, pourquoi l'ESP32, et écrire son premier programme.",
+                "duree_minutes": 25,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "Imagine un ordinateur minuscule, pas plus grand qu'une boîte d'allumettes, qui n'a "
@@ -268,6 +283,7 @@ class Command(BaseCommand):
                 "ordre": 3,
                 "titre": "L'électricité qui l'alimente : tension, courant, résistance",
                 "resume": "Comprendre les bases de l'électricité (loi d'Ohm) avant de brancher le moindre capteur.",
+                "duree_minutes": 30,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "Avant de brancher un seul capteur, il faut comprendre ce qui circule réellement dans "
@@ -357,6 +373,7 @@ class Command(BaseCommand):
                 "ordre": 4,
                 "titre": "Mesurer le monde : le capteur de température et d'humidité (DHT22)",
                 "resume": "Câbler et lire un capteur DHT22 avec l'ESP32.",
+                "duree_minutes": 25,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "Un microcontrôleur, aussi puissant soit-il, est aveugle et sourd au monde physique "
@@ -452,6 +469,7 @@ class Command(BaseCommand):
                 "ordre": 5,
                 "titre": "Respirer les données : le capteur de qualité de l'air (MQ135)",
                 "resume": "Comprendre et câbler un capteur de gaz analogique, cœur de la mesure de pollution.",
+                "duree_minutes": 25,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "Voici le composant qui donne tout son sens à une \"station environnementale\" : le "
@@ -545,6 +563,7 @@ class Command(BaseCommand):
                 "ordre": 6,
                 "titre": "Afficher l'information : l'écran OLED",
                 "resume": "Câbler un écran OLED en I2C et y afficher les mesures des capteurs.",
+                "duree_minutes": 30,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "Mesurer, c'est bien. Mais une donnée invisible ne sert à personne. C'est là "
@@ -647,6 +666,7 @@ class Command(BaseCommand):
                 "ordre": 7,
                 "titre": "Parler à Internet : connexion Wi-Fi et envoi des données",
                 "resume": "Connecter l'ESP32 au Wi-Fi et envoyer les mesures vers une API par requête HTTP.",
+                "duree_minutes": 30,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "On arrive à la brique qui transforme un simple montage électronique en véritable "
@@ -754,6 +774,7 @@ class Command(BaseCommand):
                 "ordre": 8,
                 "titre": "Assemblage final : la station environnementale complète",
                 "resume": "Rassembler tous les composants appris dans un seul montage et un seul programme fonctionnel.",
+                "duree_minutes": 45,
                 "blocs": [
                     {"type": "texte", "contenu": (
                         "C'est le moment que toutes les leçons précédentes préparaient : rassembler chaque "
@@ -914,8 +935,124 @@ class Command(BaseCommand):
                     },
                 ],
             },
+            # ============================================================
+            {
+                "ordre": 9,
+                "titre": "Quiz de synthèse final",
+                "resume": "Un dernier passage en revue de tout ce que tu as appris avant l'obtention du certificat.",
+                "duree_minutes": 20,
+                "blocs": [
+                    {"type": "texte", "contenu": (
+                        "Tu es arrivé au bout des huit leçons. Avant de recevoir ton certificat, ce dernier "
+                        "quiz vérifie que tu maîtrises l'ensemble du parcours — pas seulement chaque brique "
+                        "isolée, mais la cohérence globale entre elles : le microcontrôleur, l'électricité qui "
+                        "l'alimente, les deux capteurs, l'affichage, et la communication réseau.\n\n"
+                        "C'est exactement le genre de vérification qu'un recruteur, un client, ou toi-même "
+                        "face à un nouveau projet, ferait avant de te confier quelque chose de plus complexe : "
+                        "est-ce que tu comprends vraiment comment les pièces s'articulent, ou est-ce que tu as "
+                        "seulement suivi des instructions sans les intégrer ?\n\n"
+                        "Aucun nouveau contenu ici — seulement 10 questions qui recouvrent les 8 leçons "
+                        "précédentes. Prends ton temps, et si une question te bloque, c'est le signe qu'il "
+                        "vaut mieux retourner relire la leçon correspondante avant de valider."
+                    )},
+                ],
+                "quiz": [
+                    {
+                        "question": "Pourquoi l'ESP32 a-t-il été choisi pour ce projet plutôt qu'un microcontrôleur sans Wi-Fi ?",
+                        "a": "Parce qu'il envoie les mesures sur Internet sans matériel supplémentaire",
+                        "b": "Parce qu'il est plus gros",
+                        "c": "Parce qu'il n'a pas besoin d'alimentation",
+                        "d": "Parce qu'il est plus lent",
+                        "bonne": "A",
+                        "explication": "Le Wi-Fi intégré évite d'ajouter un module réseau séparé pour envoyer les données à l'API.",
+                    },
+                    {
+                        "question": "Quelle formule relie tension, résistance et courant ?",
+                        "a": "U = R × I",
+                        "b": "U = R + I",
+                        "c": "I = U + R",
+                        "d": "R = U × I",
+                        "bonne": "A",
+                        "explication": "La loi d'Ohm : Tension = Résistance × Courant.",
+                    },
+                    {
+                        "question": "Quels capteurs utilise la station environnementale ? (plusieurs réponses possibles)",
+                        "a": "DHT22 (température/humidité)",
+                        "b": "MQ135 (qualité de l'air)",
+                        "c": "GPS",
+                        "d": "Accéléromètre",
+                        "bonne": "A,B",
+                        "plusieurs": True,
+                        "explication": "Le projet utilise uniquement le DHT22 et le MQ135 — pas de GPS ni d'accéléromètre.",
+                    },
+                    {
+                        "question": "Pourquoi le MQ135 doit-il préchauffer avant de donner des mesures fiables ?",
+                        "a": "Il n'a pas besoin de préchauffer",
+                        "b": "Son élément chauffant doit atteindre une température de fonctionnement stable",
+                        "c": "Pour se connecter au Wi-Fi",
+                        "d": "Pour économiser la batterie",
+                        "bonne": "B",
+                        "explication": "Le capteur MQ135 repose sur un élément chauffant dont la réaction chimique se stabilise avec le temps.",
+                    },
+                    {
+                        "question": "Quel protocole l'écran OLED utilise-t-il pour communiquer avec l'ESP32 ?",
+                        "a": "I2C",
+                        "b": "USB",
+                        "c": "Bluetooth",
+                        "d": "HDMI",
+                        "bonne": "A",
+                        "explication": "L'écran OLED SSD1306 communique en I2C via les broches SDA/SCL.",
+                    },
+                    {
+                        "question": "Pourquoi garde-t-on un affichage local (écran OLED) même si les données partent sur Internet ?",
+                        "a": "Pour décorer le boîtier",
+                        "b": "Pour que l'appareil reste utile même sans connexion réseau",
+                        "c": "Ce n'est pas nécessaire, on peut le retirer",
+                        "d": "Pour ralentir le programme",
+                        "bonne": "B",
+                        "explication": "Un bon objet connecté doit rester utile localement même en cas de coupure réseau.",
+                    },
+                    {
+                        "question": "Que faut-il pour que l'ESP32 envoie correctement une mesure vers l'API ? (plusieurs réponses possibles)",
+                        "a": "Être connecté au Wi-Fi",
+                        "b": "Utiliser le protocole HTTP",
+                        "c": "Formater les données en JSON",
+                        "d": "Avoir un écran OLED branché",
+                        "bonne": "A,B,C",
+                        "plusieurs": True,
+                        "explication": "Wi-Fi, HTTP et JSON sont nécessaires pour l'envoi réseau — l'écran OLED sert uniquement à l'affichage local.",
+                    },
+                    {
+                        "question": "Pourquoi tous les GND du montage final doivent-ils être reliés ensemble ?",
+                        "a": "Pour avoir une référence de masse commune, sinon les mesures deviennent incohérentes",
+                        "b": "Ce n'est pas nécessaire",
+                        "c": "Pour alimenter les composants",
+                        "d": "Pour économiser des fils",
+                        "bonne": "A",
+                        "explication": "Une masse commune est indispensable pour que les tensions mesurées par les différents composants soient comparables.",
+                    },
+                    {
+                        "question": "Quelle est la méthode d'apprentissage suivie tout au long de ce parcours ?",
+                        "a": "Toute la théorie d'un coup, sans jamais pratiquer",
+                        "b": "Chaque composant du projet final étudié isolément, puis tout assemblé à la fin",
+                        "c": "Copier du code sans le comprendre",
+                        "d": "Uniquement de la soudure",
+                        "bonne": "B",
+                        "explication": "L'apprentissage par le projet : isoler chaque brique, la comprendre, puis l'intégrer.",
+                    },
+                    {
+                        "question": "Dans l'analogie du tuyau d'eau utilisée pour l'électricité, à quoi correspond le courant ?",
+                        "a": "Le débit d'eau qui circule réellement dans le tuyau",
+                        "b": "La pression de l'eau",
+                        "c": "Le diamètre du tuyau",
+                        "d": "La couleur de l'eau",
+                        "bonne": "A",
+                        "explication": "Le courant correspond au débit — la quantité d'eau (charge électrique) qui circule à un instant donné.",
+                    },
+                ],
+            },
         ]
 
     def _final_code(self):
-        # Meme code complet que la derniere lecon, reutilise pour le Project.
-        return self._lessons_data()[-1]["blocs"][-2]["code"]
+        # Meme code complet que la lecon d'assemblage (avant-derniere, la synthese finale n'a pas de code), reutilise pour le Project.
+        return self._lessons_data()[-2]["blocs"][-2]["code"]

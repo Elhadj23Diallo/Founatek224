@@ -91,7 +91,15 @@ class Parcours(models.Model):
     certifiant = models.BooleanField(default=False)
     is_published = models.BooleanField(default=False)
 
+    materiel_requis = models.TextField(
+        blank=True, null=True,
+        help_text="Liste du matériel nécessaire pour suivre ce parcours en pratique (une ligne par élément)."
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def duree_totale_minutes(self):
+        return sum((l.duree_minutes or 0) for l in self.lecons.all())
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -120,6 +128,10 @@ class Lecon(models.Model):
     titre = models.CharField(max_length=200)
     ordre = models.PositiveIntegerField(default=0)
     resume = models.TextField(blank=True, null=True)
+    duree_minutes = models.PositiveIntegerField(
+        default=15, blank=True, null=True,
+        help_text="Temps estimé pour suivre cette leçon (théorie + pratique), en minutes."
+    )
 
     class Meta:
         ordering = ["ordre"]

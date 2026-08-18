@@ -191,6 +191,18 @@
     <div class="course-header">
         <h1 class="course-title">{{ parcours.titre }}</h1>
         <p class="course-desc">{{ parcours.description }}</p>
+        <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-top:10px;">
+            {% if parcours.duree_totale_minutes %}
+            <span style="color:#8892b0; font-size:0.85rem;">
+                <i class="fas fa-clock"></i> Durée totale estimée : ~{{ parcours.duree_totale_minutes }} min
+            </span>
+            {% endif %}
+            {% if parcours.materiel_requis %}
+            <a href="{% url 'iot:parcours_materiel_pdf' parcours.id %}" style="color:#00d2ff; font-size:0.85rem; text-decoration:none; border:1px solid #00d2ff; padding:4px 12px; border-radius:8px;">
+                <i class="fas fa-file-pdf"></i> Télécharger la liste du matériel (PDF)
+            </a>
+            {% endif %}
+        </div>
     </div>
 
     <div class="timeline">
@@ -212,6 +224,9 @@
                             <span style="color: #00d2ff;"><i class="fas fa-unlock-alt"></i> Module Disponible</span>
                         {% else %}
                             <span><i class="fas fa-lock"></i> Accès Restreint</span>
+                        {% endif %}
+                        {% if item.lecon.duree_minutes %}
+                            <span style="color:#8892b0; margin-left:10px;"><i class="fas fa-hourglass-half"></i> ~{{ item.lecon.duree_minutes }} min</span>
                         {% endif %}
                     </div>
                 </div>

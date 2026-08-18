@@ -87,6 +87,7 @@ class ParcoursForm(forms.ModelForm):
             "prix",
             "certifiant",
             "is_published",
+            "materiel_requis",
         ]
         widgets = {
             "titre": forms.TextInput(attrs={
@@ -110,6 +111,11 @@ class ParcoursForm(forms.ModelForm):
             "is_published": forms.CheckboxInput(attrs={
                 "class": "form-check-input"
             }),
+            "materiel_requis": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 6,
+                "placeholder": "Une ligne par élément, ex:\n1x ESP32 DevKit V1\n1x capteur DHT22\n..."
+            }),
         }
 
 
@@ -122,6 +128,7 @@ class LeconForm(forms.ModelForm):
             "titre",
             "resume",
             "ordre",
+            "duree_minutes",
         ]
         widgets = {
             "parcours": forms.Select(attrs={
@@ -138,6 +145,10 @@ class LeconForm(forms.ModelForm):
             }),
             "ordre": forms.NumberInput(attrs={
                 "class": "form-control"
+            }),
+            "duree_minutes": forms.NumberInput(attrs={
+                "class": "form-control",
+                "placeholder": "Temps estimé en minutes"
             }),
         }
 

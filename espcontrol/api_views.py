@@ -698,12 +698,15 @@ def mobile_formateur_dashboard(request):
                     "is_published": p.is_published,
                     "certifiant": p.certifiant if hasattr(p, 'certifiant') else False,
                     "description": p.description if hasattr(p, 'description') else "",
+                    "materiel_requis": p.materiel_requis or "",
+                    "duree_totale_minutes": p.duree_totale_minutes(),
                     "lecons": [
                         {
                             "id": l.id,
                             "titre": l.titre,
                             "ordre": l.ordre,
                             "resume": l.resume if hasattr(l, 'resume') else "",
+                            "duree_minutes": l.duree_minutes,
                             "quiz_count": l.quizzes.count(),
                             "blocs": list(l.blocs.values("id")),
                         }
@@ -730,6 +733,7 @@ def mobile_formateur_create_parcours(request):
         description = request.data.get("description", "")
         niveau = request.data.get("niveau", "Débutant")
         certifiant = request.data.get("certifiant", False)
+        materiel_requis = request.data.get("materiel_requis", "")
         if not titre:
             return Response({"error": "Titre requis"}, status=400)
         p = Parcours.objects.create(
@@ -737,6 +741,7 @@ def mobile_formateur_create_parcours(request):
             created_by=request.user,
             titre=titre, description=description,
             niveau=niveau, certifiant=certifiant,
+            materiel_requis=materiel_requis,
             is_published=False,
         )
         return Response({"id": p.id, "titre": p.titre, "slug": p.slug}, status=201)
@@ -757,7 +762,7 @@ def mobile_formateur_edit_parcours(request, parcours_id):
         if request.method == "DELETE":
             p.delete()
             return Response({"deleted": True})
-        for field in ["titre", "description", "niveau", "certifiant", "is_published"]:
+        for field in ["titre", "description", "niveau", "certifiant", "is_published", "materiel_requis"]:
             if field in request.data:
                 setattr(p, field, request.data[field])
         p.save()
@@ -781,10 +786,11 @@ def mobile_formateur_create_lecon(request, parcours_id):
         titre = request.data.get("titre", "")
         ordre = request.data.get("ordre", 0)
         resume = request.data.get("resume", "")
+        duree_minutes = request.data.get("duree_minutes", 15)
         if not titre:
             return Response({"error": "Titre requis"}, status=400)
-        l = Lecon.objects.create(parcours=parcours, titre=titre, ordre=ordre, resume=resume)
-        return Response({"id": l.id, "titre": l.titre, "ordre": l.ordre}, status=201)
+        l = Lecon.objects.create(parcours=parcours, titre=titre, ordre=ordre, resume=resume, duree_minutes=duree_minutes)
+        return Response({"id": l.id, "titre": l.titre, "ordre": l.ordre, "duree_minutes": l.duree_minutes}, status=201)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -863,7 +869,7 @@ def mobile_formateur_lecon_detail(request, lecon_id):
             lecon.delete()
             return Response({"deleted": True})
         if request.method == "PATCH":
-            for field in ["titre", "ordre", "resume"]:
+            for field in ["titre", "ordre", "resume", "duree_minutes"]:
                 if field in request.data:
                     setattr(lecon, field, request.data[field])
             lecon.save()
@@ -878,7 +884,8 @@ def mobile_formateur_lecon_detail(request, lecon_id):
                  "plusieurs_reponses": q.plusieurs_reponses,
                  "explication": q.explication} for q in quiz_qs]
         return Response({"id": lecon.id, "titre": lecon.titre, "ordre": lecon.ordre,
-                         "resume": lecon.resume, "blocs": blocs, "quiz": quiz})
+                         "resume": lecon.resume, "duree_minutes": lecon.duree_minutes,
+                         "blocs": blocs, "quiz": quiz})
     except Lecon.DoesNotExist:
         return Response({"error": "Leçon introuvable"}, status=404)
     except Exception as e:
@@ -1123,6 +1130,8 @@ def mobile_education_parcours(request):
                 "termine": pct == 100,
                 "certifie": cert is not None,
                 "score_final": cert.score_final if cert else None,
+                "duree_totale_minutes": p.duree_totale_minutes(),
+                "has_materiel": bool(p.materiel_requis),
             })
         return Response(data)
     except Exception as e:
@@ -1166,6 +1175,7 @@ def mobile_education_lecons(request, parcours_id):
                 "titre": l.titre,
                 "resume": l.resume,
                 "ordre": l.ordre,
+                "duree_minutes": l.duree_minutes,
                 "blocs": blocs,
                 "quiz_count": quiz_count,
                 "completed": prog.completed if prog else False,
@@ -1315,6 +1325,71 @@ def mobile_education_certificats(request):
             "verify_url": f"https://founatek224.pythonanywhere.com/certificat/{c.uuid}/",
         } for c in certs]
         return Response(data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_education_materiel_pdf(request, parcours_id):
+    """Genere et renvoie le PDF de la liste du materiel requis pour un parcours."""
+    try:
+        from iot.models import Parcours
+        from django.http import HttpResponse
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.units import cm
+
+        parcours = Parcours.objects.get(id=parcours_id)
+
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="materiel_{parcours.slug}.pdf"'
+
+        p = canvas.Canvas(response, pagesize=A4)
+        width, height = A4
+        y = height - 2.5 * cm
+
+        p.setFont("Helvetica-Bold", 8)
+        p.setFillColorRGB(0.5, 0.5, 0.5)
+        p.drawString(2 * cm, height - 1.2 * cm, "FOUNATEK ACADEMY")
+
+        p.setFont("Helvetica-Bold", 16)
+        p.setFillColorRGB(0, 0, 0)
+        p.drawString(2 * cm, y, "Liste du matériel requis")
+        y -= 0.9 * cm
+
+        p.setFont("Helvetica", 12)
+        p.drawString(2 * cm, y, parcours.titre)
+        y -= 1 * cm
+
+        p.setStrokeColorRGB(0.7, 0.7, 0.7)
+        p.line(2 * cm, y, width - 2 * cm, y)
+        y -= 1 * cm
+
+        if parcours.duree_totale_minutes():
+            p.setFont("Helvetica-Oblique", 10)
+            p.drawString(2 * cm, y, f"Durée totale estimée : ~{parcours.duree_totale_minutes()} minutes ({parcours.lecons.count()} leçons)")
+            y -= 1 * cm
+
+        p.setFont("Helvetica", 11)
+        for ligne in (parcours.materiel_requis or "").splitlines():
+            ligne = ligne.strip()
+            if not ligne:
+                continue
+            if y < 2.5 * cm:
+                p.showPage()
+                y = height - 2.5 * cm
+                p.setFont("Helvetica", 11)
+            p.drawString(2.3 * cm, y, "•")
+            p.drawString(2.9 * cm, y, ligne)
+            y -= 0.7 * cm
+
+        p.showPage()
+        p.save()
+        return response
+    except Parcours.DoesNotExist:
+        return Response({"error": "Parcours introuvable"}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 

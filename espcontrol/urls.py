@@ -159,6 +159,7 @@ urlpatterns = [
     path('api/mobile/education/lecons/<int:lecon_id>/quiz/', api_views.mobile_education_quiz, name='mobile_education_quiz'),
     path('api/mobile/education/lecons/<int:lecon_id>/submit/', api_views.mobile_education_submit_quiz, name='mobile_education_submit_quiz'),
     path('api/mobile/education/certificats/', api_views.mobile_education_certificats, name='mobile_education_certificats'),
+    path('api/mobile/education/parcours/<int:parcours_id>/materiel/pdf/', api_views.mobile_education_materiel_pdf, name='mobile_education_materiel_pdf'),
 
     # ── Monétisation ───────────────────────────────────────────────────────────
     path('api/mobile/monetisation/', api_views.mobile_monetisation_dashboard, name='mobile_monetisation_dashboard'),

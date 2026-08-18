@@ -419,6 +419,68 @@ def verifier_certificat(request, uuid):
 
 
 @login_required
+def parcours_materiel_pdf(request, parcours_id):
+    parcours = get_object_or_404(Parcours, id=parcours_id)
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="materiel_{parcours.slug}.pdf"'
+    )
+
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    y = height - 2.5 * cm
+
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColorRGB(0.5, 0.5, 0.5)
+    p.drawString(2 * cm, height - 1.2 * cm, "FOUNATEK ACADEMY")
+
+    p.setFont("Helvetica-Bold", 16)
+    p.setFillColorRGB(0, 0, 0)
+    p.drawString(2 * cm, y, "Liste du matériel requis")
+    y -= 0.9 * cm
+
+    p.setFont("Helvetica", 12)
+    p.drawString(2 * cm, y, parcours.titre)
+    y -= 1 * cm
+
+    p.setStrokeColorRGB(0.7, 0.7, 0.7)
+    p.line(2 * cm, y, width - 2 * cm, y)
+    y -= 1 * cm
+
+    if parcours.duree_totale_minutes():
+        p.setFont("Helvetica-Oblique", 10)
+        p.drawString(2 * cm, y, f"Durée totale estimée : ~{parcours.duree_totale_minutes()} minutes ({parcours.lecons.count()} leçons)")
+        y -= 1 * cm
+
+    p.setFont("Helvetica", 11)
+    lignes = (parcours.materiel_requis or "").splitlines()
+    for ligne in lignes:
+        ligne = ligne.strip()
+        if not ligne:
+            continue
+        if y < 2.5 * cm:
+            p.showPage()
+            y = height - 2.5 * cm
+            p.setFont("Helvetica", 11)
+        p.drawString(2.3 * cm, y, "•")
+        p.drawString(2.9 * cm, y, ligne)
+        y -= 0.7 * cm
+
+    y -= 0.5 * cm
+    p.setFont("Helvetica-Oblique", 9)
+    p.setFillColorRGB(0.5, 0.5, 0.5)
+    if y < 2 * cm:
+        p.showPage()
+        y = height - 2.5 * cm
+    p.drawString(2 * cm, y, "Généré depuis Founatek Academy — apprentissage par le projet.")
+
+    p.showPage()
+    p.save()
+    return response
+
+
+@login_required
 def liste_parcours(request):
     parcours = Parcours.objects.filter(is_published=True)
 
