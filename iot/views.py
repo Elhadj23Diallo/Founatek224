@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
 from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.cache import never_cache
 from django.db.models import Avg
 from django.utils import timezone
 from monetisation.models import Referral
@@ -481,6 +482,7 @@ def parcours_materiel_pdf(request, parcours_id):
 
 
 @login_required
+@never_cache
 def liste_parcours(request):
     from django.db.models import Q
     parcours = Parcours.objects.filter(is_published=True).select_related("created_by", "organisation")
@@ -524,6 +526,7 @@ def toggle_follow_formateur(request, formateur_id):
 
 
 @login_required
+@never_cache
 def liste_lecons(request, parcours_id):
     parcours = get_object_or_404(Parcours, id=parcours_id)
 
