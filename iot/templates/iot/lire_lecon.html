@@ -1,5 +1,6 @@
 {% extends "iot/base.html" %}
 {% load static %}
+{% load lesson_extras %}
 
 {% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -148,7 +149,7 @@
             {% if bloc.type == "texte" %}
 
                 <div class="block-text">
-                    {{ bloc.contenu|linebreaks }}
+                    {{ bloc.contenu|markdown_lite }}
                 </div>
 
             {% elif bloc.type == "code" %}
