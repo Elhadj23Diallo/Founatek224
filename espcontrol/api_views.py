@@ -2179,7 +2179,7 @@ def mobile_access_logs_full(request):
 @permission_classes([AllowAny])
 def mobile_register(request):
     """Inscription publique depuis l'app mobile. Body: username, password, email,
-    first_name, last_name, role ('Formateur'|'Apprenant'|'Vendeur')."""
+    first_name, last_name, role ('Formateur'|'Apprenant'|'Acheteur')."""
     try:
         from django.contrib.auth.models import User, Group
         from django.contrib.auth.password_validation import validate_password
@@ -2194,7 +2194,7 @@ def mobile_register(request):
 
         if not username or not password or not email:
             return Response({"error": "Nom d'utilisateur, email et mot de passe requis"}, status=400)
-        if role not in ("Formateur", "Apprenant", "Vendeur"):
+        if role not in ("Formateur", "Apprenant", "Acheteur"):
             return Response({"error": "Rôle invalide"}, status=400)
         if User.objects.filter(username=username).exists():
             return Response({"error": "Ce nom d'utilisateur est déjà pris"}, status=400)

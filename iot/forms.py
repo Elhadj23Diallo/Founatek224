@@ -52,7 +52,7 @@ class CustomUserCreationForm(UserCreationForm):
         choices=[
             ('Formateur', 'Formateur — je veux créer des cours'),
             ('Apprenant', 'Apprenant — je veux suivre des cours'),
-            ('Vendeur', 'Vendeur — je veux vendre des produits en boutique'),
+            ('Acheteur', 'Acheteur — je veux acheter des produits en boutique'),
         ],
         required=True
     )

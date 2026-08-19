@@ -142,7 +142,7 @@
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     {% if is_formateur_role %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
-                    {% elif is_vendeur_role %}
+                    {% elif is_acheteur_role %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'founatekapp:home' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
                     {% else %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'iot:apprenant_dashboard' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
@@ -168,7 +168,7 @@
                     {% if user.is_authenticated %}
                         {% if is_formateur_role %}
                             <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
-                        {% elif is_vendeur_role %}
+                        {% elif is_acheteur_role %}
                             <li class="nav-item"><a class="nav-link" href="{% url 'founatekapp:home' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
                         {% else %}
                             <li class="nav-item"><a class="nav-link" href="{% url 'iot:apprenant_dashboard' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>

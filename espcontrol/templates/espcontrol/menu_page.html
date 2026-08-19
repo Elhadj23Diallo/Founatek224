@@ -215,7 +215,7 @@ h1 {
             <div class="node-label">Traçabilité</div>
         </a>
 
-    {% if not is_vendeur_role %}
+    {% if not is_acheteur_role %}
         <a href="{% url 'iot:liste_parcours' %}" class="node-block node-social">
             <div class="icon-box"><i class="fas fa-graduation-cap"></i></div>
             <div class="node-label">Apprentissage</div>

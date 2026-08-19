@@ -108,7 +108,9 @@ navigation (jamais l'accès à l'administration Django, qui reste séparée) :
 - Formateur : voit tous les modules, peut créer des cours.
 - Apprenant : voit tout SAUF le module Formateur et la Boutique (peut suivre des cours, gérer son
   wallet, consulter la traçabilité produit...).
-- Vendeur : ne voit que la Boutique et la Traçabilité Produit (pour gérer son catalogue et ses ventes).
+- Acheteur : ne voit que la Boutique et la Traçabilité Produit (pour acheter et vérifier l'authenticité
+  des produits scannés avant achat). La boutique Founatek est gérée par un seul vendeur (l'administrateur
+  de la plateforme) — ce n'est pas une marketplace multi-vendeurs.
 Un utilisateur peut demander à changer de rôle en contactant l'administrateur ; ce n'est pas
 modifiable seul depuis l'app pour l'instant.
 

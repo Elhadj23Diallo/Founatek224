@@ -1,4 +1,4 @@
-"""Determination centralisee du role d'un utilisateur (Formateur / Apprenant / Vendeur).
+"""Determination centralisee du role d'un utilisateur (Formateur / Apprenant / Acheteur).
 
 Le role ne donne JAMAIS acces a l'admin Django (is_staff) : c'est une simple
 appartenance a un Group, utilisee uniquement pour filtrer la navigation.
@@ -6,7 +6,7 @@ appartenance a un Group, utilisee uniquement pour filtrer la navigation.
 
 ROLE_FORMATEUR = "formateur"
 ROLE_APPRENANT = "apprenant"
-ROLE_VENDEUR = "vendeur"
+ROLE_ACHETEUR = "acheteur"
 
 
 def get_user_role(user):
@@ -18,8 +18,8 @@ def get_user_role(user):
     # donne un role "Formateur" au sens metier — simple confort de navigation).
     if hasattr(user, "formateur_profile") or user.is_staff or user.is_superuser:
         return ROLE_FORMATEUR
-    if user.groups.filter(name="Vendeur").exists():
-        return ROLE_VENDEUR
+    if user.groups.filter(name="Acheteur").exists():
+        return ROLE_ACHETEUR
     if user.groups.filter(name="Apprenant").exists():
         return ROLE_APPRENANT
     return None
@@ -31,5 +31,5 @@ def role_context(user):
         "user_role": role,
         "is_formateur_role": role == ROLE_FORMATEUR,
         "is_apprenant_role": role == ROLE_APPRENANT,
-        "is_vendeur_role": role == ROLE_VENDEUR,
+        "is_acheteur_role": role == ROLE_ACHETEUR,
     }

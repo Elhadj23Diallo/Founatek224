@@ -687,13 +687,13 @@ def register(request):
             group, _ = Group.objects.get_or_create(name='Abonné')
             user.groups.add(group)
 
-            # ✅ Groupe correspondant au rôle choisi (Formateur/Apprenant/Vendeur)
+            # ✅ Groupe correspondant au rôle choisi (Formateur/Apprenant/Acheteur)
             # — n'accorde JAMAIS is_staff : uniquement une appartenance à un
             # Group Django, utilisée pour filtrer la navigation par rôle.
             # Le groupe "Formateur" déclenche déjà (signal iot.signals) la
             # création automatique du FormateurProfile associé.
             role = form.cleaned_data.get('role')
-            if role in ('Formateur', 'Apprenant', 'Vendeur'):
+            if role in ('Formateur', 'Apprenant', 'Acheteur'):
                 role_group, _ = Group.objects.get_or_create(name=role)
                 user.groups.add(role_group)
 
