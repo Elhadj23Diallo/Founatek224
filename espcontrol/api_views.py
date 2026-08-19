@@ -2186,11 +2186,15 @@ def mobile_profile(request):
         token_key = None
 
     avatar_url = None
+    phone = None
+    bio = None
     try:
         from espcontrol.models import UserProfile
         up = UserProfile.objects.get(user=user)
         if up.avatar:
             avatar_url = request.build_absolute_uri(up.avatar.url)
+        phone = up.phone
+        bio = up.bio
     except Exception:
         pass
 
@@ -2203,6 +2207,8 @@ def mobile_profile(request):
         "date_joined": user.date_joined.isoformat(),
         "token": token_key,
         "avatar_url": avatar_url,
+        "phone": phone,
+        "bio": bio,
         "counts": {
             "relays":   Relais.objects.filter(user=user).count(),
             "dht":      DHTData.objects.filter(user=user).count(),
@@ -2213,6 +2219,45 @@ def mobile_profile(request):
             "alerts":   AgentAlert.objects.filter(user=user).count(),
         },
     })
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_profile_update(request):
+    """Met a jour le profil de l'utilisateur connecte : nom/prenom/email (User) +
+    photo/telephone/bio (UserProfile). Accepte multipart/form-data pour la photo."""
+    try:
+        from espcontrol.models import UserProfile
+        user = request.user
+
+        for field in ["first_name", "last_name", "email"]:
+            if field in request.data:
+                setattr(user, field, request.data[field])
+        user.save()
+
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        if "phone" in request.data:
+            profile.phone = request.data["phone"]
+        if "bio" in request.data:
+            profile.bio = request.data["bio"]
+        avatar_file = request.FILES.get("avatar")
+        if avatar_file:
+            profile.avatar = avatar_file
+        profile.save()
+
+        avatar_url = request.build_absolute_uri(profile.avatar.url) if profile.avatar else None
+        return Response({
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone": profile.phone,
+            "bio": profile.bio,
+            "avatar_url": avatar_url,
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

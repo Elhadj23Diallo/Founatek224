@@ -13,10 +13,24 @@ from django.contrib.auth.forms import UserCreationForm
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ["first_name", "last_name"]
+        fields = ["first_name", "last_name", "email"]
         widgets = {
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
             "last_name": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+        }
+
+
+class AccountProfileForm(forms.ModelForm):
+    """Photo/telephone/bio disponibles pour TOUS les utilisateurs (pas seulement les formateurs)."""
+    class Meta:
+        from espcontrol.models import UserProfile
+        model = UserProfile
+        fields = ["avatar", "phone", "bio"]
+        widgets = {
+            "avatar": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "phone": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ex: +224 6XX XX XX XX"}),
+            "bio": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Quelques mots sur vous..."}),
         }
 
 

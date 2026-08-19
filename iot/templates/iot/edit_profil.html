@@ -70,7 +70,8 @@
 
     /* Inputs classiques (texte) générés par Django */
     .cyber-form-box input[type="text"],
-    .cyber-form-box input[type="email"] {
+    .cyber-form-box input[type="email"],
+    .cyber-form-box textarea {
         width: 100%;
         padding: 12px 15px;
         background: var(--input-bg);
@@ -82,7 +83,8 @@
         box-sizing: border-box; /* Important pour le padding */
     }
 
-    .cyber-form-box input:focus {
+    .cyber-form-box input:focus,
+    .cyber-form-box textarea:focus {
         outline: none;
         border-color: var(--neon-blue);
         box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
@@ -197,15 +199,29 @@
         <form method="post" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
 
-            {% if user_form.non_field_errors or formateur_form.non_field_errors %}
+            {% if user_form.non_field_errors or account_form.non_field_errors or formateur_form.non_field_errors %}
                 <div style="background: rgba(255, 71, 87, 0.1); border: 1px solid #ff4757; padding: 10px; border-radius: 10px; margin-bottom: 20px; color: #ff4757;">
                     {{ user_form.non_field_errors }}
+                    {{ account_form.non_field_errors }}
                     {{ formateur_form.non_field_errors }}
                 </div>
             {% endif %}
 
             <div class="form-group">
-                <label for="{{ user_form.first_name.id_for_label }}"> Let's Go : <i class="fas fa-user-tag"></i> Prénom</label>
+                <label for="{{ account_form.avatar.id_for_label }}"><i class="fas fa-camera-retro"></i> Photo de profil</label>
+                {% if account_form.instance.avatar %}
+                    <img src="{{ account_form.instance.avatar.url }}" alt="Photo actuelle" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:2px solid var(--neon-blue); margin-bottom:12px; display:block;">
+                {% endif %}
+                <div class="file-input-wrapper">
+                    <i class="fas fa-cloud-upload-alt fa-2x mb-2" style="color: var(--neon-blue);"></i><br>
+                    {{ account_form.avatar }}
+                </div>
+                <div class="helptext mt-2"><small><i class="fas fa-info-circle"></i> Formats acceptés : JPG, PNG. Max 5Mo.</small></div>
+                {{ account_form.avatar.errors }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ user_form.first_name.id_for_label }}"><i class="fas fa-user-tag"></i> Prénom</label>
                 {{ user_form.first_name }}
                 {{ user_form.first_name.errors }}
             </div>
@@ -216,14 +232,31 @@
                 {{ user_form.last_name.errors }}
             </div>
 
+            <div class="form-group">
+                <label for="{{ user_form.email.id_for_label }}"><i class="fas fa-envelope"></i> Email</label>
+                {{ user_form.email }}
+                {{ user_form.email.errors }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ account_form.phone.id_for_label }}"><i class="fas fa-phone"></i> Téléphone</label>
+                {{ account_form.phone }}
+                {{ account_form.phone.errors }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ account_form.bio.id_for_label }}"><i class="fas fa-pen"></i> Bio</label>
+                {{ account_form.bio }}
+                {{ account_form.bio.errors }}
+            </div>
+
             {% if is_formateur %}
                 <div class="form-group">
-                    <label for="{{ formateur_form.photo.id_for_label }}"><i class="fas fa-camera-retro"></i> Photo de profil</label>
+                    <label for="{{ formateur_form.photo.id_for_label }}"><i class="fas fa-chalkboard-teacher"></i> Photo formateur (affichée sur vos certificats/parcours)</label>
                     <div class="file-input-wrapper">
                         <i class="fas fa-cloud-upload-alt fa-2x mb-2" style="color: var(--neon-blue);"></i><br>
                         {{ formateur_form.photo }}
                     </div>
-                    <div class="helptext mt-2"><small><i class="fas fa-info-circle"></i> Formats acceptés : JPG, PNG. Max 5Mo.</small></div>
                     {{ formateur_form.photo.errors }}
                 </div>
             {% endif %}

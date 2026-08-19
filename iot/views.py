@@ -35,6 +35,7 @@ from .forms import (
     ProjectForm,
     FormateurProfileForm,
     UserProfileForm,
+    AccountProfileForm,
 )
 
 from .models import (
@@ -79,43 +80,23 @@ def faq_certification(request):
     return render(request, "iot/faq_certification.html")
 
 
-@login_required
-def profil(request):
-    user = request.user
-
-    # Déterminer le rôle
-    is_formateur = hasattr(user, "formateur_profile")
-
-    certificats = []
-    if not is_formateur:
-        certificats = Certification.objects.filter(
-            user=user,
-            is_valid=True
-        ).select_related("parcours", "parcours__organisation")
-
-        # 🔁 AJOUT : garantit un PDF à jour (logo, couleurs, etc.)
-        for certif in certificats:
-            ensure_certificat_pdf(certif)
-
-    context = {
-        "user_obj": user,
-        "is_formateur": is_formateur,
-        "certificats": certificats,
-    }
-
-    return render(request, "iot/profil.html", context)
-
-
 
 
 @login_required
 def edit_profil(request):
+    from espcontrol.models import UserProfile
     user = request.user
     is_formateur = hasattr(user, "formateur_profile")
+    account_profile, _ = UserProfile.objects.get_or_create(user=user)
 
     user_form = UserProfileForm(
         request.POST or None,
         instance=user
+    )
+    account_form = AccountProfileForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=account_profile
     )
 
     formateur_form = None
@@ -127,10 +108,11 @@ def edit_profil(request):
         )
 
     if request.method == "POST":
-        if user_form.is_valid() and (
+        if user_form.is_valid() and account_form.is_valid() and (
             not is_formateur or formateur_form.is_valid()
         ):
             user_form.save()
+            account_form.save()
 
             if is_formateur:
                 formateur_form.save()
@@ -140,6 +122,7 @@ def edit_profil(request):
 
     context = {
         "user_form": user_form,
+        "account_form": account_form,
         "formateur_form": formateur_form,
         "is_formateur": is_formateur,
     }
@@ -735,6 +718,7 @@ def register(request):
 
 @login_required
 def profil(request):
+    from espcontrol.models import UserProfile
     user = request.user
 
     # Récupération ou création du token
@@ -742,6 +726,8 @@ def profil(request):
 
     # Déterminer le rôle
     is_formateur = hasattr(user, "formateur_profile")
+
+    account_profile, _ = UserProfile.objects.get_or_create(user=user)
 
     certificats = []
     if not is_formateur:
@@ -759,6 +745,7 @@ def profil(request):
         "is_formateur": is_formateur,
         "certificats": certificats,
         "api_token": token.key,  # <-- On ajoute le token ici
+        "account_profile": account_profile,
     }
 
     return render(request, "iot/profil.html", context)

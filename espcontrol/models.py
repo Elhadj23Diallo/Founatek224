@@ -470,3 +470,16 @@ class ChatMemory(models.Model):
 
     def __str__(self):
         return f"ChatMemory({self.user.username})"
+
+
+class UserProfile(models.Model):
+    """Profil generique disponible pour TOUS les utilisateurs (pas seulement les formateurs) :
+    photo de profil, telephone, bio. Complete les champs standards de auth.User."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="account_profile")
+    avatar = models.ImageField(upload_to="profiles/avatars/", blank=True, null=True)
+    phone = models.CharField(max_length=30, blank=True, null=True)
+    bio = models.TextField(max_length=500, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Profil de {self.user.username}"
