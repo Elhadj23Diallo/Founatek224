@@ -1,5 +1,5 @@
 {% extends 'store/base.html' %}
-{% block title %}Commande #{{ order.pk }} â€” FOUNATEK SHOP{% endblock %}
+{% block title %}Commande #{{ order.pk }} — FOUNATEK SHOP{% endblock %}
 {% block content %}
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
@@ -59,7 +59,7 @@
           <div class="d-flex justify-content-between border-bottom py-2">
             <div>
               <div class="fw-semibold">{{ item.product.name }}</div>
-              <small class="text-muted">{{ item.unit_price }} GNF Ã— {{ item.quantity }}</small>
+              <small class="text-muted">{{ item.unit_price }} GNF × {{ item.quantity }}</small>
             </div>
             <div class="fw-bold text-success text-nowrap ms-2">{{ item.subtotal }} GNF</div>
           </div>
@@ -87,7 +87,7 @@
     <div class="card border-0 shadow-sm">
       <div class="card-body">
         <h5>Informations</h5>
-        <p class="mb-2"><strong>Date :</strong> {{ order.created_at|date:"d/m/Y Ã  H:i" }}</p>
+        <p class="mb-2"><strong>Date :</strong> {{ order.created_at|date:"d/m/Y à H:i" }}</p>
         <p class="mb-2"><strong>Statut :</strong>
           <span class="badge {% if order.status == 'pending' %}bg-warning text-dark{% elif order.status == 'confirmed' %}bg-info{% elif order.status == 'shipped' %}bg-primary{% elif order.status == 'delivered' %}bg-success{% else %}bg-danger{% endif %}">
             {{ order.get_status_display }}

@@ -47,7 +47,7 @@
         </li>
         <li class="nav-item">
           <a class="nav-link" href="{% url 'founatekapp:loyalty' %}">
-            <i class="bi bi-trophy me-1"></i>FidÃ©litÃ©
+            <i class="bi bi-trophy me-1"></i>Fidélité
             {% if user.loyalty.points %}
               <span class="badge" style="background:{{ user.loyalty.level_color }}; color:#000;">
                 {{ user.loyalty.points }} pts
@@ -64,7 +64,7 @@
         {% endif %}
         <li class="nav-item">
           <a class="nav-link" href="{% url 'logout' %}">
-            <i class="bi bi-box-arrow-right me-1"></i>DÃ©connexion
+            <i class="bi bi-box-arrow-right me-1"></i>Déconnexion
           </a>
         </li>
         {% else %}
@@ -95,8 +95,8 @@
   <div class="container text-center">
     <img src="{% static 'img/logo_fou.jpeg' %}" alt="FOUNATEK" height="50" style="border-radius:8px;" class="mb-2">
     <p class="mb-1 fw-bold">FOUNATEK <span class="text-warning">SHOP</span></p>
-    <p class="mb-0 text-secondary small">Composants Ã©lectroniques, capteurs &amp; actionneurs</p>
-    <small class="text-secondary">Conakry, GuinÃ©e &mdash; {{ request.user.username|default:"" }}</small>
+    <p class="mb-0 text-secondary small">Composants électroniques, capteurs &amp; actionneurs</p>
+    <small class="text-secondary">Conakry, Guinée &mdash; {{ request.user.username|default:"" }}</small>
   </div>
 </footer>
 

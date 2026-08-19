@@ -1,5 +1,5 @@
 {% extends 'store/base.html' %}
-{% block title %}Mes commandes â€” FOUNATEK SHOP{% endblock %}
+{% block title %}Mes commandes — FOUNATEK SHOP{% endblock %}
 {% load shop_extras %}
 {% block content %}
 
@@ -37,7 +37,7 @@
   </table>
 </div>
 
-{# Mobile â€” cards #}
+{# Mobile — cards #}
 <div class="d-md-none">
   {% for order in orders %}
   <div class="card border-0 shadow-soft mb-3">
@@ -48,7 +48,7 @@
           {{ order.get_status_display }}
         </span>
       </div>
-      <div class="text-muted small mb-1">{{ order.created_at|date:"d/m/Y Ã  H:i" }}</div>
+      <div class="text-muted small mb-1">{{ order.created_at|date:"d/m/Y à H:i" }}</div>
       <div class="d-flex justify-content-between align-items-center mt-2">
         <span class="fw-bold text-success">{% if currency_code != 'GNF' and exchange_rate %}{{ order.total|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}{{ order.total }} GNF{% endif %}</span>
         <div class="d-flex gap-2">

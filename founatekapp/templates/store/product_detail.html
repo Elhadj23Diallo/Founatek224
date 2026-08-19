@@ -1,5 +1,5 @@
 {% extends 'store/base.html' %}
-{% block title %}{{ product.name }} â€” FOUNATEK SHOP{% endblock %}
+{% block title %}{{ product.name }} — FOUNATEK SHOP{% endblock %}
 {% load shop_extras %}
 
 {% block content %}
@@ -61,7 +61,7 @@
   <div class="col-md-6">
     {% with all_images=product.get_all_images %}
 
-    {# Vignettes â€” horizontales sur mobile, verticales sur md+ #}
+    {# Vignettes — horizontales sur mobile, verticales sur md+ #}
     <div class="d-flex d-md-none gap-2 mb-2 overflow-auto pb-1">
       {% for img_url in all_images %}
       <div class="thumb-item border rounded overflow-hidden flex-shrink-0 {% if forloop.first %}border-warning active-thumb{% endif %}"
@@ -74,7 +74,7 @@
     </div>
 
     <div class="row g-2">
-      {# Vignettes verticales â€” masquées sur mobile #}
+      {# Vignettes verticales — masquées sur mobile #}
       <div class="col-2 d-none d-md-flex flex-column gap-2" id="thumb-list">
         {% for img_url in all_images %}
         <div class="thumb-item border rounded overflow-hidden {% if forloop.first %}border-warning active-thumb{% endif %}"
@@ -96,7 +96,7 @@
               <img src="{{ img_url }}"
                    class="d-block w-100"
                    style="height:300px; object-fit:contain; background:#111; cursor:zoom-in;"
-                   alt="{{ product.name }} â€” vue {{ forloop.counter }}"
+                   alt="{{ product.name }} — vue {{ forloop.counter }}"
                    onclick="openLightbox({{ forloop.counter0 }})">
             </div>
             {% empty %}

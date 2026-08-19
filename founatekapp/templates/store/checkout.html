@@ -1,6 +1,6 @@
 
 {% extends 'store/base.html' %}
-{% block title %}Commander â€” FOUNATEK SHOP{% endblock %}
+{% block title %}Commander — FOUNATEK SHOP{% endblock %}
 {% load shop_extras %}
 {% block content %}
 
@@ -101,7 +101,7 @@
         <h5 class="mb-3">Récapitulatif</h5>
         {% for item in cart.cart_items.all %}
         <div class="d-flex justify-content-between mb-1 small">
-          <span>{{ item.product.name }} Ã—{{ item.quantity }}</span>
+          <span>{{ item.product.name }} ×{{ item.quantity }}</span>
           <span>{% if currency_code != 'GNF' and exchange_rate %}{{ item.subtotal|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}{{ item.subtotal }} GNF{% endif %}</span>
         </div>
         {% endfor %}
@@ -118,7 +118,7 @@
         <hr class="my-2">
         {% endif %}
         <div class="d-flex justify-content-between fw-bold fs-5">
-          <span>Total Ã  payer</span>
+          <span>Total à payer</span>
           <span class="text-success" id="final-total">
             {% if currency_code != 'GNF' and exchange_rate %}
               {{ cart.total|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}
