@@ -198,21 +198,24 @@ h1 {
     <!-- MENU -->
     <div class="menu-grid">
 
-        <div class="node-block">
-            <div class="icon-box"><i class="fas fa-cloud"></i></div>
-            <div class="node-label">Gemini Pro AI<br>(NLP)</div>
-        </div>
-
-        <div class="node-block">
-            <div class="icon-box"><i class="fas fa-database"></i></div>
-            <div class="node-label">Django Models<br>(DB)</div>
-        </div>
-
         <a href="{% url 'iot:profil' %}" class="node-block node-profil">
             <div class="icon-box"><i class="fas fa-user-circle"></i></div>
             <div class="node-label">Mon Profil</div>
         </a>
 
+    {% if not is_apprenant_role %}
+        <a href="{% url 'founatekapp:home' %}" class="node-block node-gold">
+            <div class="icon-box"><i class="fas fa-store"></i></div>
+            <div class="node-label">Boutique</div>
+        </a>
+    {% endif %}
+
+        <a href="{% url 'product_transparency:company-dashboard' %}" class="node-block node-social">
+            <div class="icon-box"><i class="fas fa-qrcode"></i></div>
+            <div class="node-label">Traçabilité</div>
+        </a>
+
+    {% if not is_vendeur_role %}
         <a href="{% url 'iot:liste_parcours' %}" class="node-block node-social">
             <div class="icon-box"><i class="fas fa-graduation-cap"></i></div>
             <div class="node-label">Apprentissage</div>
@@ -232,8 +235,9 @@ h1 {
             <div class="icon-box"><i class="fas fa-question-circle"></i></div>
             <div class="node-label">Comment ça marche</div>
         </a>
+    {% endif %}
 
-    {% if is_admin or request.user.is_superuser %}
+    {% if is_formateur_role %}
     <a href="{% url 'iot:formateur_dashboard' %}" class="node-block node-green">
         <div class="icon-box"><i class="fas fa-chalkboard-teacher"></i></div>
         <div class="node-label">Formateur</div>

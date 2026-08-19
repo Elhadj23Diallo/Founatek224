@@ -12,7 +12,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -2173,6 +2173,60 @@ def mobile_access_logs_full(request):
     return Response(data)
 
 
+# ── Inscription ─────────────────────────────────────────────────────────────────
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def mobile_register(request):
+    """Inscription publique depuis l'app mobile. Body: username, password, email,
+    first_name, last_name, role ('Formateur'|'Apprenant'|'Vendeur')."""
+    try:
+        from django.contrib.auth.models import User, Group
+        from django.contrib.auth.password_validation import validate_password
+        from rest_framework.authtoken.models import Token
+
+        username = (request.data.get("username") or "").strip()
+        password = request.data.get("password") or ""
+        email = (request.data.get("email") or "").strip()
+        first_name = (request.data.get("first_name") or "").strip()
+        last_name = (request.data.get("last_name") or "").strip()
+        role = request.data.get("role")
+
+        if not username or not password or not email:
+            return Response({"error": "Nom d'utilisateur, email et mot de passe requis"}, status=400)
+        if role not in ("Formateur", "Apprenant", "Vendeur"):
+            return Response({"error": "Rôle invalide"}, status=400)
+        if User.objects.filter(username=username).exists():
+            return Response({"error": "Ce nom d'utilisateur est déjà pris"}, status=400)
+
+        try:
+            validate_password(password)
+        except Exception as e:
+            return Response({"error": " ".join(e.messages) if hasattr(e, "messages") else str(e)}, status=400)
+
+        user = User.objects.create_user(
+            username=username, password=password, email=email,
+            first_name=first_name, last_name=last_name,
+        )
+        # Jamais is_staff ici : uniquement des groupes, pour filtrer la navigation —
+        # pas d'accès à l'admin Django via l'inscription publique.
+        abonne_group, _ = Group.objects.get_or_create(name="Abonné")
+        user.groups.add(abonne_group)
+        role_group, _ = Group.objects.get_or_create(name=role)
+        user.groups.add(role_group)
+
+        token, _ = Token.objects.get_or_create(user=user)
+
+        from core.roles import get_user_role
+        return Response({
+            "token": token.key,
+            "username": user.username,
+            "role": get_user_role(user),
+        }, status=201)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
 # ── Profil utilisateur ─────────────────────────────────────────────────────────
 @csrf_exempt
 @api_view(["GET"])
@@ -2198,12 +2252,16 @@ def mobile_profile(request):
     except Exception:
         pass
 
+    from core.roles import get_user_role
+    role = get_user_role(user)
+
     return Response({
         "username": user.username,
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "is_staff": user.is_staff,
+        "role": role,
         "date_joined": user.date_joined.isoformat(),
         "token": token_key,
         "avatar_url": avatar_url,

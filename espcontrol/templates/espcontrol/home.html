@@ -418,6 +418,22 @@ function speakText(text) {
 // ============================================================
 //  CHATBOT
 // ============================================================
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function formatChatText(text) {
+    // Echappe le HTML d'abord (le texte vient du LLM, jamais de confiance),
+    // puis rend le markdown minimal (**gras**) et les sauts de ligne.
+    let safe = escapeHtml(text);
+    safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    safe = safe.replace(/\*+/g, '');
+    safe = safe.replace(/\n/g, '<br>');
+    return safe;
+}
+
 function appendMessage(text, who='assistant', buttons=[], imageUrl=null) {
     const el = document.getElementById('chat_history');
     const msgContainer = document.createElement('div');
@@ -434,7 +450,7 @@ function appendMessage(text, who='assistant', buttons=[], imageUrl=null) {
         content.appendChild(img);
     }
     const txtNode = document.createElement('div');
-    txtNode.innerHTML = (text || '...').replace(/\n/g, '<br>');
+    txtNode.innerHTML = formatChatText(text || '...');
     content.appendChild(txtNode);
     msgContainer.appendChild(avatar);
     msgContainer.appendChild(content);

@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
-EXEMPT_PATHS = ['/api/token-auth/']
+EXEMPT_PATHS = ['/api/token-auth/', '/api/mobile/register/']
 
 class APIKeyMiddleware:
     def __init__(self, get_response):

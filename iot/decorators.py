@@ -13,6 +13,10 @@ def is_formateur(user):
             user.is_superuser
             or user.is_staff
             or user.groups.filter(name="Administrateur").exists()
+            # Un vrai formateur (inscrit avec le rôle "Formateur") a toujours
+            # un FormateurProfile, cree automatiquement par le signal du groupe
+            # "Formateur" — sans is_staff, donc sans acces a l'admin Django.
+            or hasattr(user, "formateur_profile")
         )
     )
 

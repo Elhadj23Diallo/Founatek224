@@ -46,10 +46,13 @@ class CustomUserCreationForm(UserCreationForm):
     first_name = forms.CharField(label="Prénom", max_length=30)
     last_name = forms.CharField(label="Nom", max_length=30)
 
-    # Inscription publique => Abonné seulement
+    # Rôle choisi à l'inscription — détermine les modules visibles, jamais l'accès à l'admin Django.
     role = forms.ChoiceField(
+        label="Je m'inscris en tant que",
         choices=[
-            ('Abonné', 'Abonné'),
+            ('Formateur', 'Formateur — je veux créer des cours'),
+            ('Apprenant', 'Apprenant — je veux suivre des cours'),
+            ('Vendeur', 'Vendeur — je veux vendre des produits en boutique'),
         ],
         required=True
     )

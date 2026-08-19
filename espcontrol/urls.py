@@ -47,6 +47,7 @@ urlpatterns = [
     path('api/mobile/relays/<int:num>/rename/', api_views.mobile_relay_rename, name='mobile_relay_rename'),
     path('api/mobile/comptage/list/', api_views.mobile_comptage_list, name='mobile_comptage_list'),
     path('api/mobile/access-logs/full/', api_views.mobile_access_logs_full, name='mobile_access_logs_full'),
+    path('api/mobile/register/', api_views.mobile_register, name='mobile_register'),
     path('api/mobile/profile/', api_views.mobile_profile, name='mobile_profile'),
     path('api/mobile/profile/update/', api_views.mobile_profile_update, name='mobile_profile_update'),
     path('home/', web_views.home, name='home'),  # Route pour la page d'accueil

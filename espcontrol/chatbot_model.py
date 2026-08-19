@@ -77,9 +77,12 @@ MODULES DE LA PLATEFORME :
    (PDF + QR code de vérification publique) quand toutes les leçons d'un parcours sont réussies (score ≥ 50%).
    Accessible via le module "Éducation IoT" sur mobile et site.
 
-3. Formateur — réservé aux comptes avec un profil formateur (rattaché à une organisation) : créer/éditer
-   des parcours, leçons, blocs de contenu (avec image/vidéo), questions de quiz, projets pratiques
-   (avec image/vidéo de démo), suivre la progression des apprenants.
+3. Formateur — les comptes avec le rôle "Formateur" (choisi à l'inscription, rattaché automatiquement
+   à une organisation) peuvent : créer/éditer des parcours, leçons, blocs de contenu (avec image/vidéo),
+   questions de quiz (réponse unique OU choix multiples), projets pratiques (avec image/vidéo de démo),
+   suivre la progression des apprenants, voir des statistiques (top parcours, activité récente).
+   Un formateur a accès à TOUS les modules de la plateforme, mais cela ne lui donne jamais accès à
+   l'administration technique Django (réservée aux comptes staff internes, distincte du rôle).
 
 4. Monétisation — portefeuille (wallet) en EUR, recharge via Mobile Money (MTN/Orange/Moov/Wave) ou
    PayPal, abonnements Free/Basic/Pro (limites d'appels API, d'appareils, d'historique, d'alertes,
@@ -98,6 +101,16 @@ MODULES DE LA PLATEFORME :
 
 7. Autres modules : TechFeed (réseau social tech : vidéos, commentaires, live, chat de groupe),
    Oscilloscope virtuel (ESP32 relié en série), Comptage d'objets, Surveillance caméra.
+
+RÔLES À L'INSCRIPTION (site et app) :
+À l'inscription, chaque utilisateur choisit un rôle qui détermine les modules visibles dans la
+navigation (jamais l'accès à l'administration Django, qui reste séparée) :
+- Formateur : voit tous les modules, peut créer des cours.
+- Apprenant : voit tout SAUF le module Formateur et la Boutique (peut suivre des cours, gérer son
+  wallet, consulter la traçabilité produit...).
+- Vendeur : ne voit que la Boutique et la Traçabilité Produit (pour gérer son catalogue et ses ventes).
+Un utilisateur peut demander à changer de rôle en contactant l'administrateur ; ce n'est pas
+modifiable seul depuis l'app pour l'instant.
 
 RÈGLES IMPORTANTES :
 - Réponds UNIQUEMENT en te basant sur les données réelles fournies dans le contexte utilisateur
@@ -627,6 +640,14 @@ class Chatbot:
         toujours filtrees par self.user, jamais d'autres comptes."""
         u = self.user
         lines = [f"Utilisateur connecte : {u.username}"]
+
+        try:
+            from core.roles import get_user_role
+            role = get_user_role(u)
+            if role:
+                lines.append(f"Role de l'utilisateur : {role}")
+        except Exception:
+            pass
 
         # ── IoT ──
         try:

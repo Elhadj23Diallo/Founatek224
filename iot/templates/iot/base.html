@@ -140,8 +140,10 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    {% if user.is_staff or user.is_superuser %}
+                    {% if is_formateur_role %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
+                    {% elif is_vendeur_role %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'founatekapp:home' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
                     {% else %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'iot:apprenant_dashboard' %}"><i class="fas fa-book-open me-1"></i>Accueil</a></li>
                     {% endif %}
@@ -164,13 +166,18 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'iot:faq_certification' %}"><i class="fas fa-info-circle me-1"></i>FAQ Certif</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'iot:landing' %}"><i class="fas fa-rocket me-1"></i>Landing</a></li>
                     {% if user.is_authenticated %}
-                        {% if user.is_staff or user.is_superuser %}
+                        {% if is_formateur_role %}
                             <li class="nav-item"><a class="nav-link" href="{% url 'iot:formateur_dashboard' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
+                        {% elif is_vendeur_role %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'founatekapp:home' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
                         {% else %}
                             <li class="nav-item"><a class="nav-link" href="{% url 'iot:apprenant_dashboard' %}"><i class="fas fa-user-cog me-1"></i>Mon Compte</a></li>
                         {% endif %}
                         {% if is_abonne %}
                             <li class="nav-item"><a class="nav-link text-neon-green" href="#"><i class="fas fa-star me-1"></i>Abonné</a></li>
+                        {% endif %}
+                        {% if user_role %}
+                            <li class="nav-item"><a class="nav-link text-neon-green" href="#"><i class="fas fa-id-badge me-1"></i>{{ user_role|title }}</a></li>
                         {% endif %}
                     {% else %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'login' %}"><i class="fas fa-sign-in-alt me-1"></i>Connexion</a></li>

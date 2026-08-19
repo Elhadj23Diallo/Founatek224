@@ -109,6 +109,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.paypal_settings',
+                'core.context_processors.user_role',
                 'techfeed.context_processors.badging',
             ],
         },
