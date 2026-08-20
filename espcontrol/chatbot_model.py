@@ -349,17 +349,10 @@ class Chatbot:
     # ============================================================
 
     def get_latest_data(self):
-        # ── CORRECTION : prend le device vu le plus récemment ──
         device = Device.objects.filter(
             user=self.user,
             is_active=True
         ).order_by('-last_seen').first()
-
-        # Fallback — prend n'importe quel device actif
-        if not device:
-            device = Device.objects.filter(
-                is_active=True
-            ).order_by('-last_seen').first()
 
         if not device:
             return None, None
