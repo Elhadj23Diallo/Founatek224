@@ -195,20 +195,23 @@ function validateCart() {
             "X-CSRFToken": getCookie("csrftoken")
         },
         body: JSON.stringify({
-            company_id: "{{ request.user.company.id }}",
             items: cart.map(i => ({
                 product_id: i.uid,
                 quantity: i.qty
             }))
         })
     })
-    .then(r => r.json())
+    .then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Erreur sauvegarde vente");
+        return data;
+    })
     .then(data => {
         window.open(`/product_transparency/api/sales/${data.sale_id}/pdf/`, "_blank");
         cart = [];
         renderCart();
     })
-    .catch(() => alert("Erreur sauvegarde vente"));
+    .catch(err => alert(err.message || "Erreur sauvegarde vente"));
 }
 
 /* ===== RESET ===== */

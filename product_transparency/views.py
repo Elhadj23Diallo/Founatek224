@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.views.generic import TemplateView
 from django.shortcuts import redirect, render
 from django.views import View
+from django.contrib import messages
 
 from .forms import ProductForm, ProductPricingForm, CompanyForm
 from rest_framework.views import APIView
@@ -20,6 +21,21 @@ from .services.pricing_service import update_product_pricing
 from django.http import FileResponse, Http404
 from django.http import FileResponse
 from .services.qr_label_pdf import generate_qr_labels_pdf
+
+
+class CompanyOwnerRequiredMixin(LoginRequiredMixin):
+    """Réserve la vue au propriétaire d'une entreprise (rôle Formateur métier).
+    Un utilisateur connecté sans Company (Apprenant/Acheteur) est redirigé
+    proprement au lieu de faire planter la vue sur Company.DoesNotExist."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return super().dispatch(request, *args, **kwargs)
+        if not Company.objects.filter(user=request.user).exists():
+            messages.error(request, "Cette fonctionnalité est réservée aux comptes Formateur avec une entreprise de traçabilité.")
+            return redirect("menu_page")
+        return super().dispatch(request, *args, **kwargs)
+
 
 class CompanySettingsView(LoginRequiredMixin, View):
     template_name = "product_transparency/company_settings.html"
@@ -77,7 +93,7 @@ class ProductPriceHistoryAPIView(ListAPIView):
 
 
 
-class CompanyDashboardView(LoginRequiredMixin, TemplateView):
+class CompanyDashboardView(CompanyOwnerRequiredMixin, TemplateView):
     template_name = "product_transparency/dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -251,5 +267,5 @@ class QRLabelPDFView(LoginRequiredMixin, View):
 
 
 # views.py
-class ScanCartView(TemplateView):
+class ScanCartView(CompanyOwnerRequiredMixin, TemplateView):
     template_name = "product_transparency/scan_cart.html"

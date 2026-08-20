@@ -2091,26 +2091,34 @@ def mobile_transparence_scan(request, uuid):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def mobile_transparence_create_sale(request):
-    """Body: { "items": [{"product_id": 1, "quantity": 2, "unit_price": 5000}] }"""
+    """Body: { "items": [{"product_id": 1, "quantity": 2}] } — le prix est
+    toujours repris du prix en vigueur côté serveur, jamais fourni par le client."""
     try:
         from product_transparency.models import Company, Product, Sale, SaleItem
         from decimal import Decimal
         company = Company.objects.filter(user=request.user).first()
         if not company:
-            return Response({"error": "Aucune entreprise associée"}, status=400)
+            return Response({"error": "Aucune entreprise associée à votre compte"}, status=403)
         items_data = request.data.get("items", [])
         if not items_data:
-            return Response({"error": "Aucun article"}, status=400)
-        total = sum(Decimal(str(i["unit_price"])) * int(i["quantity"]) for i in items_data)
-        sale = Sale.objects.create(company=company, total_amount=total)
+            return Response({"error": "Panier vide"}, status=400)
+
+        sale = Sale.objects.create(company=company, total_amount=Decimal("0.00"))
+        total = Decimal("0.00")
         for i in items_data:
-            product = Product.objects.get(id=i["product_id"], company=company)
-            SaleItem.objects.create(
-                sale=sale, product=product,
-                quantity=int(i["quantity"]),
-                unit_price=Decimal(str(i["unit_price"])),
-            )
-        return Response({"id": str(sale.id), "total": float(sale.total_amount), "items": len(items_data)}, status=201)
+            try:
+                product = Product.objects.get(id=i["product_id"], company=company)
+                qty = int(i["quantity"])
+                price = product.pricing.price
+            except (Product.DoesNotExist, KeyError, TypeError, ValueError, AttributeError):
+                sale.delete()
+                return Response({"error": "Produit invalide dans le panier"}, status=400)
+            SaleItem.objects.create(sale=sale, product=product, quantity=qty, unit_price=price)
+            total += price * qty
+
+        sale.total_amount = total
+        sale.save(update_fields=["total_amount"])
+        return Response({"id": str(sale.id), "sale_id": str(sale.id), "total": float(sale.total_amount), "items": len(items_data)}, status=201)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
