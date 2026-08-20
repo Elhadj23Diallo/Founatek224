@@ -3,6 +3,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from product_transparency.models import Sale, SaleItem, Product, Company
@@ -18,6 +19,9 @@ from product_transparency.models import Sale
 
 @method_decorator(csrf_exempt, name="dispatch")
 class CreateSaleAPIView(APIView):
+    # Le site web appelle cette API avec la session du navigateur (cookie) + CSRF,
+    # l'app mobile avec le Token DRF — les deux doivent être acceptés.
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -74,6 +78,7 @@ class CreateSaleAPIView(APIView):
 
 
 class SaleTicketPDFView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, sale_id):
