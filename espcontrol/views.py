@@ -748,7 +748,6 @@ from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
-from django.core.cache import cache
 from .models import UploadedImage
 from PIL import Image, ImageChops, ImageStat
 import os
@@ -774,10 +773,11 @@ class ImageUploadView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def detect_motion(self, current_img_path, new_img_data):
+    def detect_motion(self, previous_image_data, new_img_data):
+        if not previous_image_data:
+            return 0
         try:
-            if not os.path.exists(current_img_path): return 0
-            img1 = Image.open(current_img_path).convert("L").resize((64, 64))
+            img1 = Image.open(io.BytesIO(previous_image_data)).convert("L").resize((64, 64))
             img2 = Image.open(io.BytesIO(new_img_data)).convert("L").resize((64, 64))
             diff = ImageChops.difference(img1, img2)
             stat = ImageStat.Stat(diff)
@@ -801,11 +801,30 @@ class ImageUploadView(APIView):
         user_prefix = f"user_{request.user.id}"
         live_file_path = os.path.join(LIVE_DIR, f"{user_prefix}_{camera_id}.jpg")
 
-        # 1. DÉTECTION
-        motion_score = self.detect_motion(live_file_path, new_image_data)
+        # Lit l'ancienne frame AVANT de l'écraser (nécessaire pour la détection de mouvement).
+        previous_image_data = None
+        try:
+            with open(live_file_path, 'rb') as f:
+                previous_image_data = f.read()
+        except FileNotFoundError:
+            pass
+
+        # 1. MISE À JOUR LIVE — en priorité, avant tout calcul, pour que les spectateurs
+        # du flux reçoivent la nouvelle frame le plus vite possible. Écriture atomique
+        # (fichier temporaire + renommage) pour ne jamais servir un JPEG à moitié écrit.
+        try:
+            tmp_path = f"{live_file_path}.tmp"
+            with open(tmp_path, 'wb') as f:
+                f.write(new_image_data)
+            os.replace(tmp_path, live_file_path)
+        except Exception as e:
+            print(f"Erreur live: {e}")
+
+        # 2. DÉTECTION (à partir des bytes déjà en mémoire, pas de relecture disque)
+        motion_score = self.detect_motion(previous_image_data, new_image_data)
         has_motion = motion_score > MOTION_THRESHOLD
 
-        # 2. ARCHIVAGE SUR DISQUE (si mouvement)
+        # 3. ARCHIVAGE SUR DISQUE (si mouvement)
         if has_motion:
             try:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -819,15 +838,6 @@ class ImageUploadView(APIView):
                 )
             except Exception as e:
                 print(f"Erreur DB: {e}")
-
-        # 3. MISE À JOUR LIVE
-        try:
-            cache.set(f"live_{request.user.id}_{camera_id}", new_image_data, CACHE_TIMEOUT)
-
-            with open(live_file_path, 'wb') as f:
-                f.write(new_image_data)
-        except Exception as e:
-            print(f"Erreur live: {e}")
 
         return Response({"status": "ok"}, status=200)
 
@@ -881,27 +891,29 @@ def get_latest_frames(request):
     return JsonResponse({"cameras": data})
 
 
-# --- LECTURE DE LA FRAME LIVE (cache d'abord, fichier disque en secours) ---
-def _read_live_frame(user_id, camera_id):
-    cache_key = f"live_{user_id}_{camera_id}"
-    image_data = cache.get(cache_key)
-    if image_data:
-        return image_data
+# --- LECTURE DE LA FRAME LIVE ---
+# Lecture directe du fichier disque : le cache Django (FileBasedCache = fichiers +
+# pickle + verrous) n'apportait aucun gain ici et ajoutait un aller-retour disque en
+# plus à chaque frame reçue (upload) et à chaque poll du flux (150ms x nb spectateurs).
+def _live_frame_path(user_id, camera_id):
+    return os.path.join(LIVE_DIR, f"user_{user_id}_{camera_id}.jpg")
 
-    user_prefix = f"user_{user_id}"
-    file_path = os.path.join(LIVE_DIR, f"{user_prefix}_{camera_id}.jpg")
+
+def _read_live_frame(user_id, camera_id):
     try:
-        with open(file_path, "rb") as f:
-            image_data = f.read()
-        cache.set(cache_key, image_data, CACHE_TIMEOUT)
-        return image_data
+        with open(_live_frame_path(user_id, camera_id), "rb") as f:
+            return f.read()
     except FileNotFoundError:
         return None
 
 
 def _camera_is_online(user_id, camera_id):
-    # Une frame en cache prouve que la camera a poste une image il y a moins de CACHE_TIMEOUT secondes.
-    return cache.get(f"live_{user_id}_{camera_id}") is not None
+    # Une frame écrite il y a moins de CACHE_TIMEOUT secondes = caméra active.
+    try:
+        age = time.time() - os.path.getmtime(_live_frame_path(user_id, camera_id))
+        return age < CACHE_TIMEOUT
+    except FileNotFoundError:
+        return False
 
 
 # --- VUE LIVE OPTIMISÉE (une seule image, utilisée pour les vignettes T-1/T-2) ---
