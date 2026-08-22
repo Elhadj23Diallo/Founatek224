@@ -764,7 +764,7 @@ from django.conf import settings
 LIVE_DIR = str(settings.BASE_DIR / "media" / "live")
 MOTION_THRESHOLD = 5.0
 CACHE_TIMEOUT = 10  # secondes pour le live
-STREAM_FRAME_POLL = 0.15   # secondes entre deux verifications de nouvelle frame
+STREAM_FRAME_POLL = 0.08   # secondes entre deux verifications de nouvelle frame
 STREAM_MAX_DURATION = 25   # secondes avant reconnexion cote client (evite de monopoliser un worker PA)
 
 # --- VUE D'UPLOAD OPTIMISÉE ---
