@@ -844,6 +844,9 @@ class ImageUploadView(APIView):
                     camera_id=camera_id,
                     has_motion=True
                 )
+                # Flag RAM (au lieu d'une requête DB à chaque poll de get_latest_frames,
+                # potentiellement plusieurs fois par seconde).
+                live_cache.set(f"alert_{request.user.id}_{camera_id}", True, 5)
             except Exception as e:
                 print(f"Erreur DB: {e}")
 
@@ -860,32 +863,10 @@ def systeme_surveillance(request):
 @login_required
 def get_latest_frames(request):
     data = []
-    camera_ids = []
-
-    user_prefix = f"user_{request.user.id}"
-
-    if os.path.exists(LIVE_DIR):
-        for filename in os.listdir(LIVE_DIR):
-            if filename.endswith(".jpg") and filename.startswith(user_prefix):
-                cam_id = filename.replace(f"{user_prefix}_", "").replace(".jpg", "")
-                camera_ids.append(cam_id)
-
-    if not camera_ids:
-        camera_ids = ["camera_salon"]
+    camera_ids = _discover_camera_ids(request.user.id)
 
     for cam_id in camera_ids:
-        is_alert = False
-        try:
-            recent = datetime.now() - timedelta(seconds=5)
-            if UploadedImage.objects.filter(
-                user=request.user,
-                camera_id=cam_id,
-                has_motion=True,
-                created_at__gte=recent
-            ).exists():
-                is_alert = True
-        except:
-            pass
+        is_alert = live_cache.get(f"alert_{request.user.id}_{cam_id}") is not None
 
         data.append({
             "camera_id": cam_id,
@@ -944,6 +925,29 @@ def _frame_id(user_id, camera_id):
         return int(os.path.getmtime(_live_frame_path(user_id, camera_id)) * 1000)
     except FileNotFoundError:
         return 0
+
+
+def _discover_camera_ids(user_id):
+    # os.listdir(LIVE_DIR) parcourt les fichiers de TOUS les utilisateurs à chaque
+    # appel — coûte de plus en plus cher si on resserre le poll côté client. Les
+    # caméras d'un utilisateur changent rarement (ajout d'une nouvelle caméra),
+    # donc un cache RAM de quelques secondes suffit largement.
+    cache_key = f"camlist_{user_id}"
+    cached = live_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    user_prefix = f"user_{user_id}"
+    camera_ids = []
+    if os.path.exists(LIVE_DIR):
+        for filename in os.listdir(LIVE_DIR):
+            if filename.endswith(".jpg") and filename.startswith(user_prefix):
+                camera_ids.append(filename.replace(f"{user_prefix}_", "").replace(".jpg", ""))
+    if not camera_ids:
+        camera_ids = ["camera_salon"]
+
+    live_cache.set(cache_key, camera_ids, 5)
+    return camera_ids
 
 
 # --- VUE LIVE OPTIMISÉE (une seule image, utilisée pour les vignettes T-1/T-2) ---
@@ -1019,14 +1023,7 @@ def mobile_surveillance_snapshot(request, camera_id):
 
 def mobile_surveillance_cameras(request):
     """Liste dynamique des caméras actives de l'utilisateur (au lieu d'IDs en dur côté app)."""
-    user_prefix = f"user_{request.user.id}"
-    camera_ids = []
-    if os.path.exists(LIVE_DIR):
-        for filename in os.listdir(LIVE_DIR):
-            if filename.endswith(".jpg") and filename.startswith(user_prefix):
-                camera_ids.append(filename.replace(f"{user_prefix}_", "").replace(".jpg", ""))
-    if not camera_ids:
-        camera_ids = ["camera_salon"]
+    camera_ids = _discover_camera_ids(request.user.id)
 
     data = [{
         "camera_id": cam_id,

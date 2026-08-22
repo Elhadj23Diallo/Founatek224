@@ -242,7 +242,10 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px
 const BUFFER_MAX = 30;
 const T1_THRESHOLD = 10;
 const T2_THRESHOLD = 30;
-const SNAPSHOT_POLL_MS = 350;
+// La caméra ne livre qu'~1 image/s, mais avec la vérification frame_id
+// (voir plus bas), un poll "à vide" ne coûte presque rien : le resserrer réduit
+// juste le délai entre "la frame arrive côté serveur" et "on le détecte ici".
+const SNAPSHOT_POLL_MS = 150;
 
 let imageBuffer = [];
 let activeCameraId = null;
