@@ -108,6 +108,15 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px
         hue-rotate(var(--cam-hue));
     transition: filter 0.2s;
 }
+/* Fondu enchaîné pour l'écran LIVE : deux <img> superposées, on bascule l'opacité
+   entre les deux à chaque nouvelle frame plutôt qu'un changement brutal de src —
+   la source ne livre qu'~1 image/s, le fondu rend ça visuellement bien plus doux. */
+.live-frame {
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 350ms ease;
+}
+.live-frame.front { opacity: 1; }
 .history-img {
     filter: grayscale(100%) brightness(var(--cam-bright)) contrast(var(--cam-contrast)) !important;
 }
@@ -184,7 +193,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px
             <div style="color:var(--neon-red)">● REC</div>
         </div>
         <div class="video-container">
-            <img id="img-1" src="">
+            <img id="img-1" class="live-frame" src="">
+            <img id="img-1b" class="live-frame" src="">
             <div class="crosshair"></div>
             <div class="cam-footer-overlay">
                 <span>LIVE</span>
@@ -232,15 +242,11 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px
 const BUFFER_MAX = 30;
 const T1_THRESHOLD = 10;
 const T2_THRESHOLD = 30;
-// Le serveur coupe le flux après ~25s (pour ne pas monopoliser un worker PA) ;
-// on se reconnecte un peu avant pour que ce soit invisible à l'écran.
-const STREAM_RECONNECT_MS = 23000;
-const SNAPSHOT_POLL_MS = 400;
+const SNAPSHOT_POLL_MS = 350;
 
 let imageBuffer = [];
 let activeCameraId = null;
-let liveStreamUrl = null;
-let reconnectTimer = null;
+let liveFront = 'a'; // laquelle de img-1 (a) / img-1b (b) est visible en ce moment
 
 function updateLiveStatus(isReceiving) {
     const live = document.getElementById("live-indicator");
@@ -257,20 +263,15 @@ function updateLiveStatus(isReceiving) {
     }
 }
 
-function showImage(screen, src, isAlert=false) {
+// Utilisée pour les vignettes T-1/T-2 (remplacement direct, pas de fondu nécessaire
+// pour ces panneaux de relecture). L'écran LIVE (screen 1) passe par crossfadeLive().
+function showImage(screen, src) {
     const img = document.getElementById(`img-${screen}`);
     const wait = document.getElementById(`wait-${screen}`);
     if (!img) return;
     if (wait) wait.style.display = "none";
     img.style.display = "block";
     if (img.src !== src) img.src = src;
-    if (screen === 1) {
-        const timeTag = document.getElementById("time-1");
-        if (timeTag) timeTag.innerText = new Date().toLocaleTimeString();
-        const card = document.getElementById("screen-1");
-        if (isAlert) card.classList.add("alert");
-        else card.classList.remove("alert");
-    }
 }
 
 function updateWaitingBar(screen, current, max) {
@@ -281,25 +282,27 @@ function updateWaitingBar(screen, current, max) {
     label.innerText = `${current} / ${max}`;
 }
 
-// --- Vrai flux temps réel (MJPEG) pour l'écran LIVE : une seule connexion HTTP
-// que le navigateur affiche en continu, sans polling JS — c'est le flux poussé
-// par le serveur dès qu'une nouvelle frame arrive côté ESP32-CAM.
-function connectLiveStream(camId) {
-    const img1 = document.getElementById("img-1");
-    const wait1 = document.getElementById("wait-1");
-    if (wait1) wait1.style.display = "none";
-    liveStreamUrl = `/stream/${camId}/live.mjpg`;
-    img1.style.display = "block";
-    img1.src = `${liveStreamUrl}?t=${Date.now()}`;
+// --- Écran LIVE : fondu enchaîné entre deux <img> superposées. La source ne
+// livre qu'~1 image/s (limite matérielle de l'ESP32-CAM, pas du réseau) ; on
+// précharge chaque nouvelle frame avant de la révéler, puis on bascule
+// l'opacité en CSS — beaucoup plus doux à l'œil qu'un remplacement brutal.
+function crossfadeLive(src) {
+    const showingA = liveFront === 'a';
+    const nextImg = document.getElementById(showingA ? 'img-1b' : 'img-1');
+    const curImg  = document.getElementById(showingA ? 'img-1'  : 'img-1b');
 
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(() => connectLiveStream(camId), STREAM_RECONNECT_MS);
+    const preload = new Image();
+    preload.onload = () => {
+        nextImg.src = src;
+        nextImg.classList.add('front');
+        curImg.classList.remove('front');
+        liveFront = showingA ? 'b' : 'a';
+
+        const timeTag = document.getElementById('time-1');
+        if (timeTag) timeTag.innerText = new Date().toLocaleTimeString();
+    };
+    preload.src = src;
 }
-
-document.getElementById("img-1").addEventListener("error", () => {
-    // Coupure réseau ou fin du flux côté serveur : reconnexion immédiate.
-    if (activeCameraId) connectLiveStream(activeCameraId);
-});
 
 // --- Vignettes T-1 / T-2 : buffer de snapshots (léger polling, indépendant du flux live) ---
 async function pollSnapshotBuffer() {
@@ -318,7 +321,6 @@ async function pollSnapshotBuffer() {
             document.getElementById("cam-label-live").innerText = `${activeCameraId} [LIVE]`;
             document.getElementById("cam-label-t1").innerText  = `${activeCameraId} [T-1]`;
             document.getElementById("cam-label-t2").innerText  = `${activeCameraId} [T-2]`;
-            connectLiveStream(activeCameraId);
         }
 
         const card = document.getElementById("screen-1");
@@ -328,6 +330,7 @@ async function pollSnapshotBuffer() {
         if (!cam.online) return;
 
         const snapshotSrc = `${cam.snapshot_url}?t=${Date.now()}`;
+        crossfadeLive(snapshotSrc);
         imageBuffer.unshift(snapshotSrc);
         if (imageBuffer.length > BUFFER_MAX) imageBuffer.pop();
         const count = imageBuffer.length;

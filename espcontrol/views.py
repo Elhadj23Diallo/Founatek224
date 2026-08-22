@@ -992,6 +992,15 @@ def mobile_surveillance_stream(request, camera_id):
     return _mjpeg_response(request.user.id, camera_id)
 
 
+def mobile_surveillance_snapshot(request, camera_id):
+    """Une seule frame live (équivalent mobile de get_live_image_content) — utilisée
+    par la WebView pour le fondu enchaîné (polling + crossfade), même logique que le site."""
+    image_data = _read_live_frame(request.user.id, camera_id)
+    if image_data is None:
+        return HttpResponse(status=404)
+    return HttpResponse(image_data, content_type="image/jpeg")
+
+
 def mobile_surveillance_cameras(request):
     """Liste dynamique des caméras actives de l'utilisateur (au lieu d'IDs en dur côté app)."""
     user_prefix = f"user_{request.user.id}"

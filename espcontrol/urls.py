@@ -112,6 +112,7 @@ urlpatterns = [
     path("stream/<str:camera_id>/live.mjpg", views.stream_camera_live, name="stream_camera_live"),
     # Vrai flux vidéo temps réel (MJPEG) — app mobile (auth Token)
     path("api/mobile/surveillance/stream/<str:camera_id>/", views.mobile_surveillance_stream, name="mobile_surveillance_stream"),
+    path("api/mobile/surveillance/snapshot/<str:camera_id>/", views.mobile_surveillance_snapshot, name="mobile_surveillance_snapshot"),
     path("api/mobile/surveillance/cameras/", views.mobile_surveillance_cameras, name="mobile_surveillance_cameras"),
     # 👇 NOUVELLES ROUTES
     path("archive/", views.archive_gallery, name="archive_gallery"),
