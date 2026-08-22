@@ -42,14 +42,6 @@ def poubelle_intelligente(request):
 def control_relais(request):
     return render(request, 'espcontrol/control_relais.html')
 
-@api_permission_required
-def get_latest_image(request):
-    image = UploadedImage.objects.all().order_by('-created_at').first()
-    if image:
-        return JsonResponse({'image_url': image.image.url})
-    return JsonResponse({'image_url': None})
-
-
 #🔌 Contrôle Relais via ESP8266
 
 ESP8266_IP = "http://192.168.167.93"
@@ -67,46 +59,6 @@ def toggle_relais(request, relais_num):
 
     except requests.exceptions.RequestException as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-#📸 Système de surveillance – upload & affichage image
-@api_permission_required
-class ImageUploadView(APIView):
-    def post(self, request, *args, **kwargs):
-        image_data = request.data.get('image', None)
-        if not image_data:
-            return Response({"error": "No image provided"}, status=400)
-
-        try:
-            img_data = base64.b64decode(image_data)
-            img = Image.open(BytesIO(img_data))
-            img_io = BytesIO()
-            img.save(img_io, 'JPEG')
-            img_io.seek(0)
-
-            uploaded_image = UploadedImage.objects.create(
-                image=ContentFile(img_io.read(), 'received_image.jpg')
-            )
-
-            return Response({
-                "message": "Image enregistrée avec succès",
-                "image_id": uploaded_image.id
-            }, status=200)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-@api_permission_required
-def systeme_surveillance(request):
-    images = UploadedImage.objects.all()
-    return render(request, 'espcontrol/surveillance.html', {'images': images})
-
-@api_permission_required
-def get_latest_image(request):
-    image = UploadedImage.objects.all().order_by('-created_at').first()
-    if image:
-        return JsonResponse({'image_url': image.image.url})
-    return JsonResponse({'image_url': None})
-
 
 #Vue pour le capteur de gaz
 from rest_framework import generics, status
@@ -792,7 +744,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
@@ -801,17 +753,20 @@ from .models import UploadedImage
 from PIL import Image, ImageChops, ImageStat
 import os
 import io
+import time
 import zipfile
 
 # 🔥 CORRECTION DÉFINITIVE DES IMPORTS DE DATE
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
-LIVE_DIR = "/home/Founatek224/Founatek224/media/live"
+# Portable (local Windows / PA Linux) au lieu d'un chemin absolu PA en dur.
+from django.conf import settings
+LIVE_DIR = str(settings.BASE_DIR / "media" / "live")
 MOTION_THRESHOLD = 5.0
 CACHE_TIMEOUT = 10  # secondes pour le live
-
-from django.core.cache import cache
+STREAM_FRAME_POLL = 0.15   # secondes entre deux verifications de nouvelle frame
+STREAM_MAX_DURATION = 25   # secondes avant reconnexion cote client (evite de monopoliser un worker PA)
 
 # --- VUE D'UPLOAD OPTIMISÉE ---
 class ImageUploadView(APIView):
@@ -916,33 +871,114 @@ def get_latest_frames(request):
 
         data.append({
             "camera_id": cam_id,
-            "image_url": f"/stream/{cam_id}/",
+            "image_url": f"/stream/{cam_id}/live.mjpg",
+            "snapshot_url": f"/stream/{cam_id}/",
             "created_at": "EN DIRECT",
-            "has_motion": is_alert
+            "has_motion": is_alert,
+            "online": _camera_is_online(request.user.id, cam_id),
         })
 
     return JsonResponse({"cameras": data})
 
 
-# --- VUE LIVE OPTIMISÉE ---
-@login_required
-def get_live_image_content(request, camera_id):
-    cache_key = f"live_{request.user.id}_{camera_id}"
-
+# --- LECTURE DE LA FRAME LIVE (cache d'abord, fichier disque en secours) ---
+def _read_live_frame(user_id, camera_id):
+    cache_key = f"live_{user_id}_{camera_id}"
     image_data = cache.get(cache_key)
     if image_data:
-        return HttpResponse(image_data, content_type="image/jpeg")
+        return image_data
 
-    user_prefix = f"user_{request.user.id}"
+    user_prefix = f"user_{user_id}"
     file_path = os.path.join(LIVE_DIR, f"{user_prefix}_{camera_id}.jpg")
-
     try:
         with open(file_path, "rb") as f:
             image_data = f.read()
-            cache.set(cache_key, image_data, CACHE_TIMEOUT)
-            return HttpResponse(image_data, content_type="image/jpeg")
+        cache.set(cache_key, image_data, CACHE_TIMEOUT)
+        return image_data
     except FileNotFoundError:
+        return None
+
+
+def _camera_is_online(user_id, camera_id):
+    # Une frame en cache prouve que la camera a poste une image il y a moins de CACHE_TIMEOUT secondes.
+    return cache.get(f"live_{user_id}_{camera_id}") is not None
+
+
+# --- VUE LIVE OPTIMISÉE (une seule image, utilisée pour les vignettes T-1/T-2) ---
+@login_required
+def get_live_image_content(request, camera_id):
+    image_data = _read_live_frame(request.user.id, camera_id)
+    if image_data is None:
         return HttpResponse(status=404)
+    return HttpResponse(image_data, content_type="image/jpeg")
+
+
+# --- VRAI FLUX VIDÉO TEMPS RÉEL (MJPEG multipart) ---
+def _mjpeg_generator(user_id, camera_id):
+    """Pousse chaque nouvelle frame dès qu'elle arrive (poll interne rapide, pas de
+    polling côté client) : c'est un vrai flux, pas un rafraîchissement périodique.
+    Coupé après STREAM_MAX_DURATION pour ne pas monopoliser un worker PA indéfiniment
+    — le client (navigateur ou app) se reconnecte automatiquement, ce qui est
+    imperceptible à l'écran."""
+    boundary = b"--frame\r\n"
+    last_frame = None
+    deadline = time.time() + STREAM_MAX_DURATION
+
+    while time.time() < deadline:
+        frame = _read_live_frame(user_id, camera_id)
+        if frame and frame != last_frame:
+            last_frame = frame
+            yield (
+                boundary +
+                b"Content-Type: image/jpeg\r\n" +
+                f"Content-Length: {len(frame)}\r\n\r\n".encode() +
+                frame + b"\r\n"
+            )
+        time.sleep(STREAM_FRAME_POLL)
+
+
+def _mjpeg_response(user_id, camera_id):
+    if _read_live_frame(user_id, camera_id) is None:
+        return HttpResponse("Caméra hors ligne", status=503)
+
+    response = StreamingHttpResponse(
+        _mjpeg_generator(user_id, camera_id),
+        content_type="multipart/x-mixed-replace; boundary=frame",
+    )
+    response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response["X-Accel-Buffering"] = "no"  # empêche nginx de bufferiser le flux
+    response["Connection"] = "close"
+    return response
+
+
+@login_required
+def stream_camera_live(request, camera_id):
+    """Flux MJPEG pour le site (auth session)."""
+    return _mjpeg_response(request.user.id, camera_id)
+
+
+def mobile_surveillance_stream(request, camera_id):
+    """Flux MJPEG pour l'app mobile (auth Token, gérée par APIKeyMiddleware)."""
+    return _mjpeg_response(request.user.id, camera_id)
+
+
+def mobile_surveillance_cameras(request):
+    """Liste dynamique des caméras actives de l'utilisateur (au lieu d'IDs en dur côté app)."""
+    user_prefix = f"user_{request.user.id}"
+    camera_ids = []
+    if os.path.exists(LIVE_DIR):
+        for filename in os.listdir(LIVE_DIR):
+            if filename.endswith(".jpg") and filename.startswith(user_prefix):
+                camera_ids.append(filename.replace(f"{user_prefix}_", "").replace(".jpg", ""))
+    if not camera_ids:
+        camera_ids = ["camera_salon"]
+
+    data = [{
+        "camera_id": cam_id,
+        "online": _camera_is_online(request.user.id, cam_id),
+        "stream_url": f"/api/mobile/surveillance/stream/{cam_id}/",
+    } for cam_id in camera_ids]
+    return JsonResponse({"cameras": data})
 
 
 # --- VUES ARCHIVE / DOWNLOAD ---

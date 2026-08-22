@@ -232,11 +232,15 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px
 const BUFFER_MAX = 30;
 const T1_THRESHOLD = 10;
 const T2_THRESHOLD = 30;
+// Le serveur coupe le flux après ~25s (pour ne pas monopoliser un worker PA) ;
+// on se reconnecte un peu avant pour que ce soit invisible à l'écran.
+const STREAM_RECONNECT_MS = 23000;
+const SNAPSHOT_POLL_MS = 400;
 
 let imageBuffer = [];
 let activeCameraId = null;
-let lastFrameTime = 0;
-const LIVE_TIMEOUT = 2000;
+let liveStreamUrl = null;
+let reconnectTimer = null;
 
 function updateLiveStatus(isReceiving) {
     const live = document.getElementById("live-indicator");
@@ -277,59 +281,71 @@ function updateWaitingBar(screen, current, max) {
     label.innerText = `${current} / ${max}`;
 }
 
-async function fetchLatestFrames() {
+// --- Vrai flux temps réel (MJPEG) pour l'écran LIVE : une seule connexion HTTP
+// que le navigateur affiche en continu, sans polling JS — c'est le flux poussé
+// par le serveur dès qu'une nouvelle frame arrive côté ESP32-CAM.
+function connectLiveStream(camId) {
+    const img1 = document.getElementById("img-1");
+    const wait1 = document.getElementById("wait-1");
+    if (wait1) wait1.style.display = "none";
+    liveStreamUrl = `/stream/${camId}/live.mjpg`;
+    img1.style.display = "block";
+    img1.src = `${liveStreamUrl}?t=${Date.now()}`;
+
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => connectLiveStream(camId), STREAM_RECONNECT_MS);
+}
+
+document.getElementById("img-1").addEventListener("error", () => {
+    // Coupure réseau ou fin du flux côté serveur : reconnexion immédiate.
+    if (activeCameraId) connectLiveStream(activeCameraId);
+});
+
+// --- Vignettes T-1 / T-2 : buffer de snapshots (léger polling, indépendant du flux live) ---
+async function pollSnapshotBuffer() {
     try {
         const response = await fetch("{% url 'get_latest_frames' %}");
-        if (!response.ok) return;
+        if (!response.ok) { updateLiveStatus(false); return; }
         const data = await response.json();
         const cams = data.cameras || [];
         if (!cams.length) { updateLiveStatus(false); return; }
 
         const cam = cams[0];
+        updateLiveStatus(!!cam.online);
+
         if (activeCameraId !== cam.camera_id) {
             activeCameraId = cam.camera_id;
             document.getElementById("cam-label-live").innerText = `${activeCameraId} [LIVE]`;
             document.getElementById("cam-label-t1").innerText  = `${activeCameraId} [T-1]`;
             document.getElementById("cam-label-t2").innerText  = `${activeCameraId} [T-2]`;
+            connectLiveStream(activeCameraId);
         }
 
-        const newSrc = `${cam.image_url}?t=${Date.now()}`;
-        const dl = new Image();
+        const card = document.getElementById("screen-1");
+        if (cam.has_motion) card.classList.add("alert");
+        else card.classList.remove("alert");
 
-        dl.onload = function() {
-            lastFrameTime = Date.now();
-            updateLiveStatus(true);
+        if (!cam.online) return;
 
-            imageBuffer.unshift(this.src);
-            if (imageBuffer.length > BUFFER_MAX) imageBuffer.pop();
-            const count = imageBuffer.length;
+        const snapshotSrc = `${cam.snapshot_url}?t=${Date.now()}`;
+        imageBuffer.unshift(snapshotSrc);
+        if (imageBuffer.length > BUFFER_MAX) imageBuffer.pop();
+        const count = imageBuffer.length;
 
-            showImage(1, imageBuffer[0], cam.has_motion);
+        if (count >= T1_THRESHOLD) showImage(2, imageBuffer[Math.floor(count / 2)]);
+        else updateWaitingBar(2, count, T1_THRESHOLD);
 
-            if (count >= T1_THRESHOLD) showImage(2, imageBuffer[Math.floor(count / 2)]);
-            else updateWaitingBar(2, count, T1_THRESHOLD);
+        if (count >= T2_THRESHOLD) showImage(3, imageBuffer[count - 1]);
+        else updateWaitingBar(3, count, T2_THRESHOLD);
 
-            if (count >= T2_THRESHOLD) showImage(3, imageBuffer[count - 1]);
-            else updateWaitingBar(3, count, T2_THRESHOLD);
-
-            // Précharge la prochaine frame pendant l'affichage
-            const preload = new Image();
-            preload.src = `${cam.image_url}?t=${Date.now() + 50}`;
-        };
-
-        dl.onerror = () => updateLiveStatus(false);
-        dl.src = newSrc;
-
-    } catch(e) {
+    } catch (e) {
         console.error(e);
         updateLiveStatus(false);
     }
 }
 
-// Détection de perte de signal
-setInterval(() => {
-    if (Date.now() - lastFrameTime > LIVE_TIMEOUT) updateLiveStatus(false);
-}, 500);
+setInterval(pollSnapshotBuffer, SNAPSHOT_POLL_MS);
+pollSnapshotBuffer();
 
 // Filtres vidéo
 function updateFilters() {
@@ -352,13 +368,6 @@ document.getElementById('reset-filters').addEventListener('click', () => {
     updateFilters();
 });
 
-// Boucle de streaming — plus réactive qu'un setInterval fixe
-async function streamLoop() {
-    await fetchLatestFrames();
-    setTimeout(streamLoop, 50);
-}
-
-streamLoop();
 </script>
 
 {% endblock %}
