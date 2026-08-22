@@ -247,6 +247,7 @@ const SNAPSHOT_POLL_MS = 350;
 let imageBuffer = [];
 let activeCameraId = null;
 let liveFront = 'a'; // laquelle de img-1 (a) / img-1b (b) est visible en ce moment
+let lastFrameId = null; // pour ne fondre/re-fetcher que sur une vraie nouvelle frame
 
 function updateLiveStatus(isReceiving) {
     const live = document.getElementById("live-indicator");
@@ -329,7 +330,14 @@ async function pollSnapshotBuffer() {
 
         if (!cam.online) return;
 
-        const snapshotSrc = `${cam.snapshot_url}?t=${Date.now()}`;
+        // Ne fait quelque chose que si une frame réellement nouvelle est arrivée —
+        // sinon on redemande inutilement la même image ~3x par frame réelle (la
+        // caméra ne livre qu'~1 image/s), ce qui faisait paraître le LIVE plus lent
+        // que les vignettes T-1/T-2 (elles, rejouent une URL déjà en cache navigateur).
+        if (cam.frame_id === lastFrameId) return;
+        lastFrameId = cam.frame_id;
+
+        const snapshotSrc = `${cam.snapshot_url}?t=${cam.frame_id}`;
         crossfadeLive(snapshotSrc);
         imageBuffer.unshift(snapshotSrc);
         if (imageBuffer.length > BUFFER_MAX) imageBuffer.pop();

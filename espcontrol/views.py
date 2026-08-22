@@ -894,6 +894,7 @@ def get_latest_frames(request):
             "created_at": "EN DIRECT",
             "has_motion": is_alert,
             "online": _camera_is_online(request.user.id, cam_id),
+            "frame_id": _frame_id(request.user.id, cam_id),
         })
 
     return JsonResponse({"cameras": data})
@@ -934,13 +935,26 @@ def _camera_is_online(user_id, camera_id):
         return False
 
 
+def _frame_id(user_id, camera_id):
+    # Identifiant qui change UNIQUEMENT quand une frame réellement nouvelle est
+    # écrite (mtime du fichier, mis à jour à chaque upload). Le client s'en sert
+    # pour ne déclencher un fetch + fondu que lorsqu'il y a vraiment du nouveau,
+    # au lieu de re-télécharger la même image à chaque poll (~3x/frame réelle).
+    try:
+        return int(os.path.getmtime(_live_frame_path(user_id, camera_id)) * 1000)
+    except FileNotFoundError:
+        return 0
+
+
 # --- VUE LIVE OPTIMISÉE (une seule image, utilisée pour les vignettes T-1/T-2) ---
 @login_required
 def get_live_image_content(request, camera_id):
     image_data = _read_live_frame(request.user.id, camera_id)
     if image_data is None:
         return HttpResponse(status=404)
-    return HttpResponse(image_data, content_type="image/jpeg")
+    response = HttpResponse(image_data, content_type="image/jpeg")
+    response["X-Frame-Id"] = str(_frame_id(request.user.id, camera_id))
+    return response
 
 
 # --- VRAI FLUX VIDÉO TEMPS RÉEL (MJPEG multipart) ---
@@ -998,7 +1012,9 @@ def mobile_surveillance_snapshot(request, camera_id):
     image_data = _read_live_frame(request.user.id, camera_id)
     if image_data is None:
         return HttpResponse(status=404)
-    return HttpResponse(image_data, content_type="image/jpeg")
+    response = HttpResponse(image_data, content_type="image/jpeg")
+    response["X-Frame-Id"] = str(_frame_id(request.user.id, camera_id))
+    return response
 
 
 def mobile_surveillance_cameras(request):

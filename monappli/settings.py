@@ -95,6 +95,9 @@ MIDDLEWARE = [
 
 # Autoriser toutes les origines (pour tester) :
 CORS_ALLOW_ALL_ORIGINS = True
+# Sans ça, un fetch() cross-origin (WebView mobile) ne peut pas lire ce header
+# personnalisé en JS, même si CORS_ALLOW_ALL_ORIGINS l'autorise déjà en requête.
+CORS_EXPOSE_HEADERS = ["X-Frame-Id"]
 
 ROOT_URLCONF = 'monappli.urls'
 
