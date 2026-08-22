@@ -11,7 +11,7 @@ class CompanyForm(forms.ModelForm):
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ["name", "sku", "image"]
+        fields = ["name", "sku", "image", "stock"]
 
 
 

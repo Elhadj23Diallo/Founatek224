@@ -1881,6 +1881,7 @@ def mobile_transparence_products(request):
                 "status": status_label,
                 "image": request.build_absolute_uri(p.image.url) if p.image else None,
                 "qr_download_url": qr_url,
+                "stock": p.stock,
             })
         return Response(data)
     except Exception as e:
@@ -1903,7 +1904,11 @@ def mobile_transparence_create_product(request):
             return Response({"error": "Nom et SKU requis"}, status=400)
         if Product.objects.filter(sku=sku).exists():
             return Response({"error": "Ce SKU existe déjà"}, status=409)
-        product = Product.objects.create(company=company, name=name, sku=sku)
+        stock = request.data.get("stock")
+        product = Product.objects.create(
+            company=company, name=name, sku=sku,
+            stock=int(stock) if stock not in (None, "") else None,
+        )
         image = request.FILES.get("image")
         if image:
             product.image = image
@@ -1918,7 +1923,7 @@ def mobile_transparence_create_product(request):
                 production_date=prod_date,
                 expiry_date=exp_date,
             )
-        return Response({"id": product.id, "uuid": str(product.uuid), "name": product.name, "sku": product.sku}, status=201)
+        return Response({"id": product.id, "uuid": str(product.uuid), "name": product.name, "sku": product.sku, "stock": product.stock}, status=201)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -1989,18 +1994,21 @@ def mobile_transparence_update_product(request, product_id):
         product = Product.objects.get(id=product_id, company=company)
         name = request.data.get("name")
         sku = request.data.get("sku")
+        stock = request.data.get("stock")
         if sku and Product.objects.filter(sku=sku).exclude(id=product.id).exists():
             return Response({"error": "Ce SKU existe déjà"}, status=409)
         if name:
             product.name = name
         if sku:
             product.sku = sku
+        if stock is not None:
+            product.stock = int(stock) if stock != "" else None
         image = request.FILES.get("image")
         if image:
             product.image = image
         product.save()
         return Response({
-            "id": product.id, "name": product.name, "sku": product.sku,
+            "id": product.id, "name": product.name, "sku": product.sku, "stock": product.stock,
             "image": request.build_absolute_uri(product.image.url) if product.image else None,
         })
     except Product.DoesNotExist:
@@ -2075,6 +2083,7 @@ def mobile_transparence_scan(request, uuid):
             "status": status_label,
             "image": request.build_absolute_uri(p.image.url) if p.image else None,
             "company_logo": request.build_absolute_uri(p.company.logo.url) if p.company and p.company.logo else None,
+            "stock": p.stock,
             "price_history": [{
                 "price": float(h.price),
                 "changed_at": h.changed_at.isoformat(),
@@ -2094,6 +2103,7 @@ def mobile_transparence_create_sale(request):
     """Body: { "items": [{"product_id": 1, "quantity": 2}] } — le prix est
     toujours repris du prix en vigueur côté serveur, jamais fourni par le client."""
     try:
+        from django.db import transaction
         from product_transparency.models import Company, Product, Sale, SaleItem
         from decimal import Decimal
         company = Company.objects.filter(user=request.user).first()
@@ -2103,21 +2113,35 @@ def mobile_transparence_create_sale(request):
         if not items_data:
             return Response({"error": "Panier vide"}, status=400)
 
-        sale = Sale.objects.create(company=company, total_amount=Decimal("0.00"))
-        total = Decimal("0.00")
-        for i in items_data:
-            try:
-                product = Product.objects.get(id=i["product_id"], company=company)
-                qty = int(i["quantity"])
-                price = product.pricing.price
-            except (Product.DoesNotExist, KeyError, TypeError, ValueError, AttributeError):
-                sale.delete()
-                return Response({"error": "Produit invalide dans le panier"}, status=400)
-            SaleItem.objects.create(sale=sale, product=product, quantity=qty, unit_price=price)
-            total += price * qty
+        with transaction.atomic():
+            sale = Sale.objects.create(company=company, total_amount=Decimal("0.00"))
+            total = Decimal("0.00")
+            for i in items_data:
+                try:
+                    product = Product.objects.select_for_update().get(id=i["product_id"], company=company)
+                    qty = int(i["quantity"])
+                    price = product.pricing.price
+                except (Product.DoesNotExist, KeyError, TypeError, ValueError, AttributeError):
+                    sale.delete()
+                    return Response({"error": "Produit invalide dans le panier"}, status=400)
 
-        sale.total_amount = total
-        sale.save(update_fields=["total_amount"])
+                if product.stock is not None and qty > product.stock:
+                    sale.delete()
+                    return Response(
+                        {"error": f"Stock insuffisant pour {product.name} ({product.stock} disponible)"},
+                        status=400
+                    )
+
+                SaleItem.objects.create(sale=sale, product=product, quantity=qty, unit_price=price)
+
+                if product.stock is not None:
+                    product.stock -= qty
+                    product.save(update_fields=["stock"])
+
+                total += price * qty
+
+            sale.total_amount = total
+            sale.save(update_fields=["total_amount"])
         return Response({"id": str(sale.id), "sale_id": str(sale.id), "total": float(sale.total_amount), "items": len(items_data)}, status=201)
     except Exception as e:
         return Response({"error": str(e)}, status=500)

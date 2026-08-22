@@ -154,7 +154,7 @@ function renderCart() {
                 <div>
                     ${item.name}
                     <div class="cart-controls">
-                        <button class="qty-btn" onclick="cart[${i}].qty++; renderCart()">+</button>
+                        <button class="qty-btn" onclick="incrementQty(${i})">+</button>
                         <strong>${item.qty}</strong>
                         <button class="qty-btn" onclick="cart[${i}].qty--; if(cart[${i}].qty<=0)cart.splice(${i},1); renderCart()">−</button>
                         <button class="remove-btn" onclick="cart.splice(${i},1); renderCart()">✕</button>
@@ -177,11 +177,27 @@ function addProduct(uuid) {
         .then(r => r.json())
         .then(d => {
             const existing = cart.find(p => p.uid === uuid);
+            const nextQty = (existing ? existing.qty : 0) + 1;
+            if (d.stock != null && nextQty > d.stock) {
+                alert(`Stock insuffisant pour ${d.name} (${d.stock} disponible)`);
+                return;
+            }
             if (existing) existing.qty++;
-            else cart.push({ uid: uuid, name: d.name, price: +d.price, currency: d.currency, qty: 1 });
+            else cart.push({ uid: uuid, name: d.name, price: +d.price, currency: d.currency, qty: 1, stock: d.stock });
             renderCart();
         })
         .finally(() => setTimeout(() => antiSpam = [], 800));
+}
+
+/* ===== INCREMENT (borné par le stock) ===== */
+function incrementQty(i) {
+    const item = cart[i];
+    if (item.stock != null && item.qty + 1 > item.stock) {
+        alert(`Stock insuffisant pour ${item.name} (${item.stock} disponible)`);
+        return;
+    }
+    item.qty++;
+    renderCart();
 }
 
 /* ===== VALIDATION → API + PDF ===== */

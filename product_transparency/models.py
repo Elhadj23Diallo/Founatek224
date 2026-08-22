@@ -75,6 +75,12 @@ class Product(models.Model):
         unique=True
     )
 
+    stock = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Quantité en stock. Laisser vide pour ne pas suivre le stock (vente illimitée)."
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

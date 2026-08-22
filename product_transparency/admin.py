@@ -24,7 +24,7 @@ class CompanyAdmin(admin.ModelAdmin):
 # =========================
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "sku", "company", "created_at")
+    list_display = ("name", "sku", "company", "stock", "created_at")
     search_fields = ("name", "sku")
     list_filter = ("company",)
     readonly_fields = ("uuid",)

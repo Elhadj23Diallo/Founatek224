@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.db import transaction
 from product_transparency.models import Sale, SaleItem, Product, Company
 from decimal import Decimal
 
@@ -38,34 +39,48 @@ class CreateSaleAPIView(APIView):
         if not company:
             return Response({"error": "Aucune entreprise associée à votre compte"}, status=403)
 
-        sale = Sale.objects.create(
-            company=company,
-            total_amount=Decimal("0.00")
-        )
-
-        total = Decimal("0.00")
-
-        for item in items:
-            try:
-                # Le produit doit appartenir à la même entreprise que le vendeur.
-                product = Product.objects.get(uuid=item["product_id"], company=company)
-                qty = int(item["quantity"])
-                price = product.pricing.price
-            except (Product.DoesNotExist, KeyError, TypeError, ValueError):
-                sale.delete()
-                return Response({"error": "Produit invalide dans le panier"}, status=400)
-
-            SaleItem.objects.create(
-                sale=sale,
-                product=product,
-                quantity=qty,
-                unit_price=price
+        with transaction.atomic():
+            sale = Sale.objects.create(
+                company=company,
+                total_amount=Decimal("0.00")
             )
 
-            total += price * qty
+            total = Decimal("0.00")
 
-        sale.total_amount = total
-        sale.save()
+            for item in items:
+                try:
+                    # Le produit doit appartenir à la même entreprise que le vendeur.
+                    # select_for_update verrouille la ligne le temps de la transaction pour
+                    # empêcher deux caisses de vendre le même dernier stock en même temps.
+                    product = Product.objects.select_for_update().get(uuid=item["product_id"], company=company)
+                    qty = int(item["quantity"])
+                    price = product.pricing.price
+                except (Product.DoesNotExist, KeyError, TypeError, ValueError):
+                    sale.delete()
+                    return Response({"error": "Produit invalide dans le panier"}, status=400)
+
+                if product.stock is not None and qty > product.stock:
+                    sale.delete()
+                    return Response(
+                        {"error": f"Stock insuffisant pour {product.name} ({product.stock} disponible)"},
+                        status=400
+                    )
+
+                SaleItem.objects.create(
+                    sale=sale,
+                    product=product,
+                    quantity=qty,
+                    unit_price=price
+                )
+
+                if product.stock is not None:
+                    product.stock -= qty
+                    product.save(update_fields=["stock"])
+
+                total += price * qty
+
+            sale.total_amount = total
+            sale.save()
 
         return Response({
             "success": True,

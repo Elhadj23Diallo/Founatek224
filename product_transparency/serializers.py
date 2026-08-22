@@ -27,6 +27,7 @@ class PublicProductScanSerializer(serializers.ModelSerializer):
             "status",
             "image",
             "company_logo",
+            "stock",
         ]
 
     def get_price(self, obj):
