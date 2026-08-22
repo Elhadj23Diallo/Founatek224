@@ -748,6 +748,7 @@ from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
+from django.core.cache import caches
 from .models import UploadedImage
 from PIL import Image, ImageChops, ImageStat
 import os
@@ -765,6 +766,7 @@ LIVE_DIR = str(settings.BASE_DIR / "media" / "live")
 MOTION_THRESHOLD = 5.0
 CACHE_TIMEOUT = 10  # secondes pour le live
 STREAM_FRAME_POLL = 0.08   # secondes entre deux verifications de nouvelle frame
+live_cache = caches["live_frames"]  # cache RAM dedie aux frames live (voir CACHES dans settings.py)
 STREAM_MAX_DURATION = 25   # secondes avant reconnexion cote client (evite de monopoliser un worker PA)
 
 # --- VUE D'UPLOAD OPTIMISÉE ---
@@ -800,18 +802,24 @@ class ImageUploadView(APIView):
         # 🔥 AJOUT USER DANS LE NOM DU FICHIER
         user_prefix = f"user_{request.user.id}"
         live_file_path = os.path.join(LIVE_DIR, f"{user_prefix}_{camera_id}.jpg")
+        cache_key = f"live_{request.user.id}_{camera_id}"
 
-        # Lit l'ancienne frame AVANT de l'écraser (nécessaire pour la détection de mouvement).
-        previous_image_data = None
-        try:
-            with open(live_file_path, 'rb') as f:
-                previous_image_data = f.read()
-        except FileNotFoundError:
-            pass
+        # Lit l'ancienne frame AVANT de l'écraser (nécessaire pour la détection de mouvement) —
+        # le cache RAM d'abord (rapide), le fichier en secours.
+        previous_image_data = live_cache.get(cache_key)
+        if previous_image_data is None:
+            try:
+                with open(live_file_path, 'rb') as f:
+                    previous_image_data = f.read()
+            except FileNotFoundError:
+                pass
 
         # 1. MISE À JOUR LIVE — en priorité, avant tout calcul, pour que les spectateurs
-        # du flux reçoivent la nouvelle frame le plus vite possible. Écriture atomique
-        # (fichier temporaire + renommage) pour ne jamais servir un JPEG à moitié écrit.
+        # du flux reçoivent la nouvelle frame le plus vite possible.
+        # Cache RAM d'abord (instantané, lu par le flux MJPEG du même worker), puis
+        # écriture atomique sur disque (fichier temporaire + renommage, jamais de JPEG à
+        # moitié écrit) — source de vérité partagée entre workers uWSGI.
+        live_cache.set(cache_key, new_image_data, CACHE_TIMEOUT)
         try:
             tmp_path = f"{live_file_path}.tmp"
             with open(tmp_path, 'wb') as f:
@@ -892,23 +900,33 @@ def get_latest_frames(request):
 
 
 # --- LECTURE DE LA FRAME LIVE ---
-# Lecture directe du fichier disque : le cache Django (FileBasedCache = fichiers +
-# pickle + verrous) n'apportait aucun gain ici et ajoutait un aller-retour disque en
-# plus à chaque frame reçue (upload) et à chaque poll du flux (150ms x nb spectateurs).
+# Cache RAM (live_cache, voir CACHES["live_frames"] dans settings.py) en priorité —
+# vitesse maximale pour le flux MJPEG. Le fichier disque sert de secours si la
+# requête tombe sur un worker uWSGI différent de celui qui a reçu l'upload (le
+# cache RAM est local à chaque worker, pas partagé).
 def _live_frame_path(user_id, camera_id):
     return os.path.join(LIVE_DIR, f"user_{user_id}_{camera_id}.jpg")
 
 
 def _read_live_frame(user_id, camera_id):
+    cache_key = f"live_{user_id}_{camera_id}"
+    data = live_cache.get(cache_key)
+    if data is not None:
+        return data
     try:
         with open(_live_frame_path(user_id, camera_id), "rb") as f:
-            return f.read()
+            data = f.read()
     except FileNotFoundError:
         return None
+    live_cache.set(cache_key, data, CACHE_TIMEOUT)  # rechauffe le cache pour ce worker
+    return data
 
 
 def _camera_is_online(user_id, camera_id):
-    # Une frame écrite il y a moins de CACHE_TIMEOUT secondes = caméra active.
+    if live_cache.get(f"live_{user_id}_{camera_id}") is not None:
+        return True
+    # Une frame écrite il y a moins de CACHE_TIMEOUT secondes = caméra active
+    # (secours si ce worker n'a pas la frame en cache RAM).
     try:
         age = time.time() - os.path.getmtime(_live_frame_path(user_id, camera_id))
         return age < CACHE_TIMEOUT

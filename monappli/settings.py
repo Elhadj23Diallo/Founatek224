@@ -255,5 +255,16 @@ CACHES = {
         'OPTIONS': {
             'MAX_ENTRIES': 1000
         }
+    },
+    # Cache RAM (pas de fichier, pas de pickle sur disque) dédié aux frames live de la
+    # surveillance : lecture/écriture aussi rapides que possible pour le flux MJPEG.
+    # Portée par worker uWSGI — le fichier sur LIVE_DIR reste la source de vérité
+    # partagée entre workers, ce cache n'est qu'une accélération.
+    'live_frames': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'TIMEOUT': 10,
+        'OPTIONS': {
+            'MAX_ENTRIES': 200,
+        }
     }
 }
