@@ -248,6 +248,8 @@ let imageBuffer = [];
 let activeCameraId = null;
 let liveFront = 'a'; // laquelle de img-1 (a) / img-1b (b) est visible en ce moment
 let lastFrameId = null; // pour ne fondre/re-fetcher que sur une vraie nouvelle frame
+let pendingSrc = null;  // frame en cours de préchargement, pas encore révélée
+let pendingImg = null;
 
 function updateLiveStatus(isReceiving) {
     const live = document.getElementById("live-indicator");
@@ -265,7 +267,7 @@ function updateLiveStatus(isReceiving) {
 }
 
 // Utilisée pour les vignettes T-1/T-2 (remplacement direct, pas de fondu nécessaire
-// pour ces panneaux de relecture). L'écran LIVE (screen 1) passe par crossfadeLive().
+// pour ces panneaux de relecture). L'écran LIVE (screen 1) passe par schedulePreloadLive()/checkPendingLive().
 function showImage(screen, src) {
     const img = document.getElementById(`img-${screen}`);
     const wait = document.getElementById(`wait-${screen}`);
@@ -284,25 +286,37 @@ function updateWaitingBar(screen, current, max) {
 }
 
 // --- Écran LIVE : fondu enchaîné entre deux <img> superposées. La source ne
-// livre qu'~1 image/s (limite matérielle de l'ESP32-CAM, pas du réseau) ; on
-// précharge chaque nouvelle frame avant de la révéler, puis on bascule
-// l'opacité en CSS — beaucoup plus doux à l'œil qu'un remplacement brutal.
-function crossfadeLive(src) {
+// livre qu'~1 image/s (limite matérielle de l'ESP32-CAM, pas du réseau).
+//
+// La révélation est déclenchée au tick de poll SUIVANT (voir checkPendingLive),
+// pas dès que le téléchargement se termine : sinon LIVE se révèle au moment
+// aléatoire où le réseau répond, alors que T-1/T-2 (déjà en cache) se mettent à
+// jour instantanément au même tick — ça donnait l'impression que LIVE "arrivait
+// après". En calant tout sur le rythme du poll, les trois panneaux avancent
+// ensemble, au prix d'un tick (350ms) de délai supplémentaire tout au plus.
+function schedulePreloadLive(src) {
+    pendingSrc = src;
+    pendingImg = new Image();
+    pendingImg.src = src;
+}
+
+function checkPendingLive() {
+    if (!pendingImg || !pendingImg.complete || !pendingImg.naturalWidth) return;
+
     const showingA = liveFront === 'a';
     const nextImg = document.getElementById(showingA ? 'img-1b' : 'img-1');
     const curImg  = document.getElementById(showingA ? 'img-1'  : 'img-1b');
 
-    const preload = new Image();
-    preload.onload = () => {
-        nextImg.src = src;
-        nextImg.classList.add('front');
-        curImg.classList.remove('front');
-        liveFront = showingA ? 'b' : 'a';
+    nextImg.src = pendingSrc;
+    nextImg.classList.add('front');
+    curImg.classList.remove('front');
+    liveFront = showingA ? 'b' : 'a';
 
-        const timeTag = document.getElementById('time-1');
-        if (timeTag) timeTag.innerText = new Date().toLocaleTimeString();
-    };
-    preload.src = src;
+    const timeTag = document.getElementById('time-1');
+    if (timeTag) timeTag.innerText = new Date().toLocaleTimeString();
+
+    pendingImg = null;
+    pendingSrc = null;
 }
 
 // --- Vignettes T-1 / T-2 : buffer de snapshots (léger polling, indépendant du flux live) ---
@@ -334,20 +348,25 @@ async function pollSnapshotBuffer() {
         // sinon on redemande inutilement la même image ~3x par frame réelle (la
         // caméra ne livre qu'~1 image/s), ce qui faisait paraître le LIVE plus lent
         // que les vignettes T-1/T-2 (elles, rejouent une URL déjà en cache navigateur).
-        if (cam.frame_id === lastFrameId) return;
-        lastFrameId = cam.frame_id;
+        if (cam.frame_id !== lastFrameId) {
+            lastFrameId = cam.frame_id;
 
-        const snapshotSrc = `${cam.snapshot_url}?t=${cam.frame_id}`;
-        crossfadeLive(snapshotSrc);
-        imageBuffer.unshift(snapshotSrc);
-        if (imageBuffer.length > BUFFER_MAX) imageBuffer.pop();
-        const count = imageBuffer.length;
+            const snapshotSrc = `${cam.snapshot_url}?t=${cam.frame_id}`;
+            schedulePreloadLive(snapshotSrc);
+            imageBuffer.unshift(snapshotSrc);
+            if (imageBuffer.length > BUFFER_MAX) imageBuffer.pop();
+            const count = imageBuffer.length;
 
-        if (count >= T1_THRESHOLD) showImage(2, imageBuffer[Math.floor(count / 2)]);
-        else updateWaitingBar(2, count, T1_THRESHOLD);
+            if (count >= T1_THRESHOLD) showImage(2, imageBuffer[Math.floor(count / 2)]);
+            else updateWaitingBar(2, count, T1_THRESHOLD);
 
-        if (count >= T2_THRESHOLD) showImage(3, imageBuffer[count - 1]);
-        else updateWaitingBar(3, count, T2_THRESHOLD);
+            if (count >= T2_THRESHOLD) showImage(3, imageBuffer[count - 1]);
+            else updateWaitingBar(3, count, T2_THRESHOLD);
+        }
+
+        // Révèle LIVE si la frame préchargée (ce tick ou un précédent) est prête —
+        // en phase avec le même rythme de poll que T-1/T-2.
+        checkPendingLive();
 
     } catch (e) {
         console.error(e);
