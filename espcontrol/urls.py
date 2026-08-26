@@ -216,4 +216,5 @@ urlpatterns = [
     path('api/mobile/univers/', api_views.mobile_dashboard_univers, name='mobile_dashboard_univers'),
     path('api/mobile/alerts/sensor/<str:sensor>/graph/', api_views.mobile_alert_graph_data, name='mobile_alert_graph_data'),
     path('api/mobile/alerts/sensor/<str:sensor>/', api_views.mobile_alerts_by_sensor, name='mobile_alerts_by_sensor'),
+    path('api/mobile/modules/', api_views.mobile_published_modules, name='mobile_published_modules'),
 ]

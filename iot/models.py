@@ -321,5 +321,21 @@ class Certification(models.Model):
         super().save(*args, **kwargs)
 
 
+class PlatformModule(models.Model):
+    """Interrupteur admin par module (Boutique, Traçabilité, ...) : publié =
+    visible sur le site ET l'app mobile, décoché = masqué partout. Voir
+    core/module_visibility.py pour la lecture (mise en cache) côté site/API."""
+    key = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    is_published = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({'publié' if self.is_published else 'masqué'})"
+
+
 
 

@@ -203,33 +203,41 @@ h1 {
             <div class="node-label">Mon Profil</div>
         </a>
 
-    {% if not is_apprenant_role %}
+    {% if not is_apprenant_role and published_modules.boutique %}
         <a href="{% url 'founatekapp:home' %}" class="node-block node-gold">
             <div class="icon-box"><i class="fas fa-store"></i></div>
             <div class="node-label">Boutique</div>
         </a>
     {% endif %}
 
+    {% if published_modules.tracabilite %}
         <a href="{% url 'product_transparency:company-dashboard' %}" class="node-block node-social">
             <div class="icon-box"><i class="fas fa-qrcode"></i></div>
             <div class="node-label">Traçabilité</div>
         </a>
+    {% endif %}
 
     {% if not is_acheteur_role %}
+        {% if published_modules.apprentissage %}
         <a href="{% url 'iot:liste_parcours' %}" class="node-block node-social">
             <div class="icon-box"><i class="fas fa-graduation-cap"></i></div>
             <div class="node-label">Apprentissage</div>
         </a>
+        {% endif %}
 
+        {% if published_modules.social_feed %}
         <a href="{% url 'techfeed:feed' %}" class="node-block node-social">
             <div class="icon-box"><i class="fas fa-users"></i></div>
             <div class="node-label">Social Feed</div>
         </a>
+        {% endif %}
 
+        {% if published_modules.premium %}
         <a href="{% url 'monetisation:monetisation_dashboard' %}" class="node-block node-gold">
             <div class="icon-box"><i class="fas fa-gem"></i></div>
             <div class="node-label">Premium</div>
         </a>
+        {% endif %}
 
         <a href="{% url 'iot:comment_ca_marche' %}" class="node-block">
             <div class="icon-box"><i class="fas fa-question-circle"></i></div>
@@ -243,10 +251,12 @@ h1 {
         <div class="node-label">Formateur</div>
     </a>
 
+    {% if published_modules.caisse %}
     <a href="{% url 'product_transparency:scan-cart' %}" class="node-block node-gold">
         <div class="icon-box"><i class="fas fa-cash-register"></i></div>
         <div class="node-label">Scan Panier (Caisse)</div>
     </a>
+    {% endif %}
     {% endif %}
 
     </div>

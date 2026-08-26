@@ -113,6 +113,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.paypal_settings',
                 'core.context_processors.user_role',
+                'core.context_processors.published_modules',
                 'techfeed.context_processors.badging',
             ],
         },

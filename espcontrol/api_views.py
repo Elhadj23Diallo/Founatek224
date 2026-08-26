@@ -2709,3 +2709,13 @@ def mobile_alerts_by_sensor(request, sensor):
         } for a in alerts])
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_published_modules(request):
+    """Modules publiés/masqués depuis l'admin (iot.PlatformModule) — même source
+    que le menu du site, pour que l'app mobile masque les mêmes modules."""
+    from core.module_visibility import get_published_modules
+    return Response(get_published_modules())

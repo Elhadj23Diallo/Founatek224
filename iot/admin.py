@@ -9,7 +9,15 @@ from .models import (
     Project,
     Progression,
     Certification,
+    PlatformModule,
 )
+
+
+@admin.register(PlatformModule)
+class PlatformModuleAdmin(admin.ModelAdmin):
+    list_display = ("name", "key", "is_published", "updated_at")
+    list_editable = ("is_published",)  # coche/décoche directement dans la liste
+    search_fields = ("name", "key")
 
 
 # ===========================
