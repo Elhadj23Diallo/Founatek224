@@ -176,6 +176,7 @@ class BlocPedagogique(models.Model):
         ('image', 'Image'),
         ('video', 'Vidéo'),
         ('code', 'Code'),
+        ('interactif', 'Interactif (HTML)'),
     ], max_length=20)
 
     contenu = models.TextField(blank=True, null=True)

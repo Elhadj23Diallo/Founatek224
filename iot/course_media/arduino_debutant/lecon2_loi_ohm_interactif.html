@@ -1,0 +1,70 @@
+<h2 class="sr-only">Analogie hydraulique de la loi d'Ohm : la pression représente la tension, le rétrécissement du tuyau la résistance, et le débit le courant.</h2>
+<div style="padding:1rem 0">
+<svg width="100%" viewBox="0 0 680 300" role="img"><title>Analogie de l'eau</title><desc>Un réservoir sous pression alimente un tuyau rétréci ; le débit résultant illustre le courant.</desc>
+<rect x="40" y="50" width="120" height="180" rx="8" fill="none" stroke="#5F5E5A" stroke-width="1.5"/>
+<rect id="niveau" x="42" y="110" width="116" height="118" fill="#378ADD" opacity="0.45"/>
+<text class="ts" x="100" y="255" text-anchor="middle">Réservoir</text>
+<text class="th" x="100" y="275" text-anchor="middle">Tension (V)</text>
+<rect x="160" y="185" width="150" height="26" fill="#378ADD" opacity="0.35"/>
+<rect id="etranglement" x="310" y="191" width="70" height="14" fill="#378ADD" opacity="0.35"/>
+<rect x="380" y="185" width="180" height="26" fill="#378ADD" opacity="0.35"/>
+<line x1="160" y1="185" x2="310" y2="185" stroke="#5F5E5A" stroke-width="1.5"/>
+<line x1="160" y1="211" x2="310" y2="211" stroke="#5F5E5A" stroke-width="1.5"/>
+<line id="hautE" x1="310" y1="185" x2="310" y2="191" stroke="#5F5E5A" stroke-width="1.5"/>
+<line id="basE" x1="310" y1="211" x2="310" y2="205" stroke="#5F5E5A" stroke-width="1.5"/>
+<line id="hautT" x1="310" y1="191" x2="380" y2="191" stroke="#5F5E5A" stroke-width="1.5"/>
+<line id="basT" x1="310" y1="205" x2="380" y2="205" stroke="#5F5E5A" stroke-width="1.5"/>
+<line id="hautS" x1="380" y1="191" x2="380" y2="185" stroke="#5F5E5A" stroke-width="1.5"/>
+<line id="basS" x1="380" y1="205" x2="380" y2="211" stroke="#5F5E5A" stroke-width="1.5"/>
+<line x1="380" y1="185" x2="560" y2="185" stroke="#5F5E5A" stroke-width="1.5"/>
+<line x1="380" y1="211" x2="560" y2="211" stroke="#5F5E5A" stroke-width="1.5"/>
+<text class="th" x="345" y="150" text-anchor="middle">Résistance (Ω)</text>
+<text class="ts" x="345" y="168" text-anchor="middle">Rétrécissement</text>
+<circle id="g1" cx="440" cy="198" r="4" fill="#185FA5"/>
+<circle id="g2" cx="480" cy="198" r="4" fill="#185FA5"/>
+<circle id="g3" cx="520" cy="198" r="4" fill="#185FA5"/>
+<text class="th" x="620" y="192" text-anchor="middle">Débit</text>
+<text class="th" x="620" y="212" text-anchor="middle">Courant (A)</text>
+</svg>
+<div style="display:flex;align-items:center;gap:12px;margin-top:1rem">
+<label style="font-size:14px;color:var(--text-secondary);min-width:90px">Tension</label>
+<input type="range" id="u" min="1" max="12" step="1" value="5" style="flex:1" oninput="maj()">
+<span id="uOut" style="font-size:14px;font-weight:500;min-width:44px;text-align:right">5 V</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+<label style="font-size:14px;color:var(--text-secondary);min-width:90px">Résistance</label>
+<input type="range" id="r" min="50" max="1000" step="10" value="220" style="flex:1" oninput="maj()">
+<span id="rOut" style="font-size:14px;font-weight:500;min-width:44px;text-align:right">220 Ω</span>
+</div>
+<div style="background:var(--surface-1);border-radius:8px;padding:1rem;margin-top:1rem;text-align:center">
+<p style="font-size:13px;color:var(--text-secondary);margin:0">Courant obtenu — I = U / R</p>
+<p id="iOut" style="font-size:24px;font-weight:500;margin:4px 0 0">22.7 mA</p>
+</div>
+</div>
+<script>
+function maj(){
+  var u=+document.getElementById('u').value, r=+document.getElementById('r').value;
+  document.getElementById('uOut').textContent=u+' V';
+  document.getElementById('rOut').textContent=r+' Ω';
+  var i=u/r*1000;
+  document.getElementById('iOut').textContent=i.toFixed(1)+' mA';
+  var h=180*(u/12);
+  document.getElementById('niveau').setAttribute('y',230-h);
+  document.getElementById('niveau').setAttribute('height',h);
+  var e=Math.max(2,Math.round(22*(1-(r-50)/950)));
+  var top=198-e/2, bot=198+e/2;
+  document.getElementById('etranglement').setAttribute('y',top);
+  document.getElementById('etranglement').setAttribute('height',e);
+  document.getElementById('hautE').setAttribute('y2',top);
+  document.getElementById('basE').setAttribute('y2',bot);
+  document.getElementById('hautT').setAttribute('y1',top);
+  document.getElementById('hautT').setAttribute('y2',top);
+  document.getElementById('basT').setAttribute('y1',bot);
+  document.getElementById('basT').setAttribute('y2',bot);
+  document.getElementById('hautS').setAttribute('y1',top);
+  document.getElementById('basS').setAttribute('y1',bot);
+  var rr=Math.max(1.5,Math.min(7,i/6));
+  ['g1','g2','g3'].forEach(function(id){document.getElementById(id).setAttribute('r',rr);});
+}
+maj();
+</script>
