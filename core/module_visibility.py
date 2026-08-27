@@ -17,6 +17,13 @@ DEFAULT_MODULES = {
     "social_feed": "Social Feed",
     "premium": "Premium / Monétisation",
     "caisse": "Scan Panier (Caisse)",
+    # Sections du dashboard IoT (home.html)
+    "air_quality": "Air Quality IoT",
+    "actionneurs": "Actionneurs (Relais)",
+    "capteurs": "Capteurs",
+    "eclairage": "Éclairage (LED)",
+    "surveillance_acces": "Sécurité & Surveillance",
+    "analytics_export": "Analytics & Export",
 }
 
 

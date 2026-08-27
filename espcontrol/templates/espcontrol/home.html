@@ -244,6 +244,7 @@
         </div>
 
         <div class="layout-right">
+            {% if published_modules.air_quality %}
             <div class="group-container">
                 <div class="group-label-title">🌍 Air Quality IoT</div>
                 <div class="nodes-row" style="margin-top:20px;">
@@ -274,7 +275,9 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
+            {% if published_modules.actionneurs %}
             <div class="group-container">
                 <div class="group-label-title">⚡ Actionneurs</div>
                 <div class="relais-mini-container" style="margin-top:18px;">
@@ -285,8 +288,10 @@
                     <div class="node-mini" title="Prise"><i class="fas fa-plug"></i></div>
                 </div>
             </div>
+            {% endif %}
 
             <div class="group-split">
+                {% if published_modules.capteurs %}
                 <div class="sub-group group-container">
                     <div class="group-label-title">🌡 Capteurs</div>
                     <div class="sensors-grid">
@@ -317,6 +322,8 @@
                         </a>
                     </div>
                 </div>
+                {% endif %}
+                {% if published_modules.eclairage %}
                 <div class="sub-group group-container">
                     <div class="group-label-title">💡 Éclairage</div>
                     <div class="sensors-grid">
@@ -330,8 +337,10 @@
                         </a>
                     </div>
                 </div>
+                {% endif %}
             </div>
 
+            {% if published_modules.surveillance_acces %}
             <div class="group-container">
                 <div class="group-label-title">🔒 Sécurité & Surveillance</div>
                 <div class="nodes-row" style="margin-top:20px;">
@@ -354,7 +363,9 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
+            {% if published_modules.analytics_export %}
             <div class="group-container">
                 <div class="group-label-title">📊 Analytics & Export</div>
                 <div class="nodes-row" style="margin-top:20px;">
@@ -384,6 +395,7 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
