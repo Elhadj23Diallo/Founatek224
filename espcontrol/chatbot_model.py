@@ -902,12 +902,22 @@ class Chatbot:
                     if c else "🔢 Aucun comptage enregistré.")
 
         if t == "rgb":
+            # update_or_create (et non create) : une seule ligne "état actuel" par
+            # utilisateur, cohérent avec ce que lisent le site/l'app/l'ESP32 — create()
+            # accumulait une nouvelle ligne à chaque commande vocale sans jamais
+            # nettoyer les anciennes.
             if intent.get("action") == "eteins":
-                LEDColor.objects.create(user=self.user, r=0, g=0, b=0)
+                LEDColor.objects.update_or_create(
+                    user=self.user,
+                    defaults={"r": 0, "g": 0, "b": 0, "effect": "fixe", "device_confirmed_at": None},
+                )
                 return "⚫ LED RGB éteinte."
             rgb = extract_rgb(intent.get("raw", ""))
             if rgb and rgb != (0, 0, 0):
-                LEDColor.objects.create(user=self.user, r=rgb[0], g=rgb[1], b=rgb[2])
+                LEDColor.objects.update_or_create(
+                    user=self.user,
+                    defaults={"r": rgb[0], "g": rgb[1], "b": rgb[2], "effect": "fixe", "device_confirmed_at": None},
+                )
                 return f"🎨 Couleur RGB appliquée : {rgb}"
             return "⚠️ Couleur non reconnue. Exemple : 'mets du rouge'."
 

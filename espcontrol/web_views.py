@@ -29,6 +29,11 @@ def home(request):
 
 
 @login_required
+def led_rgb_control_page(request):
+    return render(request, "espcontrol/led_rgb_control.html")
+
+
+@login_required
 def led_control(request):
     led = LED.objects.first()
     if request.method == "POST":

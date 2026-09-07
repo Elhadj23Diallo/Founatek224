@@ -2228,11 +2228,11 @@ from .models import LEDColor
 @login_required
 def led_color_esp(request):
     user = request.user
-    color = LEDColor.objects.filter(user=user).last()
+    color = LEDColor.objects.filter(user=user).first()
     if color:
-        data = {"r": color.r, "g": color.g, "b": color.b}
+        data = {"r": color.r, "g": color.g, "b": color.b, "effect": color.effect}
     else:
-        data = {"r": 0, "g": 0, "b": 0}
+        data = {"r": 0, "g": 0, "b": 0, "effect": "fixe"}
     return JsonResponse(data)
 
 

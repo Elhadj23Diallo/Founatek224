@@ -75,6 +75,11 @@ INSTALLED_APPS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
+        # Sans ça, une page du site (session cookie, pas de header Authorization)
+        # reçoit un 401 de n'importe quel endpoint /api/mobile/* même connectée —
+        # découvert en construisant la page LED RGB du site, qui n'avait
+        # jusqu'ici aucun moyen de parler à cette API en dehors de l'app mobile.
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

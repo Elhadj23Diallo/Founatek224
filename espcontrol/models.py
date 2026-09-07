@@ -256,14 +256,29 @@ class Comment(models.Model):
 # models.py
 
 class LEDColor(models.Model):
+    EFFECT_CHOICES = [
+        ("fixe", "Couleur fixe"),
+        ("arc_en_ciel", "Arc-en-ciel"),
+        ("pulsation", "Pulsation"),
+        ("clignotant", "Clignotant"),
+        ("strobe", "Strobe"),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     r = models.PositiveSmallIntegerField(default=0)  # 0-255
     g = models.PositiveSmallIntegerField(default=0)
     b = models.PositiveSmallIntegerField(default=0)
+    effect = models.CharField(max_length=20, choices=EFFECT_CHOICES, default="fixe")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    # Posé par l'ESP32 lui-même après avoir réellement appliqué la couleur/l'effet —
+    # distinct de updated_at (qui ne dit que "l'utilisateur a demandé ceci"), pour que
+    # le site/l'app puissent afficher un état honnête au lieu de supposer que la
+    # demande a été suivie d'effet sur le matériel.
+    device_confirmed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.user.username} RGB({self.r}, {self.g}, {self.b})"
+        return f"{self.user.username} RGB({self.r}, {self.g}, {self.b}) [{self.effect}]"
 
 
 

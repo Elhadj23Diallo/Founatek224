@@ -84,6 +84,8 @@ urlpatterns = [
 
 
     path('api/led_color/', views.led_color_esp, name='led_color_esp'),
+    path('api/led_ack/', api_views.mobile_led_ack, name='led_ack_esp'),
+    path('led-rgb/', web_views.led_rgb_control_page, name='led_rgb_control_page'),
     path('chatbot/', views.chatbot_view, name='chatbot_view'),
     path("api/relais/<int:num>/set/", views.set_relais_etat, name="set_relais_etat"),
 

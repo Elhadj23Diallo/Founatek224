@@ -574,6 +574,19 @@ def mobile_action_logs(request):
 
 
 # ── LED RGB ───────────────────────────────────────────────────────────────────
+def _led_confirmed_payload(led):
+    if not led or not led.device_confirmed_at:
+        return None
+    return {
+        "confirmed_at": led.device_confirmed_at.isoformat(),
+        "seconds_ago": max(0, int((timezone.now() - led.device_confirmed_at).total_seconds())),
+        # Une confirmation vieille de plus de ~15s (3x l'intervalle d'interrogation
+        # du firmware) veut probablement dire que l'ESP32 est hors ligne, pas que
+        # la couleur est fausse — le site/l'app doivent distinguer les deux.
+        "stale": (timezone.now() - led.device_confirmed_at).total_seconds() > 15,
+    }
+
+
 @csrf_exempt
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
@@ -582,13 +595,36 @@ def mobile_led_color(request):
         r_val = int(request.data.get("r", 0))
         g_val = int(request.data.get("g", 0))
         b_val = int(request.data.get("b", 0))
-        LEDColor.objects.update_or_create(
+        effect = request.data.get("effect", "fixe")
+        if effect not in dict(LEDColor.EFFECT_CHOICES):
+            effect = "fixe"
+        led, _ = LEDColor.objects.update_or_create(
             user=request.user,
-            defaults={"r": r_val, "g": g_val, "b": b_val},
+            defaults={"r": r_val, "g": g_val, "b": b_val, "effect": effect, "device_confirmed_at": None},
         )
-        return Response({"r": r_val, "g": g_val, "b": b_val})
+        return Response({"r": r_val, "g": g_val, "b": b_val, "effect": effect, "confirmed": None})
     led = LEDColor.objects.filter(user=request.user).first()
-    return Response({"r": led.r if led else 0, "g": led.g if led else 0, "b": led.b if led else 0})
+    return Response({
+        "r": led.r if led else 0,
+        "g": led.g if led else 0,
+        "b": led.b if led else 0,
+        "effect": led.effect if led else "fixe",
+        "confirmed": _led_confirmed_payload(led),
+    })
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_led_ack(request):
+    """Appelé par l'ESP32 lui-même juste après avoir réellement appliqué la
+    couleur/l'effet reçu — sert uniquement à horodater 'confirmé matériel',
+    jamais à modifier la couleur demandée (pas de risque d'écraser un nouveau
+    choix utilisateur fait entre-temps)."""
+    updated = LEDColor.objects.filter(user=request.user).update(device_confirmed_at=timezone.now())
+    if not updated:
+        return _json_error("Aucune couleur enregistrée pour cet utilisateur", 404)
+    return Response({"ok": True})
 
 
 # ── Comptage ──────────────────────────────────────────────────────────────────
