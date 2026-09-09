@@ -2253,6 +2253,8 @@ def chatbot_view(request):
     try:
         data    = json.loads(request.body or "{}")
         raw_msg = str(data.get("message", "")).strip()
+        from .chatbot_model import sanitize_history  # noqa: PLC0415
+        history = sanitize_history(data.get("history"))
     except json.JSONDecodeError:
         return JsonResponse({"reponse": "⚠️ Données invalides."})
 
@@ -2262,7 +2264,7 @@ def chatbot_view(request):
     bot = Chatbot(request.user)
 
     try:
-        response = bot.get_response(raw_msg)
+        response = bot.get_response(raw_msg, history=history)
     except Exception as e:
         logger.error(f"Erreur chatbot user={request.user.id}: {e}")
         return JsonResponse({"reponse": f"⚠️ Erreur interne : {e}"})

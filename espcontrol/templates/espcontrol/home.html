@@ -430,6 +430,11 @@ function speakText(text) {
 // ============================================================
 //  CHATBOT
 // ============================================================
+// Sans historique, chaque message repartait de zéro côté LLM (impossible de
+// suivre un complément de question type "et pour la chambre ?"). On garde les
+// derniers tours de CETTE session de page pour donner le contexte au serveur.
+let chatHistory = [];
+
 function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
@@ -490,13 +495,15 @@ function envoyer(texteInput=null) {
     if (!texte) return;
     appendMessage(texte, 'user');
     input.value = '';
+    const historyToSend = chatHistory.slice(-10);
+    chatHistory.push({role: 'user', content: texte});
     fetch("{% url 'chatbot_view' %}", {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': '{{ csrf_token }}'
         },
-        body: JSON.stringify({message: texte})
+        body: JSON.stringify({message: texte, history: historyToSend})
     })
     .then(res => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -507,6 +514,7 @@ function envoyer(texteInput=null) {
         const reponse  = data.reponse || data.message || data.detail || "...";
         const buttons  = data.buttons  || [];
         const imageUrl = data.image_url || null;
+        chatHistory.push({role: 'assistant', content: reponse});
         appendMessage(reponse, 'assistant', buttons, imageUrl);
     })
     .catch(err => {

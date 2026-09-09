@@ -30,6 +30,24 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL   = "openai/gpt-oss-120b"
 
+def sanitize_history(raw_history, max_turns=10, max_chars=2000):
+    """Valide/borne l'historique envoye par le client avant de le transmettre a
+    Groq — un client (site ou mobile) pourrait envoyer n'importe quoi, ce n'est
+    jamais la source de verite du system prompt, juste le fil de conversation."""
+    if not isinstance(raw_history, list):
+        return None
+    cleaned = []
+    for turn in raw_history[-max_turns:]:
+        if not isinstance(turn, dict):
+            continue
+        role = turn.get("role")
+        content = turn.get("content")
+        if role not in ("user", "assistant") or not isinstance(content, str) or not content.strip():
+            continue
+        cleaned.append({"role": role, "content": content[:max_chars]})
+    return cleaned or None
+
+
 def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout=8):
     try:
         headers = {
@@ -715,12 +733,17 @@ class Chatbot:
 
         return "\n".join(lines)
 
-    def ai_chat(self, raw_msg):
+    def ai_chat(self, raw_msg, history=None):
         """Repond de facon conversationnelle en s'appuyant sur la base de connaissance
-        de la plateforme + un instantane des donnees reelles de l'utilisateur."""
+        de la plateforme + un instantane des donnees reelles de l'utilisateur.
+
+        history : tours precedents de CETTE conversation ([{role, content}, ...],
+        format OpenAI/Groq) fournis par le client (site/mobile) — sans ca, chaque
+        message repartait de zero et le bot ne pouvait jamais suivre un
+        complement de question ('et pour la chambre ?')."""
         context = self.get_user_context()
         system_prompt = PLATFORM_KNOWLEDGE + "\n\nDONNEES REELLES DE L'UTILISATEUR (ne jamais depasser ce perimetre) :\n" + context
-        answer = call_groq(system_prompt, raw_msg, max_tokens=500, timeout=12)
+        answer = call_groq(system_prompt, raw_msg, max_tokens=500, timeout=12, history=history)
         if not answer:
             return (
                 "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
@@ -938,7 +961,7 @@ class Chatbot:
     #  POINT D'ENTRÉE PRINCIPAL
     # ============================================================
 
-    def get_response(self, raw_msg):
+    def get_response(self, raw_msg, history=None):
         msg = normalize(raw_msg)
 
         # Arrêt d'urgence
@@ -979,7 +1002,7 @@ class Chatbot:
         # Rien de reconnu localement -> assistant IA conversationnel,
         # avec la base de connaissance de la plateforme + les vraies donnees de l'utilisateur
         if not intents:
-            return self.ai_chat(raw_msg)
+            return self.ai_chat(raw_msg, history=history)
 
         responses  = []
         seen_types = set()

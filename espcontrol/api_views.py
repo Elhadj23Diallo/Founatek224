@@ -461,10 +461,11 @@ def mobile_access_logs(request):
 @permission_classes([IsAuthenticated])
 def mobile_chatbot(request):
     import json as _json
-    from .chatbot_model import Chatbot  # noqa: PLC0415
+    from .chatbot_model import Chatbot, sanitize_history  # noqa: PLC0415
     try:
         data = request.data if isinstance(request.data, dict) else _json.loads(request.body or "{}")
         raw_msg = str(data.get("message", "")).strip()
+        history = sanitize_history(data.get("history"))
     except Exception:
         return Response({"reponse": "⚠️ Données invalides."})
 
@@ -473,7 +474,7 @@ def mobile_chatbot(request):
 
     bot = Chatbot(request.user)
     try:
-        response = bot.get_response(raw_msg)
+        response = bot.get_response(raw_msg, history=history)
     except Exception as e:
         return Response({"reponse": f"⚠️ Erreur : {e}"})
 
