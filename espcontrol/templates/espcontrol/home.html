@@ -421,7 +421,12 @@ function toggleTTS() {
 function speakText(text) {
     if (!ttsEnabled || !text) return;
     if (synth.speaking) synth.cancel();
-    let clean = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+    // Retire le markdown (**gras**) EN PLUS des emojis \u2014 les \u00E9toiles \u00E9taient
+    // encore lues telles quelles ("\u00E9toile \u00E9toile gras \u00E9toile \u00E9toile").
+    let clean = text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*/g, '');
+    clean = clean.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD00-\uDDFF]|\uFE0F)/g, '');
+    clean = clean.replace(/\s+/g, ' ').trim();
+    if (!clean) return;
     const utter = new SpeechSynthesisUtterance(clean);
     utter.lang = 'fr-FR';
     synth.speak(utter);
