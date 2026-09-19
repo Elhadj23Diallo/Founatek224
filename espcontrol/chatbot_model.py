@@ -89,8 +89,10 @@ def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout
 
 # Effets deja geres par le firmware WS2812B (led_rgb_ws2812.ino) — meme liste
 # que LEDColor.EFFECT_CHOICES, dupliquee ici pour eviter un import circulaire
-# vers models.py depuis la definition de l'outil.
-LED_EFFECTS = ["fixe", "arc_en_ciel", "pulsation", "clignotant", "strobe"]
+# vers models.py depuis la definition de l'outil. "qualite_air" est special :
+# la couleur n'est pas fixee par le modele, elle est recalculee a chaque
+# lecture par le serveur (voir utils.get_air_quality_color).
+LED_EFFECTS = ["fixe", "arc_en_ciel", "pulsation", "clignotant", "strobe", "qualite_air"]
 
 LED_TOOL = {
     "type": "function",
@@ -102,18 +104,22 @@ LED_TOOL = {
             "de couleur/ambiance lumineuse, meme formule de facon imagee ('ambiance cosy', "
             "'couleur de Noel', 'plus chaud', 'fais la fete') — choisis toi-meme les valeurs "
             "RGB qui correspondent le mieux a la demande, sans jamais demander a "
-            "l'utilisateur de preciser des codes couleur lui-meme."
+            "l'utilisateur de preciser des codes couleur lui-meme. Utilise l'effet special "
+            "'qualite_air' (une veilleuse qui se met AUTOMATIQUEMENT au vert/jaune/rouge "
+            "selon le PM2.5 mesure, mise a jour en continu) des que l'utilisateur demande "
+            "une veilleuse/indicateur qui suit la qualite de l'air — dans ce cas r/g/b sont "
+            "ignores, mets-les a 0."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "r": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante rouge"},
-                "g": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante verte"},
-                "b": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante bleue"},
+                "r": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante rouge (ignoree si effect=qualite_air)"},
+                "g": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante verte (ignoree si effect=qualite_air)"},
+                "b": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante bleue (ignoree si effect=qualite_air)"},
                 "effect": {
                     "type": "string",
                     "enum": LED_EFFECTS,
-                    "description": "'fixe' pour une couleur statique, sinon un jeu lumineux anime",
+                    "description": "'fixe' pour une couleur statique, 'qualite_air' pour la veilleuse automatique, sinon un jeu lumineux anime",
                 },
             },
             "required": ["r", "g", "b", "effect"],
@@ -800,10 +806,19 @@ class Chatbot:
         effect = args.get("effect", "fixe")
         if effect not in LED_EFFECTS:
             effect = "fixe"
+        if effect == "qualite_air":
+            # r/g/b fournis par le modele n'ont pas de sens ici — la vraie
+            # couleur est recalculee a chaque lecture (voir led_color_esp /
+            # mobile_led_color) ; on stocke juste la couleur actuelle pour que
+            # l'aperçu immédiat (avant le prochain sondage de l'ESP32) soit cohérent.
+            from .utils import get_air_quality_color
+            r, g, b = get_air_quality_color(self.user)
         LEDColor.objects.update_or_create(
             user=self.user,
             defaults={"r": r, "g": g, "b": b, "effect": effect, "device_confirmed_at": None},
         )
+        if effect == "qualite_air":
+            return f"Veilleuse qualité de l'air activée (couleur actuelle : RGB({r},{g},{b}))."
         return f"LED réglée : RGB({r},{g},{b}), effet={effect}."
 
     def ai_chat(self, raw_msg, history=None):
@@ -870,6 +885,14 @@ class Chatbot:
         intents  = []
 
         # ── ÉTAPE 1 : Alias courts prioritaires ──────────────
+        # "veilleuse" est un signal univoque de pilotage LED, jamais de simple
+        # lecture de capteur — sans cette sortie anticipée, "active une
+        # veilleuse qui suit la qualité de l'air" se faisait intercepter par
+        # l'alias "qualite"/"air" (ALIAS_PM) et renvoyait un relevé de
+        # capteurs au lieu d'atteindre l'IA/l'outil set_led.
+        if "veilleuse" in tokens:
+            return []
+
         if tokens & self.ALIAS_RESUME:
             return [{"type": "resume"}]
 

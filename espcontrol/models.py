@@ -262,6 +262,10 @@ class LEDColor(models.Model):
         ("pulsation", "Pulsation"),
         ("clignotant", "Clignotant"),
         ("strobe", "Strobe"),
+        # Veilleuse qualité de l'air : la couleur n'est pas stockée telle
+        # quelle, elle est recalculée à chaque lecture (voir
+        # utils.get_air_quality_color) à partir du dernier PM2.5 connu.
+        ("qualite_air", "Veilleuse qualité de l'air"),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)

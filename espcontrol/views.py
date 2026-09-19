@@ -2233,6 +2233,9 @@ def led_color_esp(request):
         data = {"r": color.r, "g": color.g, "b": color.b, "effect": color.effect}
     else:
         data = {"r": 0, "g": 0, "b": 0, "effect": "fixe"}
+    if data["effect"] == "qualite_air":
+        from .utils import get_air_quality_color
+        data["r"], data["g"], data["b"] = get_air_quality_color(user)
     return JsonResponse(data)
 
 

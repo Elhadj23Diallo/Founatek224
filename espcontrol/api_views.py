@@ -605,11 +605,16 @@ def mobile_led_color(request):
         )
         return Response({"r": r_val, "g": g_val, "b": b_val, "effect": effect, "confirmed": None})
     led = LEDColor.objects.filter(user=request.user).first()
+    r_val, g_val, b_val = (led.r, led.g, led.b) if led else (0, 0, 0)
+    effect = led.effect if led else "fixe"
+    if effect == "qualite_air":
+        from .utils import get_air_quality_color
+        r_val, g_val, b_val = get_air_quality_color(request.user)
     return Response({
-        "r": led.r if led else 0,
-        "g": led.g if led else 0,
-        "b": led.b if led else 0,
-        "effect": led.effect if led else "fixe",
+        "r": r_val,
+        "g": g_val,
+        "b": b_val,
+        "effect": effect,
         "confirmed": _led_confirmed_payload(led),
     })
 

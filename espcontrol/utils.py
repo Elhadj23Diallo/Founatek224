@@ -57,3 +57,32 @@ def extract_rgb(text):
         if name in text:
             return rgb
     return None
+
+
+# Memes seuils PM2.5 (µg/m3) que Chatbot.get_aqi_status, pour que la veilleuse
+# LED et les reponses du chatbot s'accordent toujours sur ce qu'est "bon"/
+# "modere"/"mauvais".
+AIR_QUALITY_THRESHOLDS = {"bon": 15, "modere": 35, "mauvais": 55}
+
+
+def get_air_quality_color(user):
+    """Couleur de veilleuse (r, g, b) a partir de la derniere lecture PM2.5 de
+    l'utilisateur — vert si bon, jaune si modere, rouge si mauvais/tres
+    mauvais. Blanc neutre si aucune donnee recente (pas d'alerte fausse)."""
+    from .models import Device, AppareilData
+
+    device = Device.objects.filter(user=user, is_active=True).order_by("-last_seen").first()
+    if not device:
+        return (255, 255, 255)
+
+    latest = AppareilData.objects.filter(device=device).order_by("-received_at").first()
+    pm25 = latest.payload.get("pm2p5") if latest and latest.payload else None
+    if pm25 is None:
+        return (255, 255, 255)
+
+    t = AIR_QUALITY_THRESHOLDS
+    if pm25 <= t["bon"]:
+        return (0, 255, 0)
+    if pm25 <= t["modere"]:
+        return (255, 255, 0)
+    return (255, 0, 0)
