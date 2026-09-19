@@ -3,6 +3,7 @@
 #  Fichier : espcontrol/chatbot_model.py
 # ============================================================
 
+import json
 import os
 import random
 import re
@@ -48,29 +49,77 @@ def sanitize_history(raw_history, max_turns=10, max_chars=2000):
     return cleaned or None
 
 
-def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout=8):
+def call_groq_chat(messages, tools=None, max_tokens=200, timeout=8):
+    """Appel Groq bas niveau — renvoie le message brut (dict) pour que
+    l'appelant puisse inspecter un eventuel tool_calls, ou None en cas
+    d'echec. call_groq() ci-dessous reste le raccourci simple texte-a-texte
+    utilise partout ou aucun outil n'est necessaire."""
     try:
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
-        messages = [{"role": "system", "content": system_prompt}]
-        if history:
-            messages.extend(history)
-        messages.append({"role": "user", "content": user_message})
         body = {
             "model": GROQ_MODEL,
             "max_tokens": max_tokens,
             "temperature": 0.4,
-            "reasoning_effort": "low",
             "messages": messages,
         }
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        else:
+            body["reasoning_effort"] = "low"
         resp = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=timeout)
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+        return resp.json()["choices"][0]["message"]
     except Exception as e:
         logger.error(f"Erreur Groq API : {e}")
-        return ""
+        return None
+
+
+def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout=8):
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": user_message})
+    msg = call_groq_chat(messages, max_tokens=max_tokens, timeout=timeout)
+    return (msg.get("content") or "").strip() if msg else ""
+
+
+# Effets deja geres par le firmware WS2812B (led_rgb_ws2812.ino) — meme liste
+# que LEDColor.EFFECT_CHOICES, dupliquee ici pour eviter un import circulaire
+# vers models.py depuis la definition de l'outil.
+LED_EFFECTS = ["fixe", "arc_en_ciel", "pulsation", "clignotant", "strobe"]
+
+LED_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "set_led",
+        "description": (
+            "Change la couleur et/ou l'effet lumineux de la bande LED RGB connectee de "
+            "l'utilisateur. Utilise cet outil des que l'utilisateur demande un changement "
+            "de couleur/ambiance lumineuse, meme formule de facon imagee ('ambiance cosy', "
+            "'couleur de Noel', 'plus chaud', 'fais la fete') — choisis toi-meme les valeurs "
+            "RGB qui correspondent le mieux a la demande, sans jamais demander a "
+            "l'utilisateur de preciser des codes couleur lui-meme."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "r": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante rouge"},
+                "g": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante verte"},
+                "b": {"type": "integer", "minimum": 0, "maximum": 255, "description": "Composante bleue"},
+                "effect": {
+                    "type": "string",
+                    "enum": LED_EFFECTS,
+                    "description": "'fixe' pour une couleur statique, sinon un jeu lumineux anime",
+                },
+            },
+            "required": ["r", "g", "b", "effect"],
+        },
+    },
+}
 
 
 # ============================================================
@@ -141,8 +190,12 @@ RÈGLES IMPORTANTES :
   qu'aux données de la personne qui te parle.
 - Sois concret : cite les noms d'écrans/onglets exacts (mobile et/ou site) pour guider l'utilisateur.
 - Reste bref mais utile (3 à 8 lignes en général), utilise des emojis avec modération pour la lisibilité.
-- Pour toute action matérielle (allumer/éteindre un relais, changer une couleur LED), l'utilisateur
-  doit reformuler une commande claire — tu ne simules jamais l'exécution toi-même dans ce mode.
+- Pour la LED RGB : tu PEUX et DOIS agir directement via l'outil set_led dès que l'utilisateur
+  exprime une envie de couleur/ambiance lumineuse, même vague ou imagée — choisis toi-même les
+  valeurs RGB et l'effet qui correspondent le mieux, n'hésite jamais à appeler l'outil, et confirme
+  ensuite ce que tu as réglé en langage naturel.
+- Pour toute AUTRE action matérielle (allumer/éteindre un relais...), l'utilisateur doit reformuler
+  une commande claire — tu ne simules jamais l'exécution toi-même pour celles-ci.
 """
 
 
@@ -733,9 +786,30 @@ class Chatbot:
 
         return "\n".join(lines)
 
+    def _execute_led_tool(self, args):
+        """Applique reellement le changement de LED demande par le modele —
+        meme idiome update_or_create que le reste (une seule ligne d'etat par
+        utilisateur, device_confirmed_at remis a None pour attendre la vraie
+        confirmation de l'ESP32)."""
+        try:
+            r = max(0, min(255, int(args.get("r", 0))))
+            g = max(0, min(255, int(args.get("g", 0))))
+            b = max(0, min(255, int(args.get("b", 0))))
+        except (TypeError, ValueError):
+            return "Valeurs de couleur invalides."
+        effect = args.get("effect", "fixe")
+        if effect not in LED_EFFECTS:
+            effect = "fixe"
+        LEDColor.objects.update_or_create(
+            user=self.user,
+            defaults={"r": r, "g": g, "b": b, "effect": effect, "device_confirmed_at": None},
+        )
+        return f"LED réglée : RGB({r},{g},{b}), effet={effect}."
+
     def ai_chat(self, raw_msg, history=None):
         """Repond de facon conversationnelle en s'appuyant sur la base de connaissance
-        de la plateforme + un instantane des donnees reelles de l'utilisateur.
+        de la plateforme + un instantane des donnees reelles de l'utilisateur, et peut
+        piloter reellement la LED RGB via l'outil set_led (function calling Groq).
 
         history : tours precedents de CETTE conversation ([{role, content}, ...],
         format OpenAI/Groq) fournis par le client (site/mobile) — sans ca, chaque
@@ -743,7 +817,42 @@ class Chatbot:
         complement de question ('et pour la chambre ?')."""
         context = self.get_user_context()
         system_prompt = PLATFORM_KNOWLEDGE + "\n\nDONNEES REELLES DE L'UTILISATEUR (ne jamais depasser ce perimetre) :\n" + context
-        answer = call_groq(system_prompt, raw_msg, max_tokens=500, timeout=12, history=history)
+
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": raw_msg})
+
+        msg = call_groq_chat(messages, tools=[LED_TOOL], max_tokens=500, timeout=12)
+        if not msg:
+            return (
+                "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
+                "Essaie une commande simple comme 'air', 'alertes', 'stats' ou 'aide'."
+            )
+
+        tool_calls = msg.get("tool_calls")
+        if tool_calls:
+            # Le modele veut agir sur la LED — on execute reellement, puis on
+            # lui renvoie le resultat pour qu'il formule une confirmation
+            # naturelle (deuxieme aller-retour, pattern standard function calling).
+            messages.append(msg)
+            for tc in tool_calls:
+                if tc.get("function", {}).get("name") == "set_led":
+                    try:
+                        args = json.loads(tc["function"].get("arguments") or "{}")
+                    except (json.JSONDecodeError, TypeError):
+                        args = {}
+                    result = self._execute_led_tool(args)
+                else:
+                    result = "Outil inconnu."
+                messages.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": result})
+
+            final_msg = call_groq_chat(messages, max_tokens=300, timeout=10)
+            if final_msg and final_msg.get("content"):
+                return final_msg["content"].strip()
+            return "✅ C'est fait !"
+
+        answer = (msg.get("content") or "").strip()
         if not answer:
             return (
                 "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
@@ -843,8 +952,15 @@ class Chatbot:
             intents.append({"type": "comptage"})
 
         if tokens & self.INTENT_WORDS["rgb"]:
-            action = "eteins" if (tokens & self.INTENT_WORDS["off"]) else "set"
-            intents.append({"type": "rgb", "action": action, "raw": msg})
+            if tokens & self.INTENT_WORDS["off"]:
+                intents.append({"type": "rgb", "action": "eteins", "raw": msg})
+            elif extract_rgb(msg) is not None:
+                intents.append({"type": "rgb", "action": "set", "raw": msg})
+            # Sinon (couleur non reconnue par la petite liste fixe, ex. "ambiance
+            # cosy", "plus chaud") : on n'ajoute PAS d'intent ici, pour laisser
+            # la main a l'IA (ai_chat/set_led) qui sait interpreter des demandes
+            # nuancees et piloter la LED elle-meme, plutot que de repondre
+            # "couleur non reconnue" a l'aveugle.
 
         if (tokens & self.INTENT_WORDS["led_simple"]) and \
            not (tokens & self.INTENT_WORDS["rgb"]):
