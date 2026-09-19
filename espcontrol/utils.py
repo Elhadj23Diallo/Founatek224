@@ -65,20 +65,33 @@ def extract_rgb(text):
 AIR_QUALITY_THRESHOLDS = {"bon": 15, "modere": 35, "mauvais": 55}
 
 
-def get_air_quality_color(user):
-    """Couleur de veilleuse (r, g, b) a partir de la derniere lecture PM2.5 de
-    l'utilisateur — vert si bon, jaune si modere, rouge si mauvais/tres
-    mauvais. Blanc neutre si aucune donnee recente (pas d'alerte fausse)."""
+def get_air_quality_color(user, window=3):
+    """Couleur de veilleuse (r, g, b) a partir de la MEDIANE des dernieres
+    lectures PM2.5 de l'utilisateur (pas juste la toute derniere) — vert si
+    bon, jaune si modere, rouge si mauvais/tres mauvais. Blanc neutre si
+    aucune donnee recente (pas d'alerte fausse).
+
+    La mediane (pas une simple moyenne) ignore un pic isole (capteur
+    bruyant, faux positif/negatif ponctuel) : sur une fenetre de 3, une
+    seule valeur aberrante n'influence jamais le resultat, alors qu'une
+    moyenne se laisse encore tirer par une valeur extreme. Un vrai
+    changement soutenu (2 lectures sur 3 dans la nouvelle categorie) est en
+    revanche bien detecte."""
+    from statistics import median
     from .models import Device, AppareilData
 
     device = Device.objects.filter(user=user, is_active=True).order_by("-last_seen").first()
     if not device:
         return (255, 255, 255)
 
-    latest = AppareilData.objects.filter(device=device).order_by("-received_at").first()
-    pm25 = latest.payload.get("pm2p5") if latest and latest.payload else None
-    if pm25 is None:
+    readings = AppareilData.objects.filter(device=device).order_by("-received_at")[:window]
+    values = [
+        r.payload.get("pm2p5") for r in readings
+        if r.payload and isinstance(r.payload.get("pm2p5"), (int, float))
+    ]
+    if not values:
         return (255, 255, 255)
+    pm25 = median(values)
 
     t = AIR_QUALITY_THRESHOLDS
     if pm25 <= t["bon"]:
