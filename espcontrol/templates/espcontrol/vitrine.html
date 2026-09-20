@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -159,6 +160,18 @@
     .team h3 { color: #fff; font-size: 1.15rem; margin: 0 0 4px; }
     .team .role { color: var(--cyan); font-size: 0.85rem; margin-bottom: 14px; }
     .team p.bio { color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; }
+    .moments {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+        max-width: 900px; margin: 46px auto 0;
+    }
+    .moments img {
+        width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 14px;
+        border: 1px solid var(--border); transition: transform .3s;
+    }
+    .moments img:hover { transform: scale(1.04); }
+    @media (max-width: 640px) {
+        .moments { grid-template-columns: repeat(2, 1fr); }
+    }
 
     @media (max-width: 720px) {
         .nav-links .navlink { display: none; }
@@ -259,23 +272,23 @@
     <div class="section-head reveal">
         <div class="section-tag">Réalisations</div>
         <h2>Des projets réels, pas des maquettes</h2>
-        <p>Chaque module ci-dessus a été construit et testé sur du vrai matériel.</p>
+        <p>Chaque module ci-dessus a été construit et testé sur du vrai matériel, notamment durant un stage à l'ODC Orange Guinée.</p>
     </div>
     <div class="grid">
         <div class="proj-card reveal">
-            <div class="photo-slot"><span class="ps-icon">📷</span>Photo à ajouter</div>
-            <h3>Vidéosurveillance ESP32-CAM</h3>
-            <p>Un module caméra à quelques euros, transformé en flux de surveillance quasi temps réel avec détection de mouvement.</p>
+            <div class="photo-slot"><img src="{% static 'espcontrol/vitrine/station_air_quality.jpg' %}" alt="Station de mesure de la qualité de l'air Founatek Nexus"></div>
+            <h3>Station qualité de l'air — Air Conakry IQ Pro</h3>
+            <p>Capteurs PM2.5/PM10, gaz, température/humidité et GPS réunis dans un boîtier autonome, conçu durant le stage à l'ODC Orange Guinée.</p>
         </div>
         <div class="proj-card reveal">
-            <div class="photo-slot"><span class="ps-icon">🌈</span>Photo à ajouter</div>
-            <h3>Bande LED RGB pilotée par IA</h3>
-            <p>100 LED WS2812B contrôlées en langage naturel par le chatbot, avec une veilleuse qui suit la qualité de l'air en direct.</p>
+            <div class="photo-slot"><img src="{% static 'espcontrol/vitrine/app_mobile_demo.jpg' %}" alt="Application mobile Founatek Nexus"></div>
+            <h3>Application mobile Founatek Nexus</h3>
+            <p>Les mêmes modules que le site — capteurs, caméra, chatbot IA, LED RGB — accessibles depuis le téléphone.</p>
         </div>
         <div class="proj-card reveal">
-            <div class="photo-slot"><span class="ps-icon">🎓</span>Photo à ajouter</div>
-            <h3>Founatek Academy</h3>
-            <p>Des parcours complets, de l'électronique de base à la domotique, avec leçons, quiz et certificats.</p>
+            <div class="photo-slot"><img src="{% static 'espcontrol/vitrine/architecture.jpg' %}" alt="Architecture technique Founatek Nexus"></div>
+            <h3>Une architecture pensée pour durer</h3>
+            <p>Des capteurs jusqu'au dashboard : ESP32, connectivité 4G/5G ou WiFi, API REST sécurisée, base de données et alertes automatiques.</p>
         </div>
     </div>
 </section>
@@ -286,7 +299,7 @@
         <h2>L'équipe derrière Founatek</h2>
     </div>
     <div class="team reveal">
-        <div class="photo-slot round"><span class="ps-icon">👤</span>Photo</div>
+        <div class="photo-slot round"><img src="{% static 'espcontrol/vitrine/fondateur.jpg' %}" alt="Elhadj Abdourahmane Diallo"></div>
         <h3>Elhadj Abdourahmane Diallo</h3>
         <div class="role">Fondateur — Étudiant L3 Physique Appliquée, Université de Lille (FST)</div>
         <p class="bio">
@@ -294,6 +307,12 @@
             pensée pour rendre l'IoT accessible en Afrique, du capteur individuel jusqu'à la formation
             complète.
         </p>
+    </div>
+    <div class="moments reveal">
+        <img src="{% static 'espcontrol/vitrine/soutenance.jpg' %}" alt="Présentation du projet Founatek Nexus">
+        <img src="{% static 'espcontrol/vitrine/tshirt_face.jpg' %}" alt="T-shirt Founatek">
+        <img src="{% static 'espcontrol/vitrine/tshirt_dos.jpg' %}" alt="Founatek — Connecter les idées, comprendre le monde, créer l'avenir">
+        <img src="{% static 'espcontrol/vitrine/station_closeup.jpg' %}" alt="Détail de la station Founatek Nexus">
     </div>
 </section>
 
