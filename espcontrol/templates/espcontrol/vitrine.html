@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Founatek Nexus — Plateforme IoT</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg-dark: #050a1f;
+        --bg-darker: #030614;
+        --bg-card: rgba(13,18,41,0.75);
+        --text-light: #e0e6ff;
+        --text-muted: #8892b0;
+        --cyan: #00d2ff;
+        --green: #00ff99;
+        --gold: #ffd700;
+        --purple: #a855f7;
+        --orange: #f97316;
+        --border: rgba(0,210,255,0.18);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+        margin: 0;
+        background: var(--bg-dark);
+        background-image:
+            radial-gradient(circle at 50% 0%, var(--bg-darker) 0%, var(--bg-dark) 60%),
+            url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300d2ff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        color: var(--text-light);
+        font-family: 'Roboto', sans-serif;
+        overflow-x: hidden;
+    }
+    h1, h2, h3, .brand { font-family: 'Orbitron', sans-serif; }
+    a { text-decoration: none; }
+
+    /* ── NAV ── */
+    nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 6%; transition: background .3s, backdrop-filter .3s, border-color .3s;
+        border-bottom: 1px solid transparent;
+    }
+    nav.scrolled { background: rgba(5,10,31,0.9); backdrop-filter: blur(10px); border-color: var(--border); }
+    .brand { color: var(--text-light); font-size: 1.1rem; font-weight: 800; letter-spacing: 1px; }
+    .brand span { color: var(--cyan); }
+    .nav-links { display: flex; align-items: center; gap: 26px; }
+    .nav-links a.navlink { color: var(--text-muted); font-size: 0.9rem; font-weight: 500; }
+    .nav-links a.navlink:hover { color: var(--cyan); }
+    .btn {
+        display: inline-block; padding: 10px 22px; border-radius: 10px; font-weight: 700;
+        font-size: 0.88rem; cursor: pointer; border: 1px solid transparent; transition: transform .15s, opacity .15s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary { background: linear-gradient(135deg, var(--cyan), #0099cc); color: #04101c; }
+    .btn-ghost { border-color: var(--border); color: var(--text-light); }
+    .btn-lg { padding: 15px 32px; font-size: 1rem; border-radius: 12px; }
+
+    /* ── HERO ── */
+    .hero {
+        min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; padding: 140px 6% 80px; position: relative;
+    }
+    .hero-badge {
+        display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 20px;
+        background: rgba(0,210,255,0.08); border: 1px solid var(--border); color: var(--cyan);
+        font-size: 0.78rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 26px;
+    }
+    .hero h1 {
+        font-size: clamp(2rem, 5vw, 3.6rem); font-weight: 800; margin: 0 0 18px;
+        color: #fff; text-shadow: 0 0 30px rgba(0,210,255,0.25); line-height: 1.15;
+    }
+    .hero h1 span { color: var(--cyan); }
+    .hero p.lead { max-width: 640px; color: var(--text-muted); font-size: 1.05rem; line-height: 1.7; margin-bottom: 36px; }
+    .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+    /* ── STATS ── */
+    .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 50px; margin-top: 70px; }
+    .stat { text-align: center; }
+    .stat .num { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 800; color: var(--green); }
+    .stat .lbl { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── SECTIONS ── */
+    section { padding: 90px 6%; max-width: 1200px; margin: 0 auto; }
+    .section-head { text-align: center; max-width: 620px; margin: 0 auto 56px; }
+    .section-tag { color: var(--cyan); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+    .section-head h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); color: #fff; margin: 10px 0 14px; }
+    .section-head p { color: var(--text-muted); font-size: 0.98rem; line-height: 1.6; }
+
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s ease, transform .7s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+
+    /* ── MODULES GRID ── */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
+    .mcard {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 28px;
+        transition: transform .25s, border-color .25s, box-shadow .25s;
+    }
+    .mcard:hover { transform: translateY(-6px); box-shadow: 0 12px 30px rgba(0,0,0,0.35); }
+    .mcard .micon {
+        width: 54px; height: 54px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+        font-size: 26px; margin-bottom: 18px; border: 1px solid currentColor; background: rgba(255,255,255,0.03);
+    }
+    .mcard h3 { font-size: 1.05rem; color: #fff; margin: 0 0 8px; }
+    .mcard p { color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; margin: 0; }
+
+    /* ── COMMENT CA MARCHE ── */
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 30px; counter-reset: step; }
+    .step { text-align: center; position: relative; }
+    .step .stepnum {
+        width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 18px; display: flex; align-items: center;
+        justify-content: center; font-family: 'Orbitron', sans-serif; font-weight: 800; color: var(--bg-dark);
+        background: var(--cyan);
+    }
+    .step h3 { font-size: 1rem; color: #fff; margin: 0 0 8px; }
+    .step p { color: var(--text-muted); font-size: 0.86rem; line-height: 1.6; }
+
+    /* ── CHATBOT DEMO ── */
+    .chatdemo {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 26px;
+        max-width: 460px; margin: 0 auto; min-height: 260px;
+    }
+    .chatdemo .cd-msg { display: flex; gap: 10px; margin-bottom: 14px; opacity: 0; animation: cdIn .4s forwards; }
+    .chatdemo .cd-bubble { padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; line-height: 1.5; max-width: 80%; }
+    .chatdemo .cd-user .cd-bubble { background: rgba(0,210,255,0.12); color: var(--cyan); margin-left: auto; }
+    .chatdemo .cd-bot .cd-bubble { background: rgba(255,255,255,0.05); color: var(--text-light); }
+    .chatdemo .cd-user { justify-content: flex-end; }
+    @keyframes cdIn { to { opacity: 1; } }
+
+    /* ── CTA FINAL ── */
+    .cta-final {
+        text-align: center; border-radius: 28px; margin: 40px 6% 0; padding: 70px 6%;
+        background: linear-gradient(135deg, rgba(0,210,255,0.08), rgba(0,255,153,0.05));
+        border: 1px solid var(--border);
+    }
+    .cta-final h2 { color: #fff; font-size: clamp(1.4rem, 3vw, 2rem); margin-bottom: 14px; }
+    .cta-final p { color: var(--text-muted); margin-bottom: 30px; }
+
+    footer { text-align: center; padding: 40px 6%; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 40px; }
+
+    @media (max-width: 720px) {
+        .nav-links .navlink { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<nav id="mainNav">
+    <div class="brand">🌐 FOUNATEK<span>NEXUS</span></div>
+    <div class="nav-links">
+        <a class="navlink" href="#modules">Modules</a>
+        <a class="navlink" href="#comment">Comment ça marche</a>
+        <a class="navlink" href="#chatbot">Assistant IA</a>
+        <a class="btn btn-ghost" href="{% url 'login' %}">Se connecter</a>
+        <a class="btn btn-primary" href="{% url 'iot:register' %}">Créer un compte</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="hero-badge">⚡ Plateforme IoT tout-en-un</div>
+    <h1>Pilotez votre monde connecté<br>depuis <span>une seule plateforme</span></h1>
+    <p class="lead">
+        Capteurs, caméras, éclairage, traçabilité produit, boutique et formation — Founatek Nexus réunit
+        tout ce qu'il faut pour surveiller, automatiser et comprendre votre environnement, en temps réel,
+        sur le site comme sur mobile.
+    </p>
+    <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="{% url 'iot:register' %}">Commencer gratuitement</a>
+        <a class="btn btn-ghost btn-lg" href="#modules">Découvrir les modules ↓</a>
+    </div>
+
+    <div class="stats reveal" id="statsBlock">
+        <div class="stat"><div class="num" data-target="6">0</div><div class="lbl">Modules intégrés</div></div>
+        <div class="stat"><div class="num" data-target="3">0</div><div class="lbl">Parcours de formation</div></div>
+        <div class="stat"><div class="num" data-target="2">0</div><div class="lbl">Interfaces — Site & Mobile</div></div>
+        <div class="stat"><div class="num" data-target="1">0</div><div class="lbl">Assistant IA intégré</div></div>
+    </div>
+</section>
+
+<section id="modules">
+    <div class="section-head reveal">
+        <div class="section-tag">Modules</div>
+        <h2>Tout Founatek, en un seul endroit</h2>
+        <p>Chaque module fonctionne indépendamment, mais partage les mêmes données — activez seulement ce dont vous avez besoin.</p>
+    </div>
+    <div class="grid">
+        <div class="mcard reveal" style="color:var(--cyan)">
+            <div class="micon">📡</div>
+            <h3>Tableau de bord IoT</h3>
+            <p>Capteurs de qualité de l'air, température, humidité, relais et LED RGB pilotés en direct, avec alertes automatiques.</p>
+        </div>
+        <div class="mcard reveal" style="color:var(--purple)">
+            <div class="micon">📷</div>
+            <h3>Vidéosurveillance</h3>
+            <p>Transformez un ESP32-CAM en caméra connectée accessible partout, avec détection de mouvement et archives.</p>
+        </div>
+        <div class="mcard reveal" style="color:var(--green)">
+            <div class="micon">🤖</div>
+            <h3>Assistant IA NEXUS</h3>
+            <p>Posez vos questions en langage naturel — il connaît vos données réelles et peut piloter vos appareils pour vous.</p>
+        </div>
+        <div class="mcard reveal" style="color:var(--gold)">
+            <div class="micon">🎓</div>
+            <h3>Founatek Academy</h3>
+            <p>Des parcours progressifs pour apprendre l'électronique et l'IoT, de l'Arduino débutant à la domotique complète.</p>
+        </div>
+        <div class="mcard reveal" style="color:var(--orange)">
+            <div class="micon">🔍</div>
+            <h3>Traçabilité produit</h3>
+            <p>Chaque produit scanné révèle son origine, sa date de fabrication et son authenticité en un instant.</p>
+        </div>
+        <div class="mcard reveal" style="color:#ef4444">
+            <div class="micon">🛍️</div>
+            <h3>Boutique intégrée</h3>
+            <p>Achetez le matériel IoT nécessaire directement sur la plateforme, avec caisse par scan QR.</p>
+        </div>
+    </div>
+</section>
+
+<section id="comment">
+    <div class="section-head reveal">
+        <div class="section-tag">Démarrage</div>
+        <h2>Comment ça marche</h2>
+        <p>Trois étapes suffisent pour connecter votre premier appareil.</p>
+    </div>
+    <div class="steps">
+        <div class="step reveal">
+            <div class="stepnum">1</div>
+            <h3>Créez votre compte</h3>
+            <p>Inscription gratuite en moins d'une minute, sur le site ou l'application mobile.</p>
+        </div>
+        <div class="step reveal">
+            <div class="stepnum">2</div>
+            <h3>Récupérez votre token</h3>
+            <p>Chaque compte a une clé API unique pour authentifier ses appareils ESP32 en toute sécurité.</p>
+        </div>
+        <div class="step reveal">
+            <div class="stepnum">3</div>
+            <h3>Suivez tout, en direct</h3>
+            <p>Vos capteurs, caméras et alertes apparaissent instantanément sur le dashboard et l'app.</p>
+        </div>
+    </div>
+</section>
+
+<section id="chatbot">
+    <div class="section-head reveal">
+        <div class="section-tag">Assistant IA</div>
+        <h2>Un assistant qui comprend vos données</h2>
+        <p>Un aperçu de ce que NEXUS peut faire — posez-lui vraiment la question une fois connecté.</p>
+    </div>
+    <div class="chatdemo reveal" id="chatDemo"></div>
+</section>
+
+<div class="cta-final reveal">
+    <h2>Prêt à connecter votre premier appareil ?</h2>
+    <p>Gratuit pour commencer — aucune carte bancaire requise.</p>
+    <a class="btn btn-primary btn-lg" href="{% url 'iot:register' %}">Créer mon compte Founatek</a>
+</div>
+
+<footer>
+    © {% now "Y" %} Founatek Nexus — Conçu et développé à Conakry, Guinée.
+</footer>
+
+<script>
+// Nav — fond opaque au scroll
+const nav = document.getElementById('mainNav');
+window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// Scroll-reveal générique
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.15 });
+revealEls.forEach(el => io.observe(el));
+
+// Compteurs animés (une seule fois, au moment où le bloc stats apparaît)
+let statsStarted = false;
+function animateCounters() {
+    document.querySelectorAll('.stat .num').forEach(el => {
+        const target = parseInt(el.dataset.target, 10);
+        let current = 0;
+        const step = Math.max(1, Math.ceil(target / 30));
+        const tick = () => {
+            current = Math.min(target, current + step);
+            el.textContent = current;
+            if (current < target) requestAnimationFrame(tick);
+        };
+        tick();
+    });
+}
+const statsIo = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (e.isIntersecting && !statsStarted) { statsStarted = true; animateCounters(); }
+    });
+}, { threshold: 0.4 });
+statsIo.observe(document.getElementById('statsBlock'));
+
+// Petite démo animée du chatbot (texte illustratif, ne parle pas au vrai serveur)
+const demoScript = [
+    { who: 'user', text: "Quelle est la qualité de l'air en ce moment ?" },
+    { who: 'bot',  text: "PM2.5 à 9.2 µg/m³ — Bon ✅. Rien à signaler sur votre station." },
+    { who: 'user', text: "Mets une ambiance chill bleue sur la LED" },
+    { who: 'bot',  text: "LED réglée en bleu doux avec un effet pulsation 🌙" },
+];
+function playChatDemo() {
+    const box = document.getElementById('chatDemo');
+    box.innerHTML = '';
+    let i = 0;
+    function next() {
+        if (i >= demoScript.length) { setTimeout(() => { i = 0; playChatDemo(); }, 2200); return; }
+        const m = demoScript[i];
+        const row = document.createElement('div');
+        row.className = 'cd-msg ' + (m.who === 'user' ? 'cd-user' : 'cd-bot');
+        row.innerHTML = '<div class="cd-bubble">' + m.text + '</div>';
+        box.appendChild(row);
+        i++;
+        setTimeout(next, 1400);
+    }
+    next();
+}
+const chatIo = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (e.isIntersecting) { playChatDemo(); chatIo.disconnect(); }
+    });
+}, { threshold: 0.4 });
+chatIo.observe(document.getElementById('chatDemo'));
+</script>
+</body>
+</html>

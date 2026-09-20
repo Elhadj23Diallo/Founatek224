@@ -23,6 +23,14 @@ from .models import (
 )
 
 
+def vitrine(request):
+    """Page vitrine publique — pas de @login_required, c'est la première
+    chose que voit un visiteur non connecté."""
+    if request.user.is_authenticated:
+        return redirect("home")
+    return render(request, "espcontrol/vitrine.html")
+
+
 @login_required
 def home(request):
     return render(request, "espcontrol/home.html")

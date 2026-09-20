@@ -7,7 +7,8 @@ from django.contrib.auth.views import LoginView, LogoutView
 
 urlpatterns = [
     path('api/token-auth/', obtain_auth_token, name='token_auth'),
-    path('', LoginView.as_view(template_name='espcontrol/login.html'), name='login'),
+    path('', web_views.vitrine, name='vitrine'),
+    path('login/', LoginView.as_view(template_name='espcontrol/login.html'), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     # Changement de mot de passe pour utilisateur connecté
     path('password_change/', auth_views.PasswordChangeView.as_view(template_name='registration/password_change.html'), name='password_change'),
