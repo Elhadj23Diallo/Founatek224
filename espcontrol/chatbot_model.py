@@ -377,9 +377,10 @@ class Chatbot:
     REPONSES_ETEINS_FR = REPONSES_OFF
 
     BIO_TEXT = (
-        "👤 Elhadj Abdourahmane Diallo — Étudiant L3 Physique Appliquée, "
-        "Université de Lille (FST). Stagiaire ODC Orange Guinée, Conakry.\n"
-        "🚀 Projet : FOUNATEK NEXUS AIR CONAKRY IQ PRO\n"
+        "👤 Elhadj Abdourahmane Diallo — Étudiant en Licence 3 Physique Appliquée, "
+        "Université de Lille (FST). Développeur Python et concepteur de systèmes embarqués.\n"
+        "🚀 Projet : FOUNATEK NEXUS AIR CONAKRY IQ PRO, conçu durant un stage à l'ODC Orange "
+        "Guinée, Conakry (mai-juin 2026)\n"
         "🔗 Portfolio : https://elhadj23diallo.github.io/site_elhad_portfolio/"
     )
 

@@ -146,9 +146,41 @@
         align-items: center; justify-content: center; gap: 6px; color: var(--text-muted);
         font-size: 0.78rem; margin-bottom: 16px; overflow: hidden;
     }
-    .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-slot img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; transition: transform .25s; }
+    .photo-slot img:hover { transform: scale(1.04); }
     .photo-slot .ps-icon { font-size: 1.6rem; opacity: 0.6; }
     .photo-slot.round { aspect-ratio: 1/1; border-radius: 50%; width: 140px; margin: 0 auto 20px; }
+    .moments img { cursor: zoom-in; }
+
+    /* ── LIGHTBOX (carrousel plein écran) ── */
+    .lightbox {
+        position: fixed; inset: 0; z-index: 1000; background: rgba(3,6,20,0.95);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    .lightbox.open { opacity: 1; pointer-events: auto; }
+    .lightbox img {
+        max-width: min(88vw, 900px); max-height: 80vh; border-radius: 10px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6); object-fit: contain;
+    }
+    .lightbox .lb-close, .lightbox .lb-prev, .lightbox .lb-next {
+        position: absolute; background: rgba(255,255,255,0.08); border: 1px solid var(--border);
+        color: #fff; width: 46px; height: 46px; border-radius: 50%; font-size: 1.3rem;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .lightbox .lb-close:hover, .lightbox .lb-prev:hover, .lightbox .lb-next:hover { border-color: var(--cyan); color: var(--cyan); }
+    .lightbox .lb-close { top: 22px; right: 22px; }
+    .lightbox .lb-prev { left: 22px; top: 50%; transform: translateY(-50%); }
+    .lightbox .lb-next { right: 22px; top: 50%; transform: translateY(-50%); }
+    .lightbox .lb-count {
+        position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+        color: var(--text-muted); font-size: 0.82rem; letter-spacing: 1px;
+    }
+    @media (max-width: 640px) {
+        .lightbox .lb-prev, .lightbox .lb-next { width: 38px; height: 38px; font-size: 1.1rem; }
+        .lightbox .lb-prev { left: 10px; } .lightbox .lb-next { right: 10px; }
+        .lightbox .lb-close { top: 12px; right: 12px; }
+    }
 
     /* ── REALISATIONS ── */
     .proj-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
@@ -158,7 +190,8 @@
     /* ── EQUIPE ── */
     .team { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 480px; margin: 0 auto; }
     .team h3 { color: #fff; font-size: 1.15rem; margin: 0 0 4px; }
-    .team .role { color: var(--cyan); font-size: 0.85rem; margin-bottom: 14px; }
+    .team .role { color: var(--cyan); font-size: 0.85rem; margin-bottom: 4px; }
+    .team .role:last-of-type { margin-bottom: 14px; }
     .team p.bio { color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; }
     .moments {
         display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
@@ -301,11 +334,12 @@
     <div class="team reveal">
         <div class="photo-slot round"><img src="{% static 'espcontrol/vitrine/fondateur.jpg' %}" alt="Elhadj Abdourahmane Diallo"></div>
         <h3>Elhadj Abdourahmane Diallo</h3>
-        <div class="role">Fondateur — Étudiant L3 Physique Appliquée, Université de Lille (FST)</div>
+        <div class="role">Fondateur — Étudiant en Licence 3 Physique Appliquée, Université de Lille</div>
+        <div class="role">Développeur Python & concepteur de systèmes embarqués</div>
         <p class="bio">
-            Stagiaire à l'ODC Orange Guinée (Conakry), à l'origine de Founatek Nexus — une plateforme
-            pensée pour rendre l'IoT accessible en Afrique, du capteur individuel jusqu'à la formation
-            complète.
+            A conçu Founatek Nexus durant un stage à l'ODC Orange Guinée (Conakry, mai-juin 2026) —
+            une plateforme pensée pour rendre l'IoT accessible en Afrique, du capteur individuel
+            jusqu'à la formation complète.
         </p>
     </div>
     <div class="moments reveal">
@@ -359,6 +393,49 @@
 <footer>
     © {% now "Y" %} Founatek Nexus — Conçu et développé à Conakry, Guinée.
 </footer>
+
+<div class="lightbox" id="lightbox">
+    <div class="lb-close" id="lbClose">✕</div>
+    <div class="lb-prev" id="lbPrev">‹</div>
+    <img id="lbImg" src="" alt="">
+    <div class="lb-next" id="lbNext">›</div>
+    <div class="lb-count" id="lbCount"></div>
+</div>
+
+<script>
+// Carrousel plein écran (lightbox) — clic sur n'importe quelle photo de la
+// page pour l'agrandir, avec navigation précédent/suivant entre toutes les
+// photos de la vitrine.
+(function () {
+    const imgs = Array.from(document.querySelectorAll('.photo-slot img, .moments img'));
+    if (!imgs.length) return;
+    const lightbox = document.getElementById('lightbox');
+    const lbImg = document.getElementById('lbImg');
+    const lbCount = document.getElementById('lbCount');
+    let current = 0;
+
+    function show(i) {
+        current = (i + imgs.length) % imgs.length;
+        lbImg.src = imgs[current].src;
+        lbImg.alt = imgs[current].alt;
+        lbCount.textContent = (current + 1) + ' / ' + imgs.length;
+    }
+    function open(i) { show(i); lightbox.classList.add('open'); document.body.style.overflow = 'hidden'; }
+    function close() { lightbox.classList.remove('open'); document.body.style.overflow = ''; }
+
+    imgs.forEach((img, i) => img.addEventListener('click', () => open(i)));
+    document.getElementById('lbClose').addEventListener('click', close);
+    document.getElementById('lbPrev').addEventListener('click', () => show(current - 1));
+    document.getElementById('lbNext').addEventListener('click', () => show(current + 1));
+    lightbox.addEventListener('click', (e) => { if (e.target === lightbox) close(); });
+    document.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('open')) return;
+        if (e.key === 'Escape') close();
+        if (e.key === 'ArrowLeft') show(current - 1);
+        if (e.key === 'ArrowRight') show(current + 1);
+    });
+})();
+</script>
 
 <script>
 // Nav — fond opaque au scroll
