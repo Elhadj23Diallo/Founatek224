@@ -140,6 +140,21 @@
 
     @media (max-width: 720px) {
         .nav-links .navlink { display: none; }
+        /* Le bouton "Créer un compte" du nav débordait de l'écran sur petit
+           format — redondant de toute façon avec le gros CTA "Commencer
+           gratuitement" du hero, juste en dessous. On garde seulement
+           "Se connecter" dans la barre compacte. */
+        .nav-register { display: none; }
+        nav { padding: 14px 5%; }
+        .brand { font-size: 0.95rem; }
+        .nav-links { gap: 10px; }
+        .btn { padding: 9px 16px; font-size: 0.82rem; }
+        .stats { gap: 28px 34px; }
+        .hero { padding: 110px 6% 60px; }
+        section { padding: 60px 6%; }
+    }
+    @media (max-width: 380px) {
+        .brand { font-size: 0.82rem; }
     }
 </style>
 </head>
@@ -152,7 +167,7 @@
         <a class="navlink" href="#comment">Comment ça marche</a>
         <a class="navlink" href="#chatbot">Assistant IA</a>
         <a class="btn btn-ghost" href="{% url 'login' %}">Se connecter</a>
-        <a class="btn btn-primary" href="{% url 'iot:register' %}">Créer un compte</a>
+        <a class="btn btn-primary nav-register" href="{% url 'iot:register' %}">Créer un compte</a>
     </div>
 </nav>
 
