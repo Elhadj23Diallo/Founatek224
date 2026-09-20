@@ -138,6 +138,28 @@
 
     footer { text-align: center; padding: 40px 6%; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 40px; }
 
+    /* ── EMPLACEMENTS PHOTO (a remplacer par de vraies images) ── */
+    .photo-slot {
+        aspect-ratio: 16/10; border-radius: 14px; border: 1.5px dashed var(--border);
+        background: rgba(255,255,255,0.02); display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 6px; color: var(--text-muted);
+        font-size: 0.78rem; margin-bottom: 16px; overflow: hidden;
+    }
+    .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-slot .ps-icon { font-size: 1.6rem; opacity: 0.6; }
+    .photo-slot.round { aspect-ratio: 1/1; border-radius: 50%; width: 140px; margin: 0 auto 20px; }
+
+    /* ── REALISATIONS ── */
+    .proj-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
+    .proj-card h3 { font-size: 1rem; color: #fff; margin: 0 0 6px; }
+    .proj-card p { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin: 0; }
+
+    /* ── EQUIPE ── */
+    .team { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 480px; margin: 0 auto; }
+    .team h3 { color: #fff; font-size: 1.15rem; margin: 0 0 4px; }
+    .team .role { color: var(--cyan); font-size: 0.85rem; margin-bottom: 14px; }
+    .team p.bio { color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; }
+
     @media (max-width: 720px) {
         .nav-links .navlink { display: none; }
         /* Le bouton "Créer un compte" du nav débordait de l'écran sur petit
@@ -164,7 +186,8 @@
     <div class="brand">🌐 FOUNATEK<span>NEXUS</span></div>
     <div class="nav-links">
         <a class="navlink" href="#modules">Modules</a>
-        <a class="navlink" href="#comment">Comment ça marche</a>
+        <a class="navlink" href="#realisations">Réalisations</a>
+        <a class="navlink" href="#equipe">Équipe</a>
         <a class="navlink" href="#chatbot">Assistant IA</a>
         <a class="btn btn-ghost" href="{% url 'login' %}">Se connecter</a>
         <a class="btn btn-primary nav-register" href="{% url 'iot:register' %}">Créer un compte</a>
@@ -229,6 +252,48 @@
             <h3>Boutique intégrée</h3>
             <p>Achetez le matériel IoT nécessaire directement sur la plateforme, avec caisse par scan QR.</p>
         </div>
+    </div>
+</section>
+
+<section id="realisations">
+    <div class="section-head reveal">
+        <div class="section-tag">Réalisations</div>
+        <h2>Des projets réels, pas des maquettes</h2>
+        <p>Chaque module ci-dessus a été construit et testé sur du vrai matériel.</p>
+    </div>
+    <div class="grid">
+        <div class="proj-card reveal">
+            <div class="photo-slot"><span class="ps-icon">📷</span>Photo à ajouter</div>
+            <h3>Vidéosurveillance ESP32-CAM</h3>
+            <p>Un module caméra à quelques euros, transformé en flux de surveillance quasi temps réel avec détection de mouvement.</p>
+        </div>
+        <div class="proj-card reveal">
+            <div class="photo-slot"><span class="ps-icon">🌈</span>Photo à ajouter</div>
+            <h3>Bande LED RGB pilotée par IA</h3>
+            <p>100 LED WS2812B contrôlées en langage naturel par le chatbot, avec une veilleuse qui suit la qualité de l'air en direct.</p>
+        </div>
+        <div class="proj-card reveal">
+            <div class="photo-slot"><span class="ps-icon">🎓</span>Photo à ajouter</div>
+            <h3>Founatek Academy</h3>
+            <p>Des parcours complets, de l'électronique de base à la domotique, avec leçons, quiz et certificats.</p>
+        </div>
+    </div>
+</section>
+
+<section id="equipe">
+    <div class="section-head reveal">
+        <div class="section-tag">Qui sommes-nous</div>
+        <h2>L'équipe derrière Founatek</h2>
+    </div>
+    <div class="team reveal">
+        <div class="photo-slot round"><span class="ps-icon">👤</span>Photo</div>
+        <h3>Elhadj Abdourahmane Diallo</h3>
+        <div class="role">Fondateur — Étudiant L3 Physique Appliquée, Université de Lille (FST)</div>
+        <p class="bio">
+            Stagiaire à l'ODC Orange Guinée (Conakry), à l'origine de Founatek Nexus — une plateforme
+            pensée pour rendre l'IoT accessible en Afrique, du capteur individuel jusqu'à la formation
+            complète.
+        </p>
     </div>
 </section>
 
