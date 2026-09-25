@@ -14,6 +14,7 @@ from django.utils.timezone import localtime, now
 from datetime import timedelta
 
 from .utils import normalize, fuzzy_in, extract_rgb
+from . import who_air
 from .models import (
     Relais, LED, DHTData, SoilData, SensorData, LEDColor,
     UploadedImage, Video, Comptage, NtcSensorData,
@@ -441,13 +442,13 @@ class Chatbot:
 
         return device, latest
 
+    _AQI_EMOJI = {"excellent": "✅", "bon": "✅", "modere": "⚠️", "mediocre": "🟠", "mauvais": "🔴", "dangereux": "☠️"}
+
     def get_aqi_status(self, pm25):
-        if pm25 is None: return "❓ Inconnu"
-        t = self.AQI["pm2p5"]
-        if pm25 <= t["bon"]:     return "✅ Bon"
-        if pm25 <= t["modere"]:  return "⚠️ Modéré"
-        if pm25 <= t["mauvais"]: return "🔴 Mauvais"
-        return "☠️ Très mauvais"
+        """Niveau selon les lignes directrices OMS 2021 (espcontrol/who_air.py)."""
+        level = who_air.classify("pm2p5", pm25) if isinstance(pm25, (int, float)) else None
+        if level is None: return "❓ Inconnu"
+        return f"{self._AQI_EMOJI[level['key']]} {level['label']} (OMS)"
 
     def get_stats_24h(self):
         depuis  = now() - timedelta(hours=24)
@@ -489,7 +490,8 @@ class Chatbot:
         if pm25 is not None: lines.append(f"  🔵 PM2.5 : {pm25} µg/m³")
         if pm10 is not None: lines.append(f"  🟤 PM10  : {pm10} µg/m³")
         lines.append(f"  📊 AQI   : {status}")
-        if pm25 and pm25 > self.AQI["pm2p5"]["mauvais"]:
+        lines.append("  📏 Valeur guide OMS : PM2.5 15 µg/m³ · PM10 45 µg/m³ (moyenne 24 h)")
+        if who_air.level_index("pm2p5", pm25) is not None and who_air.level_index("pm2p5", pm25) >= 4:
             lines.append("  ⚠️ Évitez de sortir, portez un masque FFP2 !")
         return "\n".join(lines)
 

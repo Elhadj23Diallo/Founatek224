@@ -290,9 +290,57 @@
     }
     .chart-updating.show { opacity: 1; }
 
+    /* ── PANNEAU OMS ── */
+    .who-panel {
+        border: 1px solid var(--border); border-radius: 16px;
+        background: #fff; padding: 16px; margin: 4px 0 14px;
+    }
+    .who-head { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    .who-badge {
+        display: inline-flex; align-items: center; gap: 12px;
+        padding: 10px 18px; border-radius: 14px;
+    }
+    .who-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; animation: pulse-dot 2s infinite; }
+    .who-badge-title { font-size: 1.05rem; font-weight: 900; line-height: 1.2; }
+    .who-badge-sub   { font-size: 0.72rem; font-weight: 700; opacity: 0.85; margin-top: 2px; }
+    .who-advice { flex: 1; min-width: 220px; font-size: 0.85rem; color: var(--text); line-height: 1.45; }
+
+    .who-scales { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+    @media (max-width: 800px) { .who-scales { grid-template-columns: 1fr; } }
+    .who-scale-title { font-size: 0.72rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+    .who-bar { position: relative; display: flex; height: 12px; border-radius: 6px; overflow: visible; margin-top: 10px; }
+    .who-seg { flex: 1; }
+    .who-seg:first-child { border-radius: 6px 0 0 6px; }
+    .who-seg:last-child  { border-radius: 0 6px 6px 0; }
+    .who-marker {
+        position: absolute; top: -9px; width: 0; height: 0; transform: translateX(-50%);
+        border-left: 7px solid transparent; border-right: 7px solid transparent;
+        border-top: 9px solid #0f172a;
+    }
+    .who-ticks { display: flex; margin-top: 4px; }
+    .who-tick { flex: 1; font-size: 0.6rem; font-weight: 700; color: var(--muted); text-align: right; padding-right: 2px; }
+    .who-tick small { display: block; font-weight: 600; color: #94a3b8; font-size: 0.56rem; }
+
+    .who-table-wrap { overflow-x: auto; margin-top: 16px; }
+    .who-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 560px; }
+    .who-table th { text-align: left; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); padding: 6px 8px; border-bottom: 2px solid var(--border); }
+    .who-table td { padding: 9px 8px; border-bottom: 1px solid var(--border); font-weight: 700; }
+    .who-chip { display: inline-block; padding: 2px 10px; border-radius: 50px; font-size: 0.7rem; font-weight: 800; }
+    .who-ok  { color: #15803d; }
+    .who-bad { color: #b91c1c; }
+    .who-note { margin-top: 12px; font-size: 0.72rem; color: var(--muted); line-height: 1.5; }
+    .who-note strong { color: var(--text); }
+
+    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
+    .stat-chip { display: inline-block; margin-top: 5px; padding: 1px 9px; border-radius: 50px; font-size: 0.64rem; font-weight: 800; }
+
     @media (max-width: 480px) {
         .device-section { padding: 14px 10px; }
         .export-date-input { font-size: 0.75rem; }
+        .who-panel { padding: 12px; }
+        .who-tick { font-size: 0.5rem; }
+        .who-tick small { font-size: 0.5rem; }
+        .who-badge { width: 100%; }
     }
 </style>
 
@@ -379,52 +427,154 @@
                 </div>
             </div>
 
-            <div id="status-{{ item.device.id }}"></div>
+            <!-- Indice OMS -->
+            <div class="who-panel" id="who-{{ item.device.id }}">
+                {% with w=item.who %}
+                {% if w.overall %}
+                <div class="who-head">
+                    <div class="who-badge" style="background:{{ w.overall.bg }}; color:{{ w.overall.color }};">
+                        <span class="who-dot" style="background:{{ w.overall.color }};"></span>
+                        <div>
+                            <div class="who-badge-title">Qualité de l'air : {{ w.overall.label }}</div>
+                            <div class="who-badge-sub">{{ w.overall.ref }}</div>
+                        </div>
+                    </div>
+                    <div class="who-advice"><strong>Recommandation :</strong> {{ w.overall.advice }}</div>
+                </div>
+
+                <div class="who-scales">
+                    <div>
+                        <div class="who-scale-title"><span>PM2.5 — échelle OMS 2021</span><span>µg/m³</span></div>
+                        <div class="who-bar">
+                            {% for seg in who_scale_pm25 %}<div class="who-seg" style="background:{{ seg.color }};" title="{{ seg.label }}"></div>{% endfor %}
+                            {% if w.pm25_marker is not None %}<div class="who-marker" style="left:{{ w.pm25_marker|stringformat:'.1f' }}%;"></div>{% endif %}
+                        </div>
+                        <div class="who-ticks">
+                            {% for seg in who_scale_pm25 %}<div class="who-tick">{{ seg.label }}<small>{% if seg.hi %}≤ {{ seg.hi }}{% else %}&gt; {{ seg.lo }}{% endif %}</small></div>{% endfor %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="who-scale-title"><span>PM10 — échelle OMS 2021</span><span>µg/m³</span></div>
+                        <div class="who-bar">
+                            {% for seg in who_scale_pm10 %}<div class="who-seg" style="background:{{ seg.color }};" title="{{ seg.label }}"></div>{% endfor %}
+                            {% if w.pm10_marker is not None %}<div class="who-marker" style="left:{{ w.pm10_marker|stringformat:'.1f' }}%;"></div>{% endif %}
+                        </div>
+                        <div class="who-ticks">
+                            {% for seg in who_scale_pm10 %}<div class="who-tick">{{ seg.label }}<small>{% if seg.hi %}≤ {{ seg.hi }}{% else %}&gt; {{ seg.lo }}{% endif %}</small></div>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="who-table-wrap">
+                    <table class="who-table">
+                        <thead>
+                            <tr>
+                                <th>Polluant</th><th>Mesure actuelle</th><th>Niveau</th>
+                                <th>Moyenne 24 h</th><th>Valeur guide OMS</th><th>Conformité 24 h</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>PM2.5</td>
+                                <td>{% if w.pm2p5.current is not None %}{{ w.pm2p5.current }} µg/m³{% else %}—{% endif %}</td>
+                                <td>{% if w.pm2p5.current_level %}<span class="who-chip" style="background:{{ w.pm2p5.current_level.bg }}; color:{{ w.pm2p5.current_level.color }};">{{ w.pm2p5.current_level.label }}</span>{% else %}—{% endif %}</td>
+                                <td>{% if w.pm2p5.avg24 is not None %}{{ w.pm2p5.avg24 }} µg/m³{% else %}—{% endif %}</td>
+                                <td>{{ w.pm2p5.guide24 }} <small style="color:var(--muted)">(24 h) · {{ w.pm2p5.guide_annual }} (an)</small></td>
+                                <td>{% if w.pm2p5.avg24_ok is None %}—{% elif w.pm2p5.avg24_ok %}<span class="who-ok">✔ Conforme ({{ w.pm2p5.ratio24 }}×)</span>{% else %}<span class="who-bad">✖ Dépasse ({{ w.pm2p5.ratio24 }}×)</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>PM10</td>
+                                <td>{% if w.pm10.current is not None %}{{ w.pm10.current }} µg/m³{% else %}—{% endif %}</td>
+                                <td>{% if w.pm10.current_level %}<span class="who-chip" style="background:{{ w.pm10.current_level.bg }}; color:{{ w.pm10.current_level.color }};">{{ w.pm10.current_level.label }}</span>{% else %}—{% endif %}</td>
+                                <td>{% if w.pm10.avg24 is not None %}{{ w.pm10.avg24 }} µg/m³{% else %}—{% endif %}</td>
+                                <td>{{ w.pm10.guide24 }} <small style="color:var(--muted)">(24 h) · {{ w.pm10.guide_annual }} (an)</small></td>
+                                <td>{% if w.pm10.avg24_ok is None %}—{% elif w.pm10.avg24_ok %}<span class="who-ok">✔ Conforme ({{ w.pm10.ratio24 }}×)</span>{% else %}<span class="who-bad">✖ Dépasse ({{ w.pm10.ratio24 }}×)</span>{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="who-note">
+                    {% if w.fine_ratio == 100 %}
+                    <strong>PM2.5 = PM10 :</strong> aucune particule grossière (2,5 à 10 µm) détectée. C'est normal en air propre ou en présence de fumée fine, car le PM10 <em>inclut</em> le PM2.5.
+                    {% elif w.fine_ratio is not None %}
+                    <strong>Fraction fine :</strong> PM2.5 = {{ w.fine_ratio }} % du PM10 (particules grossières : {{ w.coarse }} µg/m³, typiquement poussière, harmattan, chantiers).
+                    {% endif %}
+                    <br>Le niveau global retient le <strong>pire des deux polluants</strong>, calculé sur la {{ w.basis }} pour ignorer un pic isolé. La conformité utilise la moyenne des dernières 24 h, comme le prévoient les valeurs guides de l'OMS.
+                    <br>Référence : <em>Lignes directrices OMS relatives à la qualité de l'air, 2021</em> (valeur guide et cibles intermédiaires). L'OMS ne définit pas d'indice unique : les 6 niveaux ci-dessus sont adossés à ces seuils. Mesures indicatives d'un capteur optique, non équivalentes à une station de référence réglementaire.
+                </div>
+                {% else %}
+                <div class="who-note" style="margin:0;">En attente de mesures PM2.5 / PM10 pour établir le niveau OMS.</div>
+                {% endif %}
+                {% endwith %}
+            </div>
 
             <!-- Stats -->
             <div class="stats-grid" id="stats-{{ item.device.id }}">
+                {% if item.latest_reading.payload.pm1 is not None %}
+                <div class="stat-card">
+                    <div class="stat-label">PM1</div>
+                    <div class="stat-value" style="color:#0d9488">
+                        {{ item.latest_reading.payload.pm1|floatformat:1 }}<span class="stat-unit">µg/m³</span>
+                    </div>
+                    <div class="stat-trend" style="color:var(--muted)">Particules ultrafines ≤ 1 µm</div>
+                </div>
+                {% endif %}
                 <div class="stat-card">
                     <div class="stat-label">PM2.5</div>
-                    <div class="stat-value" style="color:var(--pm25)">
+                    <div class="stat-value" style="color:{{ item.who.pm2p5.current_level.color|default:'var(--pm25)' }}">
                         {{ item.latest_reading.payload.pm2p5|floatformat:1|default:"—" }}<span class="stat-unit">µg/m³</span>
                     </div>
-                    <div class="stat-trend" style="color:var(--muted)">Particules fines</div>
+                    <div class="stat-trend" style="color:var(--muted)">Particules fines ≤ 2,5 µm</div>
+                    {% if item.who.pm2p5.current_level %}<span class="stat-chip" style="background:{{ item.who.pm2p5.current_level.bg }}; color:{{ item.who.pm2p5.current_level.color }};">{{ item.who.pm2p5.current_level.label }}</span>{% endif %}
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">PM10</div>
-                    <div class="stat-value" style="color:var(--pm10)">
+                    <div class="stat-value" style="color:{{ item.who.pm10.current_level.color|default:'var(--pm10)' }}">
                         {{ item.latest_reading.payload.pm10|floatformat:1|default:"—" }}<span class="stat-unit">µg/m³</span>
                     </div>
-                    <div class="stat-trend" style="color:var(--muted)">Suspension</div>
+                    <div class="stat-trend" style="color:var(--muted)">Particules ≤ 10 µm</div>
+                    {% if item.who.pm10.current_level %}<span class="stat-chip" style="background:{{ item.who.pm10.current_level.bg }}; color:{{ item.who.pm10.current_level.color }};">{{ item.who.pm10.current_level.label }}</span>{% endif %}
                 </div>
+                {% if item.latest_reading.payload.mq135_ppm is not None %}
                 <div class="stat-card">
                     <div class="stat-label">Gaz MQ135</div>
                     <div class="stat-value" style="color:var(--gas)">
-                        {{ item.latest_reading.payload.mq135_ppm|floatformat:0|default:"—" }}<span class="stat-unit">ppm</span>
+                        {{ item.latest_reading.payload.mq135_ppm|floatformat:0 }}<span class="stat-unit">ppm</span>
                     </div>
-                    <div class="stat-trend" style="color:var(--muted)">CO₂ · NOx</div>
+                    <div class="stat-trend" style="color:var(--muted)">Indice CO₂ · NOx (indicatif)</div>
                 </div>
+                {% endif %}
+                {% if item.latest_reading.payload.temperature is not None %}
                 <div class="stat-card">
                     <div class="stat-label">Température</div>
                     <div class="stat-value" style="color:#f59e0b">
-                        {{ item.latest_reading.payload.temperature|floatformat:1|default:"—" }}<span class="stat-unit">°C</span>
+                        {{ item.latest_reading.payload.temperature|floatformat:1 }}<span class="stat-unit">°C</span>
                     </div>
-                    <div class="stat-trend" style="color:var(--muted)">Ambiante</div>
+                    <div class="stat-trend" style="color:var(--muted)">Capteur</div>
                 </div>
+                {% endif %}
+                {% if item.latest_reading.payload.humidity is not None %}
                 <div class="stat-card">
                     <div class="stat-label">Humidité</div>
                     <div class="stat-value" style="color:var(--primary)">
-                        {{ item.latest_reading.payload.humidity|floatformat:1|default:"—" }}<span class="stat-unit">%</span>
+                        {{ item.latest_reading.payload.humidity|floatformat:1 }}<span class="stat-unit">%</span>
                     </div>
                     <div class="stat-trend" style="color:var(--muted)">Relative</div>
                 </div>
+                {% endif %}
                 <div class="stat-card">
-                    <div class="stat-label">GPS</div>
+                    <div class="stat-label">Position</div>
+                    {% if item.latest_reading.payload.latitude is not None %}
                     <div style="font-size:0.8rem; font-weight:700; margin-top:6px; line-height:1.5;">
-                        {{ item.latest_reading.payload.latitude|floatformat:4|default:"9.5377" }}° N<br>
-                        {{ item.latest_reading.payload.longitude|floatformat:4|default:"-13.6773" }}° W
+                        {{ item.latest_reading.payload.latitude|floatformat:4 }}° N<br>
+                        {{ item.latest_reading.payload.longitude|floatformat:4 }}° W
                     </div>
-                    <div class="stat-trend" style="color:var(--success)">Signal actif</div>
+                    <div class="stat-trend" style="color:var(--success)">GPS actif</div>
+                    {% else %}
+                    <div style="font-size:0.8rem; font-weight:700; margin-top:6px; line-height:1.5;">Conakry<br>station fixe</div>
+                    <div class="stat-trend" style="color:var(--muted)">Position par défaut</div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -517,20 +667,6 @@ function refreshAlertCount() {
     badge.style.display = n > 0 ? 'inline-block' : 'none';
 }
 
-function updateStatusBadge(deviceId, pm25) {
-    const el = document.getElementById(`status-${deviceId}`);
-    if (!el) return;
-    let label = 'Air sain', color = 'var(--success)', bg = '#dcfce7';
-    if      (pm25 > 55) { label = 'Danger critique'; color = 'var(--danger)'; bg = '#fee2e2'; }
-    else if (pm25 > 35) { label = 'Médiocre';        color = '#f97316';       bg = '#ffedd5'; }
-    else if (pm25 > 12) { label = 'Modéré';          color = 'var(--warning)';bg = '#fef9c3'; }
-    el.innerHTML = `
-        <div class="status-badge" style="background:${bg}; color:${color};">
-            <span class="status-dot" style="background:${color};"></span>
-            ${label}
-        </div>`;
-}
-
 function filterChart(deviceId, type) {
     const ch = charts[deviceId];
     if (!ch) return;
@@ -614,10 +750,6 @@ function loadChartData(deviceId) {
             updatePointsCount(deviceId);
             const badge = document.getElementById(`chartBadge-${deviceId}`);
             if (badge) { badge.classList.add('show'); setTimeout(() => badge.classList.remove('show'), 1200); }
-            if (readings.length > 0) {
-                const valides = readings.slice(-5).map(r => r.pm25).filter(v => v !== null && v !== undefined && !isNaN(v));
-                if (valides.length > 0) updateStatusBadge(deviceId, valides.reduce((a, b) => a + b, 0) / valides.length);
-            }
         })
         .catch(err => console.warn('Chart data error:', err));
 }
@@ -656,6 +788,8 @@ function fetchUpdates() {
                 const devId = '{{ item.device.id }}';
                 const newStats = doc.getElementById(`stats-${devId}`);
                 if (newStats) { const old = document.getElementById(`stats-${devId}`); if (old) old.innerHTML = newStats.innerHTML; }
+                const newWho = doc.getElementById(`who-${devId}`);
+                if (newWho) { const old = document.getElementById(`who-${devId}`); if (old) old.innerHTML = newWho.innerHTML; }
                 const newRelais = doc.getElementById(`relais-${devId}`);
                 if (newRelais) { const old = document.getElementById(`relais-${devId}`); if (old) old.innerHTML = newRelais.innerHTML; }
                 if (selectedId === `device-${devId}`) loadChartData(devId);

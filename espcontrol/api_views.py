@@ -38,6 +38,7 @@ from .models import (
 )
 from .serializers import RelaisSerializer
 from .utils import api_permission_required
+from . import who_air
 
 
 from rest_framework.authtoken.models import Token
@@ -252,11 +253,16 @@ def mobile_air_quality_summary(request):
     devices = Device.objects.filter(user=request.user).order_by("name")
     payload = []
     for device in devices:
-        latest = AppareilData.objects.filter(device=device).order_by("-received_at").first()
+        device_qs = AppareilData.objects.filter(device=device).order_by("-received_at")
+        latest = device_qs.first()
+        avg = who_air.avg_pm_24h(device_qs.filter(received_at__gte=timezone.now() - timedelta(hours=24)))
+        who = who_air.device_report([r.payload for r in device_qs[:5]], avg["avg_pm25"], avg["avg_pm10"])
+        who["scale"] = {"pm2p5": who_air.scale("pm2p5"), "pm10": who_air.scale("pm10")}
         payload.append(
             {
                 "device": {"id": device.id, "name": device.name, "device_id": device.device_id},
                 "latest": {
+                    "pm1":         (latest.payload or {}).get("pm1")         if latest else None,
                     "pm2p5":       (latest.payload or {}).get("pm2p5")       if latest else None,
                     "pm10":        (latest.payload or {}).get("pm10")        if latest else None,
                     "mq135_ppm":   (latest.payload or {}).get("mq135_ppm")   if latest else None,
@@ -268,6 +274,7 @@ def mobile_air_quality_summary(request):
                     "timestamp":   latest.received_at.isoformat()            if latest else None,
                 },
                 "count": AppareilData.objects.filter(device=device).count(),
+                "who": who,
             }
         )
     return Response(payload, status=status.HTTP_200_OK)

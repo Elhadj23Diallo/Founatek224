@@ -59,12 +59,6 @@ def extract_rgb(text):
     return None
 
 
-# Memes seuils PM2.5 (µg/m3) que Chatbot.get_aqi_status, pour que la veilleuse
-# LED et les reponses du chatbot s'accordent toujours sur ce qu'est "bon"/
-# "modere"/"mauvais".
-AIR_QUALITY_THRESHOLDS = {"bon": 15, "modere": 35, "mauvais": 55}
-
-
 def get_air_quality_color(user, window=3):
     """Couleur de veilleuse (r, g, b) a partir de la MEDIANE des dernieres
     lectures PM2.5 de l'utilisateur (pas juste la toute derniere) — vert si
@@ -78,6 +72,7 @@ def get_air_quality_color(user, window=3):
     changement soutenu (2 lectures sur 3 dans la nouvelle categorie) est en
     revanche bien detecte."""
     from statistics import median
+    from . import who_air
     from .models import Device, AppareilData
 
     device = Device.objects.filter(user=user, is_active=True).order_by("-last_seen").first()
@@ -93,9 +88,11 @@ def get_air_quality_color(user, window=3):
         return (255, 255, 255)
     pm25 = median(values)
 
-    t = AIR_QUALITY_THRESHOLDS
-    if pm25 <= t["bon"]:
+    # Niveaux OMS (espcontrol/who_air.py) : Excellent/Bon -> vert,
+    # Modere/Mediocre -> jaune, Mauvais/Dangereux -> rouge.
+    idx = who_air.level_index("pm2p5", pm25)
+    if idx <= 1:
         return (0, 255, 0)
-    if pm25 <= t["modere"]:
+    if idx <= 3:
         return (255, 255, 0)
     return (255, 0, 0)

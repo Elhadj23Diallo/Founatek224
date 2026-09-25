@@ -205,6 +205,7 @@ from django.core.files.base import ContentFile
 from django.contrib.auth.decorators import login_required
 from rest_framework.permissions import IsAuthenticated
 from .utils import api_permission_required
+from . import who_air
 try:
     from monetisation.decorators import plan_required, require_quota, premium_feature_required
     from monetisation.quota import check_quota
@@ -1797,68 +1798,13 @@ def air_quality_dashboard(request):
         # 2. Détection d'anomalies (IA Z-Score)
         anomalies = detect_anomalies(device, window=5)
 
-        # 3. Calcul des statistiques PM2.5 et PM10 (sur 24h)
-        pm25_v = [
-            r.payload.get('pm2p5') for r in recent_readings
-            if r.payload and isinstance(r.payload.get('pm2p5'), (int, float))
-        ]
-        pm10_v = [
-            r.payload.get('pm10') for r in recent_readings
-            if r.payload and isinstance(r.payload.get('pm10'), (int, float))
-        ]
-        stats = {
-            'avg_pm25': round(sum(pm25_v) / len(pm25_v), 2) if pm25_v else 0,
-            'avg_pm10': round(sum(pm10_v) / len(pm10_v), 2) if pm10_v else 0,
-        }
-
-        # ════════════════════════════════════════════════════════════════
-        # 4. Calcul du statut AQI — MOYENNE GLISSANTE 5 MESURES
-        # ════════════════════════════════════════════════════════════════
-        # Cohérent avec la logique de l'agent IA : on filtre les pics
-        # ponctuels (cigarette, voiture) pour ne réagir qu'aux tendances
-        # durables de pollution.
+        # 3-4. Rapport OMS 2021 (moyenne 24 h + niveau sur médiane des 5 dernières mesures)
+        stats = who_air.avg_pm_24h(recent_readings)
         latest = device_readings.first()
-        aqi = {"status": "N/A", "color": "#64748b", "icon": "❓"}
-
-        # Moyenne glissante sur les 5 dernières mesures
-        recent_5 = list(device_readings[:5])
-        pm25_values = [
-            r.payload.get('pm2p5') for r in recent_5
-            if r.payload and isinstance(r.payload.get('pm2p5'), (int, float))
-        ]
-
-        if pm25_values:
-            pm25_moy = sum(pm25_values) / len(pm25_values)
-
-            # Classification selon les seuils OMS 2021
-            if pm25_moy <= 15:
-                aqi = {
-                    "status": "Bon",
-                    "color":  "#10b981",
-                    "icon":   "✅",
-                    "value":  round(pm25_moy, 1),
-                }
-            elif pm25_moy <= 35:
-                aqi = {
-                    "status": "Modéré",
-                    "color":  "#f59e0b",
-                    "icon":   "⚠️",
-                    "value":  round(pm25_moy, 1),
-                }
-            elif pm25_moy <= 55:
-                aqi = {
-                    "status": "Mauvais",
-                    "color":  "#ef4444",
-                    "icon":   "🔴",
-                    "value":  round(pm25_moy, 1),
-                }
-            else:
-                aqi = {
-                    "status": "Très mauvais",
-                    "color":  "#7c2d12",
-                    "icon":   "☠️",
-                    "value":  round(pm25_moy, 1),
-                }
+        who = who_air.device_report(
+            [r.payload for r in device_readings[:5]],
+            stats["avg_pm25"], stats["avg_pm10"],
+        )
 
         # 5. Préparation des points pour les graphiques Chart.js
         processed_points = []
@@ -1875,7 +1821,7 @@ def air_quality_dashboard(request):
             "device":         device,
             "latest_reading": latest,
             "stats":          stats,
-            "aqi_status":     aqi,
+            "who":            who,
             "chart_data":     list(reversed(processed_points[:20])),
             "data_points":    processed_points,
             "has_anomaly":    bool(anomalies),
@@ -1887,6 +1833,8 @@ def air_quality_dashboard(request):
         "devices_data":  devices_data,
         "sensors_list":  sensors_list,
         "agent_alerts":  agent_alerts,
+        "who_scale_pm25": who_air.scale("pm2p5"),
+        "who_scale_pm10": who_air.scale("pm10"),
     })
 
 @api_permission_required
