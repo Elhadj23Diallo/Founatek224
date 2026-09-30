@@ -269,6 +269,12 @@
                         <div class="icon-box"><i class="fas fa-chart-line"></i></div>
                         <div class="node-label">Dashboard Univ</div>
                     </a>
+                    {% if user.is_staff %}
+                    <a href="{% url 'chatbot_daily_report' %}" class="node-block node-purple">
+                        <div class="icon-box"><i class="fas fa-headset"></i></div>
+                        <div class="node-label">Rapport Chatbot</div>
+                    </a>
+                    {% endif %}
                     <a href="{% url 'air_sim_latest' %}" class="node-block">
                         <div class="icon-box"><i class="fas fa-satellite-dish"></i></div>
                         <div class="node-label">Simulateur</div>

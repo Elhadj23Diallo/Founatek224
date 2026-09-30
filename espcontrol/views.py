@@ -2196,6 +2196,21 @@ from .chatbot_model import Chatbot
 
 logger = logging.getLogger(__name__)
 
+
+def _log_chat_turn(user, channel, message, response, escalated):
+    """Enregistre un tour de conversation chatbot pour le rapport de la
+    journee du fondateur — ne doit jamais faire echouer la reponse au chat."""
+    try:
+        from .models import ChatLog
+        text = response.get("reponse", "") if isinstance(response, dict) else str(response)
+        ChatLog.objects.create(
+            user=user, channel=channel, message=message[:4000],
+            response=text[:4000], escalated=escalated,
+        )
+    except Exception:
+        logger.exception("Echec enregistrement ChatLog")
+
+
 @login_required
 def chatbot_view(request):
     if request.method != "POST":
@@ -2215,10 +2230,12 @@ def chatbot_view(request):
     bot = Chatbot(request.user)
 
     try:
-        response = bot.get_response(raw_msg, history=history)
+        response = bot.get_response(raw_msg, history=history, channel="web")
     except Exception as e:
         logger.error(f"Erreur chatbot user={request.user.id}: {e}")
         return JsonResponse({"reponse": f"⚠️ Erreur interne : {e}"})
+
+    _log_chat_turn(request.user, "web", raw_msg, response, bot.last_escalated)
 
     # ── CORRECTION BUG "aide" ────────────────────────────────
     # Si le bot retourne un dict avec boutons, s'assurer
@@ -2229,6 +2246,44 @@ def chatbot_view(request):
         return JsonResponse(response)
 
     return JsonResponse({"reponse": response, "tts": response})
+
+
+@login_required
+def chatbot_daily_report(request):
+    """Rapport de la journee pour le fondateur : toutes les conversations
+    chatbot (site + mobile) et les demandes transmises au service competent.
+    Reserve aux comptes staff — contient les echanges de TOUS les utilisateurs."""
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Reserve au staff."}, status=403)
+
+    from datetime import datetime as _dt
+    from .chat_reports import build_daily_report
+
+    day_str = request.GET.get("date", "")
+    try:
+        day = _dt.strptime(day_str, "%Y-%m-%d").date()
+    except ValueError:
+        day = timezone.localdate()
+
+    report = build_daily_report(day)
+    return render(request, "espcontrol/chatbot_daily_report.html", {
+        "report": report,
+        "day": day,
+        "prev_day": day - timedelta(days=1),
+        "next_day": day + timedelta(days=1),
+        "is_today": day == timezone.localdate(),
+    })
+
+
+@login_required
+def chatbot_escalation_resolve(request, escalation_id):
+    if not request.user.is_staff or request.method != "POST":
+        return JsonResponse({"error": "Non autorise."}, status=403)
+    from .models import ChatEscalation
+    updated = ChatEscalation.objects.filter(id=escalation_id).update(
+        status="traite", handled_by=request.user, handled_at=timezone.now()
+    )
+    return JsonResponse({"ok": bool(updated)})
 
 
 #Vue pour le contrôle d'accès automatique

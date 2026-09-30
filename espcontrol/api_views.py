@@ -481,9 +481,12 @@ def mobile_chatbot(request):
 
     bot = Chatbot(request.user)
     try:
-        response = bot.get_response(raw_msg, history=history)
+        response = bot.get_response(raw_msg, history=history, channel="mobile")
     except Exception as e:
         return Response({"reponse": f"⚠️ Erreur : {e}"})
+
+    from .views import _log_chat_turn  # noqa: PLC0415
+    _log_chat_turn(request.user, "mobile", raw_msg, response, bot.last_escalated)
 
     if isinstance(response, dict):
         if "reponse" not in response:

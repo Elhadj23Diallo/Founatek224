@@ -502,3 +502,56 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profil de {self.user.username}"
+
+
+class ChatLog(models.Model):
+    """Trace chaque echange chatbot (site + mobile) pour le rapport de la journee
+    du fondateur — un tour = un message utilisateur + la reponse du bot."""
+    CHANNEL_CHOICES = [("web", "Site"), ("mobile", "Mobile")]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_logs")
+    channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES, default="web")
+    message = models.TextField()
+    response = models.TextField()
+    escalated = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"ChatLog({self.user.username}, {self.created_at:%Y-%m-%d %H:%M})"
+
+
+class ChatEscalation(models.Model):
+    """Demande que le chatbot n'a pas pu traiter lui-meme et transmet au
+    'service competent' — le fondateur la retrouve et la traite depuis le
+    rapport de la journee / le back-office."""
+    CATEGORY_CHOICES = [
+        ("technique", "Support technique"),
+        ("facturation", "Facturation / abonnement"),
+        ("compte", "Compte utilisateur"),
+        ("materiel", "Materiel / panne"),
+        ("autre", "Autre"),
+    ]
+    STATUS_CHOICES = [
+        ("nouveau", "Nouveau"),
+        ("en_cours", "En cours"),
+        ("traite", "Traite"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_escalations")
+    channel = models.CharField(max_length=10, choices=ChatLog.CHANNEL_CHOICES, default="web")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default="autre")
+    summary = models.TextField(help_text="Resume redige par l'assistant IA")
+    original_message = models.TextField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="nouveau")
+    handled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="chat_escalations_handled")
+    handled_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Escalade({self.user.username}, {self.get_category_display()}, {self.status})"

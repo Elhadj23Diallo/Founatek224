@@ -88,6 +88,8 @@ urlpatterns = [
     path('api/led_ack/', api_views.mobile_led_ack, name='led_ack_esp'),
     path('led-rgb/', web_views.led_rgb_control_page, name='led_rgb_control_page'),
     path('chatbot/', views.chatbot_view, name='chatbot_view'),
+    path('chatbot/rapport/', views.chatbot_daily_report, name='chatbot_daily_report'),
+    path('chatbot/escalade/<int:escalation_id>/resoudre/', views.chatbot_escalation_resolve, name='chatbot_escalation_resolve'),
     path("api/relais/<int:num>/set/", views.set_relais_etat, name="set_relais_etat"),
 
     #controle d'accès

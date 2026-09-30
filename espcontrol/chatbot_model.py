@@ -128,6 +128,43 @@ LED_TOOL = {
     },
 }
 
+ESCALATE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "escalate_to_support",
+        "description": (
+            "Transmet la demande de l'utilisateur au service competent Founatek (humain) "
+            "quand TU NE PEUX PAS y repondre toi-meme avec certitude a partir de ta base de "
+            "connaissance et des donnees reelles fournies. Utilise-la des que : la question "
+            "sort du perimetre de la plateforme Founatek Nexus, il s'agit d'un litige/remboursement/"
+            "reclamation, d'une panne materielle a diagnostiquer physiquement, d'une demande de "
+            "changement de compte/role, ou que l'utilisateur demande explicitement a parler a un "
+            "humain/au support. Ne devine JAMAIS une reponse dans ces cas — appelle cet outil "
+            "plutot que d'inventer un chiffre, un statut ou une procedure."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "resume": {
+                    "type": "string",
+                    "description": "Resume clair en francais (1-2 phrases) de la demande de l'utilisateur, a l'attention du service qui va la traiter.",
+                },
+                "categorie": {
+                    "type": "string",
+                    "enum": ["technique", "facturation", "compte", "materiel", "autre"],
+                    "description": "Service le plus pertinent pour traiter cette demande.",
+                },
+            },
+            "required": ["resume", "categorie"],
+        },
+    },
+}
+
+ESCALATION_REPLY = (
+    "🔁 Votre demande a été transmise au service compétent avec toutes vos informations. "
+    "Elle sera traitée dans les meilleurs délais."
+)
+
 
 # ============================================================
 #  BASE DE CONNAISSANCE DE LA PLATEFORME (pour l'assistant IA)
@@ -203,6 +240,10 @@ RÈGLES IMPORTANTES :
   ensuite ce que tu as réglé en langage naturel.
 - Pour toute AUTRE action matérielle (allumer/éteindre un relais...), l'utilisateur doit reformuler
   une commande claire — tu ne simules jamais l'exécution toi-même pour celles-ci.
+- Tu ne sais pas tout et ce n'est pas grave : si la demande sort de ton périmètre (litige,
+  remboursement, panne matérielle à diagnostiquer, changement de compte/rôle, question hors de
+  Founatek Nexus) ou si tu n'es pas sûr de ta réponse, utilise TOUJOURS l'outil escalate_to_support
+  au lieu d'inventer — ne devine jamais un chiffre, un statut ou une procédure que tu ne connais pas.
 """
 
 
@@ -398,6 +439,7 @@ class Chatbot:
     def __init__(self, user):
         self.user = user
         self._memory = None
+        self.last_escalated = False
 
     # ── MÉMOIRE ──────────────────────────────────────────────
     @property
@@ -824,7 +866,28 @@ class Chatbot:
             return f"Veilleuse qualité de l'air activée (couleur actuelle : RGB({r},{g},{b}))."
         return f"LED réglée : RGB({r},{g},{b}), effet={effect}."
 
-    def ai_chat(self, raw_msg, history=None):
+    def _execute_escalation_tool(self, args, raw_msg, channel="web"):
+        """Enregistre la demande pour le fondateur (service competent) avec
+        toutes les infos disponibles sur l'utilisateur — le chatbot ne
+        formule jamais lui-meme la reponse finale ici, ESCALATION_REPLY est
+        toujours le texte renvoye, pour garantir un message fiable et
+        identique a chaque fois."""
+        from .models import ChatEscalation
+
+        resume = (args.get("resume") or raw_msg or "").strip()[:2000]
+        categorie = args.get("categorie")
+        if categorie not in dict(ChatEscalation.CATEGORY_CHOICES):
+            categorie = "autre"
+        ChatEscalation.objects.create(
+            user=self.user,
+            channel=channel,
+            category=categorie,
+            summary=resume,
+            original_message=raw_msg[:2000],
+        )
+        self.last_escalated = True
+
+    def ai_chat(self, raw_msg, history=None, channel="web"):
         """Repond de facon conversationnelle en s'appuyant sur la base de connaissance
         de la plateforme + un instantane des donnees reelles de l'utilisateur, et peut
         piloter reellement la LED RGB via l'outil set_led (function calling Groq).
@@ -841,7 +904,7 @@ class Chatbot:
             messages.extend(history)
         messages.append({"role": "user", "content": raw_msg})
 
-        msg = call_groq_chat(messages, tools=[LED_TOOL], max_tokens=500, timeout=12)
+        msg = call_groq_chat(messages, tools=[LED_TOOL, ESCALATE_TOOL], max_tokens=500, timeout=12)
         if not msg:
             return (
                 "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
@@ -850,20 +913,28 @@ class Chatbot:
 
         tool_calls = msg.get("tool_calls")
         if tool_calls:
-            # Le modele veut agir sur la LED — on execute reellement, puis on
-            # lui renvoie le resultat pour qu'il formule une confirmation
-            # naturelle (deuxieme aller-retour, pattern standard function calling).
+            # Le modele veut agir sur la LED et/ou escalader — on execute
+            # reellement chaque outil. Une escalade court-circuite tout :
+            # le texte renvoye a l'utilisateur est TOUJOURS ESCALATION_REPLY,
+            # jamais une reformulation du modele, pour garantir le message exact.
             messages.append(msg)
             for tc in tool_calls:
-                if tc.get("function", {}).get("name") == "set_led":
-                    try:
-                        args = json.loads(tc["function"].get("arguments") or "{}")
-                    except (json.JSONDecodeError, TypeError):
-                        args = {}
+                name = tc.get("function", {}).get("name")
+                try:
+                    args = json.loads(tc["function"].get("arguments") or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                if name == "set_led":
                     result = self._execute_led_tool(args)
+                elif name == "escalate_to_support":
+                    self._execute_escalation_tool(args, raw_msg, channel=channel)
+                    result = "Demande transmise au service competent."
                 else:
                     result = "Outil inconnu."
                 messages.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": result})
+
+            if self.last_escalated:
+                return ESCALATION_REPLY
 
             final_msg = call_groq_chat(messages, max_tokens=300, timeout=10)
             if final_msg and final_msg.get("content"):
@@ -1103,7 +1174,8 @@ class Chatbot:
     #  POINT D'ENTRÉE PRINCIPAL
     # ============================================================
 
-    def get_response(self, raw_msg, history=None):
+    def get_response(self, raw_msg, history=None, channel="web"):
+        self.last_escalated = False
         msg = normalize(raw_msg)
 
         # Arrêt d'urgence
@@ -1144,7 +1216,7 @@ class Chatbot:
         # Rien de reconnu localement -> assistant IA conversationnel,
         # avec la base de connaissance de la plateforme + les vraies donnees de l'utilisateur
         if not intents:
-            return self.ai_chat(raw_msg, history=history)
+            return self.ai_chat(raw_msg, history=history, channel=channel)
 
         responses  = []
         seen_types = set()
