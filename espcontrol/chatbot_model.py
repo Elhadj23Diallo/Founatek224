@@ -7,6 +7,7 @@ import json
 import os
 import random
 import re
+import time
 import logging
 import requests
 from django.contrib.admin.models import LogEntry, ADDITION, CHANGE, DELETION
@@ -50,11 +51,18 @@ def sanitize_history(raw_history, max_turns=10, max_chars=2000):
     return cleaned or None
 
 
-def call_groq_chat(messages, tools=None, max_tokens=200, timeout=8):
+def call_groq_chat(messages, tools=None, max_tokens=200, timeout=8, _retry=True):
     """Appel Groq bas niveau — renvoie le message brut (dict) pour que
     l'appelant puisse inspecter un eventuel tool_calls, ou None en cas
     d'echec. call_groq() ci-dessous reste le raccourci simple texte-a-texte
-    utilise partout ou aucun outil n'est necessaire."""
+    utilise partout ou aucun outil n'est necessaire.
+
+    Le prompt systeme + les outils + le contexte RAG pesent assez de tokens
+    pour approcher le quota "tokens/minute" du plan Groq (pas le nombre de
+    requetes) — un simple pic d'usage declenche un 429 transitoire. Plutot
+    que d'abandonner tout de suite (mauvaise experience utilisateur pour un
+    probleme qui se resout tout seul en quelques secondes), on retente UNE
+    fois en respectant le delai indique par Groq lui-meme."""
     try:
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -72,11 +80,33 @@ def call_groq_chat(messages, tools=None, max_tokens=200, timeout=8):
         else:
             body["reasoning_effort"] = "low"
         resp = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=timeout)
+        if resp.status_code == 429 and _retry:
+            wait = _parse_retry_delay(resp)
+            if wait is not None and wait <= 15:
+                time.sleep(wait)
+                return call_groq_chat(messages, tools=tools, max_tokens=max_tokens, timeout=timeout, _retry=False)
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]
     except Exception as e:
         logger.error(f"Erreur Groq API : {e}")
         return None
+
+
+def _parse_retry_delay(resp):
+    """Delai (secondes) avant de retenter, d'apres les en-tetes Groq —
+    Retry-After en priorite, sinon x-ratelimit-reset-tokens (ex: '2.5s')."""
+    retry_after = resp.headers.get("retry-after")
+    if retry_after:
+        try:
+            return float(retry_after)
+        except ValueError:
+            pass
+    reset = resp.headers.get("x-ratelimit-reset-tokens") or resp.headers.get("x-ratelimit-reset-requests")
+    if reset:
+        match = re.match(r"([\d.]+)s?", reset)
+        if match:
+            return float(match.group(1))
+    return None
 
 
 def call_groq(system_prompt, user_message, max_tokens=200, history=None, timeout=8):
