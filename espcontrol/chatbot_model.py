@@ -128,6 +128,60 @@ LED_TOOL = {
     },
 }
 
+RELAIS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "set_relais",
+        "description": (
+            "Allume, eteint ou bascule un relais (prise/actionneur physique : lumiere, "
+            "ventilateur, pompe, portail...) de l'utilisateur. Utilise cet outil des que "
+            "l'utilisateur veut agir sur un equipement branche sur relais, meme formule de "
+            "facon naturelle ou indirecte ('il fait sombre dans le salon', 'coupe la pompe'). "
+            "Identifie le relais par son nom tel que connu par l'utilisateur (ex: 'salon', "
+            "'pompe irrigation') ou son numero."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "identifiant": {
+                    "type": "string",
+                    "description": "Nom ou numero du relais mentionne/sous-entendu par l'utilisateur.",
+                },
+                "etat": {
+                    "type": "string",
+                    "enum": ["on", "off", "toggle"],
+                    "description": "Etat souhaite : on (allumer), off (eteindre), toggle (inverser l'etat actuel).",
+                },
+            },
+            "required": ["identifiant", "etat"],
+        },
+    },
+}
+
+REMEMBER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "remember_preference",
+        "description": (
+            "Memorise durablement une information que l'utilisateur te demande de retenir "
+            "pour les PROCHAINES conversations (pas juste celle-ci) : un surnom, une piece "
+            "preferee, une unite preferee, une habitude recurrente... Utilise-la quand "
+            "l'utilisateur dit explicitement ou implicitement de se souvenir de quelque chose "
+            "('retiens que...', 'appelle-moi...', 'a partir de maintenant...'). Ne l'utilise "
+            "jamais pour des donnees techniques deja disponibles dans le contexte (mesures, etat "
+            "des relais...), seulement pour des preferences personnelles durables."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "cle": {"type": "string", "description": "Nom court de la preference, ex: 'surnom', 'piece_preferee'."},
+                "valeur": {"type": "string", "description": "Valeur a retenir."},
+            },
+            "required": ["cle", "valeur"],
+        },
+    },
+}
+
 ESCALATE_TOOL = {
     "type": "function",
     "function": {
@@ -238,8 +292,12 @@ RÈGLES IMPORTANTES :
   exprime une envie de couleur/ambiance lumineuse, même vague ou imagée — choisis toi-même les
   valeurs RGB et l'effet qui correspondent le mieux, n'hésite jamais à appeler l'outil, et confirme
   ensuite ce que tu as réglé en langage naturel.
-- Pour toute AUTRE action matérielle (allumer/éteindre un relais...), l'utilisateur doit reformuler
-  une commande claire — tu ne simules jamais l'exécution toi-même pour celles-ci.
+- Pour les relais (lumière, ventilateur, pompe...) : agis directement via l'outil set_relais dès
+  que l'utilisateur veut activer/désactiver un équipement, même formulé indirectement — identifie
+  le relais par son nom connu ou son numéro, n'hésite pas à appeler l'outil.
+- Si l'utilisateur te demande explicitement de retenir une information pour la suite ('retiens
+  que...', 'appelle-moi...') utilise l'outil remember_preference — ces préférences te sont ensuite
+  rappelées automatiquement à chaque conversation future.
 - Tu ne sais pas tout et ce n'est pas grave : si la demande sort de ton périmètre (litige,
   remboursement, panne matérielle à diagnostiquer, changement de compte/rôle, question hors de
   Founatek Nexus) ou si tu n'es pas sûr de ta réponse, utilise TOUJOURS l'outil escalate_to_support
@@ -835,6 +893,15 @@ class Chatbot:
         except Exception:
             pass
 
+        # ── Preferences memorisees (memoire longue duree) ──
+        try:
+            from .models import ChatPreference
+            prefs = list(ChatPreference.objects.filter(user=u).values_list("key", "value"))
+            if prefs:
+                lines.append("Preferences memorisees : " + ", ".join(f"{k}={v}" for k, v in prefs))
+        except Exception:
+            pass
+
         return "\n".join(lines)
 
     def _execute_led_tool(self, args):
@@ -865,6 +932,34 @@ class Chatbot:
         if effect == "qualite_air":
             return f"Veilleuse qualité de l'air activée (couleur actuelle : RGB({r},{g},{b}))."
         return f"LED réglée : RGB({r},{g},{b}), effet={effect}."
+
+    def _execute_relais_tool(self, args):
+        """Resout le relais par nom ou numero (meme table que les commandes
+        vocales rule-based) puis reutilise handle_relais — un seul chemin de
+        code applique vraiment le changement, qu'il vienne du parsing local
+        ou de l'IA."""
+        identifiant = normalize(str(args.get("identifiant", "")))
+        rmap = self.get_relais_map()
+        num = rmap.get(identifiant)
+        if num is None and identifiant.isdigit():
+            num = int(identifiant)
+        if num is None:
+            return f"Relais « {args.get('identifiant')} » introuvable."
+        action_map = {"on": "allume", "off": "eteins", "toggle": "toggle"}
+        action = action_map.get(args.get("etat"), "etat")
+        return self.handle_relais(num, action)
+
+    def _execute_remember_tool(self, args):
+        from .models import ChatPreference
+
+        cle = (args.get("cle") or "").strip()[:60]
+        valeur = (args.get("valeur") or "").strip()[:500]
+        if not cle or not valeur:
+            return "Cle ou valeur manquante, rien de memorise."
+        ChatPreference.objects.update_or_create(
+            user=self.user, key=cle, defaults={"value": valeur},
+        )
+        return f"Memorise : {cle} = {valeur}."
 
     def _execute_escalation_tool(self, args, raw_msg, channel="web"):
         """Enregistre la demande pour le fondateur (service competent) avec
@@ -899,12 +994,26 @@ class Chatbot:
         context = self.get_user_context()
         system_prompt = PLATFORM_KNOWLEDGE + "\n\nDONNEES REELLES DE L'UTILISATEUR (ne jamais depasser ce perimetre) :\n" + context
 
+        # RAG leger sur les cours Education IoT : si la question evoque du
+        # contenu pedagogique, on ancre la reponse sur les vraies lecons
+        # publiees plutot que de laisser le modele generaliser.
+        try:
+            from .course_rag import search_course_content, format_course_context
+            course_ctx = format_course_context(search_course_content(raw_msg))
+            if course_ctx:
+                system_prompt += "\n\n" + course_ctx
+        except Exception:
+            pass
+
         messages = [{"role": "system", "content": system_prompt}]
         if history:
             messages.extend(history)
         messages.append({"role": "user", "content": raw_msg})
 
-        msg = call_groq_chat(messages, tools=[LED_TOOL, ESCALATE_TOOL], max_tokens=500, timeout=12)
+        msg = call_groq_chat(
+            messages, tools=[LED_TOOL, RELAIS_TOOL, REMEMBER_TOOL, ESCALATE_TOOL],
+            max_tokens=500, timeout=12,
+        )
         if not msg:
             return (
                 "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
@@ -926,6 +1035,10 @@ class Chatbot:
                     args = {}
                 if name == "set_led":
                     result = self._execute_led_tool(args)
+                elif name == "set_relais":
+                    result = self._execute_relais_tool(args)
+                elif name == "remember_preference":
+                    result = self._execute_remember_tool(args)
                 elif name == "escalate_to_support":
                     self._execute_escalation_tool(args, raw_msg, channel=channel)
                     result = "Demande transmise au service competent."

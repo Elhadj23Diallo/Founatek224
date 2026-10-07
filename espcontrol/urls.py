@@ -37,6 +37,9 @@ urlpatterns = [
     path('api/mobile/surveillance/', api_views.mobile_surveillance, name='mobile_surveillance'),
     path('api/mobile/access-logs/', api_views.mobile_access_logs, name='mobile_access_logs'),
     path('api/mobile/chatbot/', api_views.mobile_chatbot, name='mobile_chatbot'),
+    path('api/mobile/chatbot/feedback/<int:log_id>/', api_views.mobile_chatbot_feedback, name='mobile_chatbot_feedback'),
+    path('api/mobile/chatbot/proactive/', api_views.mobile_chatbot_proactive, name='mobile_chatbot_proactive'),
+    path('api/mobile/chatbot/transcribe/', api_views.mobile_chatbot_transcribe, name='mobile_chatbot_transcribe'),
     path('api/mobile/devices/', api_views.mobile_devices, name='mobile_devices'),
     path('api/mobile/stats/', api_views.mobile_stats, name='mobile_stats'),
     path('api/mobile/rules/', api_views.mobile_rules, name='mobile_rules'),
@@ -90,6 +93,8 @@ urlpatterns = [
     path('chatbot/', views.chatbot_view, name='chatbot_view'),
     path('chatbot/rapport/', views.chatbot_daily_report, name='chatbot_daily_report'),
     path('chatbot/escalade/<int:escalation_id>/resoudre/', views.chatbot_escalation_resolve, name='chatbot_escalation_resolve'),
+    path('chatbot/feedback/<int:log_id>/', views.chatbot_feedback, name='chatbot_feedback'),
+    path('chatbot/proactive/', views.chatbot_proactive_pending, name='chatbot_proactive_pending'),
     path("api/relais/<int:num>/set/", views.set_relais_etat, name="set_relais_etat"),
 
     #controle d'accès

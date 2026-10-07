@@ -509,11 +509,15 @@ class ChatLog(models.Model):
     du fondateur — un tour = un message utilisateur + la reponse du bot."""
     CHANNEL_CHOICES = [("web", "Site"), ("mobile", "Mobile")]
 
+    RATING_CHOICES = [("up", "👍"), ("down", "👎")]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_logs")
     channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES, default="web")
     message = models.TextField()
     response = models.TextField()
     escalated = models.BooleanField(default=False)
+    proactive = models.BooleanField(default=False, help_text="Message initie par le bot (alerte), pas par l'utilisateur.")
+    rating = models.CharField(max_length=4, choices=RATING_CHOICES, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -555,3 +559,38 @@ class ChatEscalation(models.Model):
 
     def __str__(self):
         return f"Escalade({self.user.username}, {self.get_category_display()}, {self.status})"
+
+
+class ChatPreference(models.Model):
+    """Memoire longue duree du chatbot : une paire cle/valeur par utilisateur,
+    enregistree par l'outil remember_preference (function calling) quand
+    l'utilisateur demande explicitement de retenir quelque chose — relue a
+    chaque conversation via Chatbot.get_user_context()."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_preferences")
+    key = models.CharField(max_length=60)
+    value = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "key")
+        ordering = ["key"]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.key}={self.value}"
+
+
+class ProactiveChatMessage(models.Model):
+    """Message que le chatbot envoie de lui-meme (sans que l'utilisateur ait
+    ecrit) suite a une alerte de l'agent IA — recupere par polling cote site
+    et mobile, puis journalise dans ChatLog (proactive=True) une fois livre."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="proactive_chat_messages")
+    alert = models.ForeignKey("AgentAlert", on_delete=models.CASCADE, null=True, blank=True)
+    text = models.TextField()
+    delivered = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"ProactiveChatMessage({self.user.username}, delivered={self.delivered})"

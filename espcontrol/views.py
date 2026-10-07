@@ -2197,18 +2197,21 @@ from .chatbot_model import Chatbot
 logger = logging.getLogger(__name__)
 
 
-def _log_chat_turn(user, channel, message, response, escalated):
+def _log_chat_turn(user, channel, message, response, escalated, proactive=False):
     """Enregistre un tour de conversation chatbot pour le rapport de la
-    journee du fondateur — ne doit jamais faire echouer la reponse au chat."""
+    journee du fondateur — ne doit jamais faire echouer la reponse au chat.
+    Renvoie l'objet ChatLog cree (ou None en cas d'echec) pour que l'appelant
+    puisse exposer son id au client (boutons de feedback 👍👎)."""
     try:
         from .models import ChatLog
         text = response.get("reponse", "") if isinstance(response, dict) else str(response)
-        ChatLog.objects.create(
+        return ChatLog.objects.create(
             user=user, channel=channel, message=message[:4000],
-            response=text[:4000], escalated=escalated,
+            response=text[:4000], escalated=escalated, proactive=proactive,
         )
     except Exception:
         logger.exception("Echec enregistrement ChatLog")
+        return None
 
 
 @login_required
@@ -2235,7 +2238,8 @@ def chatbot_view(request):
         logger.error(f"Erreur chatbot user={request.user.id}: {e}")
         return JsonResponse({"reponse": f"⚠️ Erreur interne : {e}"})
 
-    _log_chat_turn(request.user, "web", raw_msg, response, bot.last_escalated)
+    log = _log_chat_turn(request.user, "web", raw_msg, response, bot.last_escalated)
+    log_id = log.id if log else None
 
     # ── CORRECTION BUG "aide" ────────────────────────────────
     # Si le bot retourne un dict avec boutons, s'assurer
@@ -2243,9 +2247,42 @@ def chatbot_view(request):
     if isinstance(response, dict):
         if "reponse" not in response:
             response["reponse"] = "Voici les options :"
+        response["log_id"] = log_id
         return JsonResponse(response)
 
-    return JsonResponse({"reponse": response, "tts": response})
+    return JsonResponse({"reponse": response, "tts": response, "log_id": log_id})
+
+
+@login_required
+def chatbot_feedback(request, log_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Methode non autorisee."}, status=405)
+    from .models import ChatLog
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Donnees invalides."}, status=400)
+    rating = data.get("rating")
+    if rating not in dict(ChatLog.RATING_CHOICES):
+        return JsonResponse({"error": "rating invalide."}, status=400)
+    updated = ChatLog.objects.filter(id=log_id, user=request.user).update(rating=rating)
+    return JsonResponse({"ok": bool(updated)})
+
+
+@login_required
+def chatbot_proactive_pending(request):
+    """Messages que le chatbot a genere de lui-meme (alertes) et pas encore
+    livres au site — consomme (marque delivre + journalise) a chaque appel,
+    appele en polling par le widget de chat de l'accueil."""
+    from .models import ProactiveChatMessage
+
+    pending = list(ProactiveChatMessage.objects.filter(user=request.user, delivered=False))
+    payload = [{"id": p.id, "text": p.text} for p in pending]
+    for p in pending:
+        p.delivered = True
+        p.save(update_fields=["delivered"])
+        _log_chat_turn(request.user, "web", "(message proactif)", p.text, False, proactive=True)
+    return JsonResponse({"messages": payload})
 
 
 @login_required

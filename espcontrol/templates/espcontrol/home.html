@@ -462,7 +462,18 @@ function formatChatText(text) {
     return safe;
 }
 
-function appendMessage(text, who='assistant', buttons=[], imageUrl=null) {
+function sendFeedback(logId, rating, btnUp, btnDown) {
+    btnUp.disabled = true; btnDown.disabled = true;
+    btnUp.style.opacity = rating === 'up' ? 1 : 0.35;
+    btnDown.style.opacity = rating === 'down' ? 1 : 0.35;
+    fetch(`/chatbot/feedback/${logId}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ rating }),
+    }).catch(() => {});
+}
+
+function appendMessage(text, who='assistant', buttons=[], imageUrl=null, logId=null) {
     const el = document.getElementById('chat_history');
     const msgContainer = document.createElement('div');
     msgContainer.className = who === 'user' ? 'user-message' : 'assistant-message';
@@ -496,9 +507,32 @@ function appendMessage(text, who='assistant', buttons=[], imageUrl=null) {
         });
         el.appendChild(helpDiv);
     }
+    if (who === 'assistant' && logId) {
+        const fbDiv = document.createElement('div');
+        fbDiv.style.cssText = "margin-top:6px;display:flex;gap:8px;";
+        const up = document.createElement('button');
+        up.textContent = '👍'; up.style.cssText = "background:none;border:none;cursor:pointer;font-size:0.9rem;";
+        const down = document.createElement('button');
+        down.textContent = '👎'; down.style.cssText = "background:none;border:none;cursor:pointer;font-size:0.9rem;";
+        up.onclick = () => sendFeedback(logId, 'up', up, down);
+        down.onclick = () => sendFeedback(logId, 'down', up, down);
+        fbDiv.appendChild(up); fbDiv.appendChild(down);
+        el.appendChild(fbDiv);
+    }
     el.scrollTop = el.scrollHeight;
     if (who === 'assistant') speakText(text || '');
 }
+
+// Le chatbot "parle en premier" des qu'une alerte est detectee — sonde
+// regulierement les messages proactifs en attente pendant que la page est
+// ouverte (pas de vraie notif push, juste un affichage pendant que l'appli est active).
+function pollProactiveMessages() {
+    fetch('/chatbot/proactive/')
+        .then(r => r.json())
+        .then(data => (data.messages || []).forEach(m => appendMessage(m.text, 'assistant')))
+        .catch(() => {});
+}
+setInterval(pollProactiveMessages, 10000);
 
 function envoyer(texteInput=null) {
     const input = document.getElementById('commande');
@@ -526,7 +560,7 @@ function envoyer(texteInput=null) {
         const buttons  = data.buttons  || [];
         const imageUrl = data.image_url || null;
         chatHistory.push({role: 'assistant', content: reponse});
-        appendMessage(reponse, 'assistant', buttons, imageUrl);
+        appendMessage(reponse, 'assistant', buttons, imageUrl, data.log_id || null);
     })
     .catch(err => {
         console.error("Erreur chatbot:", err);

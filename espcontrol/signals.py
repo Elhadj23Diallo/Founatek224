@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import localtime
 
-from .models import AppareilData, Device, AgentAlert
+from .models import AppareilData, Device, AgentAlert, ProactiveChatMessage
 
 
 @receiver(post_save, sender=AppareilData)
@@ -55,4 +55,24 @@ def send_alert_email(sender, instance, created, **kwargs):
         )
     except Exception:
         # Ne jamais faire echouer la creation de l'alerte a cause de l'email
+        pass
+
+
+@receiver(post_save, sender=AgentAlert)
+def create_proactive_chat_message(sender, instance, created, **kwargs):
+    """Le chatbot 'parle en premier' des qu'une alerte est detectee — le
+    message attend d'etre recupere par le widget de chat (site/mobile) au
+    prochain sondage, voir chatbot_proactive_pending / mobile_chatbot_proactive."""
+    if not created:
+        return
+    try:
+        level_icons = {"INFO": "ℹ️", "WARN": "⚠️", "CRITICAL": "🔴"}
+        icon = level_icons.get(instance.level, "🔔")
+        device_name = instance.device.name if instance.device else "un appareil"
+        text = (
+            f"{icon} Je viens de détecter une alerte [{instance.level}] sur {device_name} : "
+            f"{instance.message}. Dites-moi si vous voulez que je vous en dise plus ou que j'agisse."
+        )
+        ProactiveChatMessage.objects.create(user=instance.user, alert=instance, text=text)
+    except Exception:
         pass

@@ -2,6 +2,8 @@ import json
 from datetime import datetime, timedelta
 from io import BytesIO
 
+import requests
+
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -486,13 +488,74 @@ def mobile_chatbot(request):
         return Response({"reponse": f"⚠️ Erreur : {e}"})
 
     from .views import _log_chat_turn  # noqa: PLC0415
-    _log_chat_turn(request.user, "mobile", raw_msg, response, bot.last_escalated)
+    log = _log_chat_turn(request.user, "mobile", raw_msg, response, bot.last_escalated)
+    log_id = log.id if log else None
 
     if isinstance(response, dict):
         if "reponse" not in response:
             response["reponse"] = "Voici les options :"
+        response["log_id"] = log_id
         return Response(response)
-    return Response({"reponse": response, "tts": response, "buttons": []})
+    return Response({"reponse": response, "tts": response, "buttons": [], "log_id": log_id})
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_chatbot_feedback(request, log_id):
+    from .models import ChatLog
+    rating = request.data.get("rating")
+    if rating not in dict(ChatLog.RATING_CHOICES):
+        return Response({"error": "rating invalide."}, status=400)
+    updated = ChatLog.objects.filter(id=log_id, user=request.user).update(rating=rating)
+    return Response({"ok": bool(updated)})
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_chatbot_proactive(request):
+    """Equivalent mobile de chatbot_proactive_pending (site) — voir ce
+    commentaire pour le detail du mecanisme de polling + journalisation."""
+    from .models import ProactiveChatMessage
+    from .views import _log_chat_turn  # noqa: PLC0415
+
+    pending = list(ProactiveChatMessage.objects.filter(user=request.user, delivered=False))
+    payload = [{"id": p.id, "text": p.text} for p in pending]
+    for p in pending:
+        p.delivered = True
+        p.save(update_fields=["delivered"])
+        _log_chat_turn(request.user, "mobile", "(message proactif)", p.text, False, proactive=True)
+    return Response({"messages": payload})
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_chatbot_transcribe(request):
+    """Transcrit un enregistrement audio (saisie vocale du chatbot mobile) via
+    l'API Whisper de Groq — reutilise la meme cle que le LLM du chatbot, donc
+    aucune config supplementaire cote utilisateur. Fonctionne dans Expo Go
+    (expo-audio est inclus), contrairement a un module de reconnaissance
+    vocale natif qui exigerait un build."""
+    from .chatbot_model import GROQ_API_KEY
+
+    audio_file = request.FILES.get("audio")
+    if not audio_file:
+        return Response({"error": "Fichier audio manquant."}, status=400)
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            files={"file": (audio_file.name, audio_file.read(), audio_file.content_type)},
+            data={"model": "whisper-large-v3-turbo", "language": "fr"},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        text = resp.json().get("text", "").strip()
+        return Response({"text": text})
+    except Exception as e:
+        return Response({"error": f"Transcription indisponible : {e}"}, status=502)
 
 
 # ── Devices list ──────────────────────────────────────────────────────────────

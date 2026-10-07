@@ -47,6 +47,9 @@ def build_daily_report(day):
         "escalation_count": len(escalations),
         "escalations": escalations,
         "conversations": conversations,
+        "proactive_count": sum(1 for l in logs if l.proactive),
+        "up_count": sum(1 for l in logs if l.rating == "up"),
+        "down_count": sum(1 for l in logs if l.rating == "down"),
     }
 
 
@@ -58,6 +61,8 @@ def render_report_text(report):
         f"Messages échangés : {report['total_messages']} (site : {report['web_count']}, mobile : {report['mobile_count']})",
         f"Utilisateurs actifs : {report['unique_users']}",
         f"Demandes transmises au service compétent : {report['escalation_count']}",
+        f"Messages proactifs envoyés (alertes) : {report['proactive_count']}",
+        f"Avis des utilisateurs : 👍 {report['up_count']} · 👎 {report['down_count']}",
         "",
     ]
     if report["escalations"]:
@@ -75,6 +80,8 @@ def render_report_text(report):
         lines.append(f"\n{conv['user'].username} ({conv['count']} message(s)) :")
         for t in conv["turns"]:
             marker = " [ESCALADÉ]" if t.escalated else ""
+            marker += " [PROACTIF]" if t.proactive else ""
+            marker += " 👍" if t.rating == "up" else (" 👎" if t.rating == "down" else "")
             lines.append(f"  · {timezone.localtime(t.created_at):%H:%M} — Q: {t.message}")
             lines.append(f"            R: {t.response}{marker}")
 

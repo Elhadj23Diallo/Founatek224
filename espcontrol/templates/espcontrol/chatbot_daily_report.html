@@ -79,6 +79,8 @@
         <div class="stat-card"><div class="stat-value" style="color:var(--success)">{{ report.unique_users }}</div><div class="stat-label">Utilisateurs actifs</div></div>
         <div class="stat-card"><div class="stat-value" style="color:var(--muted)">{{ report.web_count }} / {{ report.mobile_count }}</div><div class="stat-label">Site / Mobile</div></div>
         <div class="stat-card"><div class="stat-value" style="color:var(--warning)">{{ report.escalation_count }}</div><div class="stat-label">Transmis au service</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--primary)">{{ report.proactive_count }}</div><div class="stat-label">Messages proactifs</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--success)">👍 {{ report.up_count }} · 👎 {{ report.down_count }}</div><div class="stat-label">Avis utilisateurs</div></div>
     </div>
 
     <div class="section-title">🔁 Demandes transmises au service compétent</div>
@@ -113,7 +115,12 @@
             <div class="conv-body">
                 {% for t in conv.turns %}
                 <div class="turn {% if t.escalated %}escalated{% endif %}">
-                    <div class="turn-time">{{ t.created_at|date:"H:i:s" }} — {{ t.get_channel_display }}{% if t.escalated %}<span class="turn-esc-tag">TRANSMIS</span>{% endif %}</div>
+                    <div class="turn-time">
+                        {{ t.created_at|date:"H:i:s" }} — {{ t.get_channel_display }}
+                        {% if t.escalated %}<span class="turn-esc-tag">TRANSMIS</span>{% endif %}
+                        {% if t.proactive %}<span class="turn-esc-tag" style="color:var(--primary)">PROACTIF</span>{% endif %}
+                        {% if t.rating == 'up' %}<span class="turn-esc-tag" style="color:var(--success)">👍</span>{% elif t.rating == 'down' %}<span class="turn-esc-tag" style="color:var(--danger)">👎</span>{% endif %}
+                    </div>
                     <div class="turn-q"><b>Q.</b> {{ t.message }}</div>
                     <div class="turn-r"><b>R.</b> {{ t.response }}</div>
                 </div>
