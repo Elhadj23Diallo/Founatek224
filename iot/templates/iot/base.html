@@ -184,6 +184,19 @@
                     {% endif %}
                 </ul>
 
+                {% load i18n %}
+                {% get_current_language as CUR_LANG %}
+                <span class="navbar-text" style="display:flex; gap:4px; margin-right:12px;">
+                    {% for code, label in LANGUAGES %}
+                    <form method="post" action="{% url 'set_platform_language' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="language" value="{{ code }}">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="btn btn-sm {% if code == CUR_LANG %}btn-success{% else %}btn-outline-light{% endif %}" style="padding:2px 10px; font-size:0.75rem;">{{ code|upper }}</button>
+                    </form>
+                    {% endfor %}
+                </span>
+
                 {% if user.is_authenticated %}
                 <span class="navbar-text text-white">
                     👤 Connecté : <strong>{{ request.user.username }}</strong>

@@ -117,6 +117,9 @@ def edit_profil(request):
             if is_formateur:
                 formateur_form.save()
 
+            # UserLanguageMiddleware relira le profil (donc la nouvelle
+            # langue) des la requete suivante — pas besoin de se reconnecter.
+
             messages.success(request, "Profil mis à jour avec succès ✅")
             return redirect("iot:profil")
 
@@ -716,6 +719,13 @@ def register(request):
 
             # Token API
             Token.objects.get_or_create(user=user)
+
+            # Langue choisie à l'inscription — appliquée dès la connexion
+            # qui suit (voir le signal user_logged_in dans espcontrol/signals.py).
+            from espcontrol.models import UserProfile
+            UserProfile.objects.update_or_create(
+                user=user, defaults={"language": form.cleaned_data.get("language", "fr")},
+            )
 
             return redirect('login')
 

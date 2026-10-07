@@ -250,6 +250,12 @@
                 {{ account_form.bio.errors }}
             </div>
 
+            <div class="form-group">
+                <label for="{{ account_form.language.id_for_label }}"><i class="fas fa-globe"></i> Langue / Language</label>
+                {{ account_form.language }}
+                {{ account_form.language.errors }}
+            </div>
+
             {% if is_formateur %}
                 <div class="form-group">
                     <label for="{{ formateur_form.photo.id_for_label }}"><i class="fas fa-chalkboard-teacher"></i> Photo formateur (affichée sur vos certificats/parcours)</label>

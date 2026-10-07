@@ -2338,6 +2338,7 @@ def mobile_register(request):
         first_name = (request.data.get("first_name") or "").strip()
         last_name = (request.data.get("last_name") or "").strip()
         role = request.data.get("role")
+        language = request.data.get("language") if request.data.get("language") in ("fr", "en") else "fr"
 
         if not username or not password or not email:
             return Response({"error": "Nom d'utilisateur, email et mot de passe requis"}, status=400)
@@ -2361,6 +2362,9 @@ def mobile_register(request):
         user.groups.add(abonne_group)
         role_group, _ = Group.objects.get_or_create(name=role)
         user.groups.add(role_group)
+
+        from espcontrol.models import UserProfile
+        UserProfile.objects.update_or_create(user=user, defaults={"language": language})
 
         token, _ = Token.objects.get_or_create(user=user)
 
@@ -2389,6 +2393,7 @@ def mobile_profile(request):
     avatar_url = None
     phone = None
     bio = None
+    language = "fr"
     try:
         from espcontrol.models import UserProfile
         up = UserProfile.objects.get(user=user)
@@ -2396,6 +2401,7 @@ def mobile_profile(request):
             avatar_url = request.build_absolute_uri(up.avatar.url)
         phone = up.phone
         bio = up.bio
+        language = up.language
     except Exception:
         pass
 
@@ -2414,6 +2420,7 @@ def mobile_profile(request):
         "avatar_url": avatar_url,
         "phone": phone,
         "bio": bio,
+        "language": language,
         "counts": {
             "relays":   Relais.objects.filter(user=user).count(),
             "dht":      DHTData.objects.filter(user=user).count(),
@@ -2446,6 +2453,8 @@ def mobile_profile_update(request):
             profile.phone = request.data["phone"]
         if "bio" in request.data:
             profile.bio = request.data["bio"]
+        if request.data.get("language") in dict(UserProfile.LANGUAGE_CHOICES):
+            profile.language = request.data["language"]
         avatar_file = request.FILES.get("avatar")
         if avatar_file:
             profile.avatar = avatar_file
@@ -2459,10 +2468,29 @@ def mobile_profile_update(request):
             "last_name": user.last_name,
             "phone": profile.phone,
             "bio": profile.bio,
+            "language": profile.language,
             "avatar_url": avatar_url,
         })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_set_language(request):
+    """Changement rapide de langue depuis l'app (écran Paramètres ou lors de
+    l'inscription) — met à jour le profil sans repasser par tout le
+    formulaire. Le client applique le changement localement (i18next) ET
+    doit ensuite envoyer l'en-tête Accept-Language sur ses futures requêtes
+    pour que les réponses générées côté serveur (chatbot...) suivent aussi."""
+    from espcontrol.models import UserProfile
+
+    lang = request.data.get("language")
+    if lang not in dict(UserProfile.LANGUAGE_CHOICES):
+        return Response({"error": "Langue invalide."}, status=400)
+    UserProfile.objects.update_or_create(user=request.user, defaults={"language": lang})
+    return Response({"language": lang})
 
 
 # ══════════════════════════════════════════════════════════════════════════════

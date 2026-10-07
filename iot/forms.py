@@ -22,15 +22,16 @@ class UserProfileForm(forms.ModelForm):
 
 
 class AccountProfileForm(forms.ModelForm):
-    """Photo/telephone/bio disponibles pour TOUS les utilisateurs (pas seulement les formateurs)."""
+    """Photo/telephone/bio/langue disponibles pour TOUS les utilisateurs (pas seulement les formateurs)."""
     class Meta:
         from espcontrol.models import UserProfile
         model = UserProfile
-        fields = ["avatar", "phone", "bio"]
+        fields = ["avatar", "phone", "bio", "language"]
         widgets = {
             "avatar": forms.ClearableFileInput(attrs={"class": "form-control"}),
             "phone": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ex: +224 6XX XX XX XX"}),
             "bio": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Quelques mots sur vous..."}),
+            "language": forms.Select(attrs={"class": "form-control"}),
         }
 
 
@@ -63,6 +64,13 @@ class CustomUserCreationForm(UserCreationForm):
         required=False
     )
 
+    language = forms.ChoiceField(
+        label="Langue / Language",
+        choices=[('fr', 'Français'), ('en', 'English')],
+        required=True,
+        initial='fr',
+    )
+
     class Meta:
         model = User
         fields = (
@@ -74,6 +82,7 @@ class CustomUserCreationForm(UserCreationForm):
             'password1',
             'password2',
             'referral_code',
+            'language',
         )
 
 

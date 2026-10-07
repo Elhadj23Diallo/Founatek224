@@ -524,10 +524,13 @@ class Chatbot:
 
 
     # ============================================================
+    LANG_NAMES = {"fr": "français", "en": "English"}
+
     def __init__(self, user):
         self.user = user
         self._memory = None
         self.last_escalated = False
+        self.lang = getattr(getattr(user, "account_profile", None), "language", None) or "fr"
 
     # ── MÉMOIRE ──────────────────────────────────────────────
     @property
@@ -1023,6 +1026,12 @@ class Chatbot:
         complement de question ('et pour la chambre ?')."""
         context = self.get_user_context()
         system_prompt = PLATFORM_KNOWLEDGE + "\n\nDONNEES REELLES DE L'UTILISATEUR (ne jamais depasser ce perimetre) :\n" + context
+        if self.lang != "fr":
+            system_prompt += (
+                f"\n\nIMPORTANT — LANGUE : l'utilisateur a choisi {self.LANG_NAMES.get(self.lang, self.lang)} "
+                "comme langue de la plateforme. Reponds TOUJOURS dans cette langue, quelle que soit la langue "
+                "du message recu, sauf si l'utilisateur demande explicitement une autre langue."
+            )
 
         # RAG leger sur les cours Education IoT : si la question evoque du
         # contenu pedagogique, on ancre la reponse sur les vraies lecons
@@ -1045,7 +1054,7 @@ class Chatbot:
             max_tokens=500, timeout=12,
         )
         if not msg:
-            return (
+            return self._translate_text(
                 "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
                 "Essaie une commande simple comme 'air', 'alertes', 'stats' ou 'aide'."
             )
@@ -1077,16 +1086,16 @@ class Chatbot:
                 messages.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": result})
 
             if self.last_escalated:
-                return ESCALATION_REPLY
+                return self._translate_text(ESCALATION_REPLY)
 
             final_msg = call_groq_chat(messages, max_tokens=300, timeout=10)
             if final_msg and final_msg.get("content"):
                 return final_msg["content"].strip()
-            return "✅ C'est fait !"
+            return self._translate_text("✅ C'est fait !")
 
         answer = (msg.get("content") or "").strip()
         if not answer:
-            return (
+            return self._translate_text(
                 "🤔 Je n'ai pas pu joindre le service IA pour le moment. "
                 "Essaie une commande simple comme 'air', 'alertes', 'stats' ou 'aide'."
             )
@@ -1317,6 +1326,38 @@ class Chatbot:
     #  POINT D'ENTRÉE PRINCIPAL
     # ============================================================
 
+    def _translate_text(self, text):
+        """Traduit un texte fixe (Python, pas genere par l'IA) dans la langue
+        choisie par l'utilisateur. No-op en francais (langue native de tout
+        le texte code en dur ici) — evite un aller-retour Groq inutile sur
+        l'immense majorite des utilisateurs actuels."""
+        if not text or self.lang == "fr":
+            return text
+        translated = call_groq(
+            system_prompt=(
+                f"Traduis fidelement le texte suivant en {self.LANG_NAMES.get(self.lang, self.lang)}. "
+                "Garde exactement les emojis, la mise en forme et les sauts de ligne. "
+                "Reponds uniquement avec la traduction, sans aucun commentaire."
+            ),
+            user_message=text, max_tokens=400, timeout=6,
+        )
+        return translated or text
+
+    def _localize(self, response):
+        """Point de sortie unique de get_response — traduit tout ce qui n'est
+        pas deja dans la langue cible. ai_chat() genere deja nativement dans
+        la bonne langue (instruction dans son prompt systeme) : le reappeler
+        ici serait redondant, seules les chaines fixes (reponses locales,
+        boutons, messages d'escalade/erreur) ont besoin de cette etape."""
+        if isinstance(response, dict):
+            if "reponse" in response:
+                response["reponse"] = self._translate_text(response["reponse"])
+            for b in response.get("buttons", []):
+                if "text" in b:
+                    b["text"] = self._translate_text(b["text"])
+            return response
+        return self._translate_text(response)
+
     def get_response(self, raw_msg, history=None, channel="web"):
         self.last_escalated = False
         msg = normalize(raw_msg)
@@ -1324,19 +1365,19 @@ class Chatbot:
         # Arrêt d'urgence
         if msg in {"stop", "urgence", "emergency"}:
             Relais.objects.filter(user=self.user).update(etat=False)
-            return "🛑 ARRÊT D'URGENCE — Tous les relais éteints !"
+            return self._localize("🛑 ARRÊT D'URGENCE — Tous les relais éteints !")
 
         # Bio
         if any(m in msg for m in self.INTENT_WORDS["bio"]):
-            return self.BIO_TEXT
+            return self._localize(self.BIO_TEXT)
 
         # Founatek
         if any(m in msg for m in self.INTENT_WORDS["founatek"]):
-            return self.FOUNATEK_TEXT
+            return self._localize(self.FOUNATEK_TEXT)
 
         # Aide
         if any(m in msg for m in self.INTENT_WORDS["help"]):
-            return {
+            return self._localize({
                 "reponse": "🤖 Assistant FOUNATEK NEXUS — Que voulez-vous savoir ?",
                 "buttons": [
                     {"text": "💨 Qualité de l'air", "value": "air"},
@@ -1351,13 +1392,14 @@ class Chatbot:
                     {"text": "⚡ Relais 2",          "value": "etat relais 2"},
                     {"text": "⚡ Relais 3",          "value": "etat relais 3"},
                 ]
-            }
+            })
 
         # Parsing local (commandes precises : donnees capteurs, relais, etc.)
         intents = self.parse_intent(raw_msg)
 
         # Rien de reconnu localement -> assistant IA conversationnel,
         # avec la base de connaissance de la plateforme + les vraies donnees de l'utilisateur
+        # (ai_chat() repond deja nativement dans self.lang, pas besoin de _localize ici)
         if not intents:
             return self.ai_chat(raw_msg, history=history, channel=channel)
 
@@ -1371,4 +1413,4 @@ class Chatbot:
                     responses.append(result)
                 seen_types.add(key)
 
-        return "\n\n".join(responses) if responses else "..."
+        return self._localize("\n\n".join(responses) if responses else "...")

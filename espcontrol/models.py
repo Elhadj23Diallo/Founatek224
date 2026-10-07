@@ -493,11 +493,14 @@ class ChatMemory(models.Model):
 
 class UserProfile(models.Model):
     """Profil generique disponible pour TOUS les utilisateurs (pas seulement les formateurs) :
-    photo de profil, telephone, bio. Complete les champs standards de auth.User."""
+    photo de profil, telephone, bio, langue. Complete les champs standards de auth.User."""
+    LANGUAGE_CHOICES = [("fr", "Français"), ("en", "English")]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="account_profile")
     avatar = models.ImageField(upload_to="profiles/avatars/", blank=True, null=True)
     phone = models.CharField(max_length=30, blank=True, null=True)
     bio = models.TextField(max_length=500, blank=True, null=True)
+    language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default="fr")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

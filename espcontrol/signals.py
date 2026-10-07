@@ -1,11 +1,26 @@
 from django.db.models.signals import post_save
+from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.timezone import localtime
 
 from .models import AppareilData, Device, AgentAlert, ProactiveChatMessage
+
+
+@receiver(user_logged_in)
+def activate_user_language(sender, request, user, **kwargs):
+    """Applique immediatement la langue enregistree dans le profil des la
+    reponse de connexion elle-meme — les requetes suivantes sont prises en
+    charge par UserLanguageMiddleware (middleware/user_language_middleware.py),
+    qui relit le profil a chaque fois."""
+    try:
+        from .models import UserProfile
+        lang = UserProfile.objects.get(user=user).language
+    except Exception:
+        lang = settings.LANGUAGE_CODE
+    translation.activate(lang)
 
 
 @receiver(post_save, sender=AppareilData)

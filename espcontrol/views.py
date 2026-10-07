@@ -2285,6 +2285,27 @@ def chatbot_proactive_pending(request):
     return JsonResponse({"messages": payload})
 
 
+def set_platform_language(request):
+    """Changement de langue instantane depuis n'importe quelle page (menu de
+    langue dans la nav) — s'ajoute a la selection faite dans Parametres/
+    inscription. Persiste au profil quand connecte (relu a chaque requete
+    par UserLanguageMiddleware) ; pour un visiteur anonyme (ex. vitrine),
+    seul le cookie langue standard de Django persiste le choix."""
+    from django.utils import translation
+    from django.shortcuts import redirect as _redirect
+
+    lang = request.POST.get("language") or request.GET.get("language")
+    next_url = request.POST.get("next") or request.GET.get("next") or request.META.get("HTTP_REFERER") or "/"
+    response = _redirect(next_url)
+    if lang in dict(settings.LANGUAGES):
+        translation.activate(lang)
+        if request.user.is_authenticated:
+            from .models import UserProfile
+            UserProfile.objects.update_or_create(user=request.user, defaults={"language": lang})
+        response.set_cookie(settings.LANGUAGE_COOKIE_NAME, lang, max_age=settings.LANGUAGE_COOKIE_AGE)
+    return response
+
+
 @login_required
 def chatbot_daily_report(request):
     """Rapport de la journee pour le fondateur : toutes les conversations
