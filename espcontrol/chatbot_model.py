@@ -259,6 +259,14 @@ Tu es NEXUS, l'assistant intégré à la plateforme FOUNATEK — disponible sur 
 Tu aides l'utilisateur à comprendre et utiliser TOUTES les fonctionnalités, comme le ferait
 l'assistant d'Amazon pour sa boutique — clair, concret, orienté action.
 
+FOUNATEK EN UNE PHRASE, POUR QUELQU'UN QUI NE CONNAÎT RIEN À LA TECHNIQUE :
+Founatek Nexus est une plateforme guinéenne qui relie des objets du quotidien (capteurs, caméra,
+lumières, portes...) à internet pour que tu puisses les surveiller et les commander depuis ton
+téléphone, où que tu sois — par exemple savoir si l'air est pollué chez toi, allumer une lumière
+à distance, suivre un cours d'électronique pas à pas, vérifier qu'un produit acheté est
+authentique, ou acheter du matériel. Aucune connaissance technique n'est nécessaire pour s'en
+servir ; la partie technique (capteurs, API...) ne sert qu'à faire marcher tout ça en coulisses.
+
 MODULES DE LA PLATEFORME :
 
 1. IoT / Tableau de bord (espcontrol) — capteurs (PM2.5/PM10 SDS011, gaz MQ-135, température/humidité
@@ -352,6 +360,13 @@ RÈGLES IMPORTANTES :
   qu'aux données de la personne qui te parle.
 - Sois concret : cite les noms d'écrans/onglets exacts (mobile et/ou site) pour guider l'utilisateur.
 - Reste bref mais utile (3 à 8 lignes en général), utilise des emojis avec modération pour la lisibilité.
+- ADAPTE TOUJOURS ton niveau d'explication à qui te parle. Pour une question simple/généraliste
+  ('c'est quoi Founatek', 'à quoi ça sert', 'explique-moi simplement') : réponds en langage courant,
+  SANS jargon technique non expliqué, avec des exemples concrets du quotidien — explique toujours
+  le POURQUOI/À QUOI ÇA SERT avant le COMMENT technique. Garde les termes techniques (noms de
+  capteurs, API, PM2.5, agent IA...) pour quelqu'un qui montre qu'il s'y connaît ou qui demande
+  explicitement des détails techniques/du code. Dans le doute, commence simple et propose
+  d'approfondir ('Tu veux que je rentre dans les détails techniques ?').
 - Pour la LED RGB : tu PEUX et DOIS agir directement via l'outil set_led dès que l'utilisateur
   exprime une envie de couleur/ambiance lumineuse, même vague ou imagée — choisis toi-même les
   valeurs RGB et l'effet qui correspondent le mieux, n'hésite jamais à appeler l'outil, et confirme
@@ -498,11 +513,6 @@ class Chatbot:
             "who is elhadj", "createur", "auteur",
             "developpeur", "etudiant", "stagiaire"
         },
-        "founatek": {
-            "founatek", "founa", "founatek iot",
-            "platform iot", "projet", "iq pro",
-            "air conakry", "odc"
-        },
         "help": {
             "aide", "help", "assistance", "commandes",
             "que peux tu faire", "menu", "options", "tuto"
@@ -557,15 +567,6 @@ class Chatbot:
         "Guinée, Conakry (mai-juin 2026)\n"
         "🔗 Portfolio : https://elhadj23diallo.github.io/site_elhad_portfolio/"
     )
-
-    FOUNATEK_TEXT = (
-        "🌍 FOUNATEK NEXUS AIR CONAKRY IQ PRO\n"
-        "Station IoT de mesure de qualité de l'air — ODC Orange Guinée, Conakry\n"
-        "📡 Capteurs : SDS011 (PM2.5/PM10), MQ-135 (Gaz), DHT11 (T°/Hum), GPS L76X\n"
-        "🧠 Agent IA : Détection anomalies Z-Score, alertes automatiques\n"
-        "🌐 founatek224.pythonanywhere.com/air-quality/"
-    )
-
 
     # ============================================================
     LANG_NAMES = {"fr": "français", "en": "English"}
@@ -1426,9 +1427,11 @@ class Chatbot:
         if is_short_query and any(m in msg for m in self.INTENT_WORDS["bio"]):
             return self._localize(self.BIO_TEXT)
 
-        # Founatek
-        if is_short_query and any(m in msg for m in self.INTENT_WORDS["founatek"]):
-            return self._localize(self.FOUNATEK_TEXT)
+        # "founatek"/"c'est quoi ce projet" n'a plus de reponse figee : seule
+        # l'IA peut adapter l'explication a qui pose la question (neophyte vs
+        # utilisateur technique) — voir la regle d'adaptation dans
+        # PLATFORM_KNOWLEDGE. Le texte fige precedent etait toujours le meme,
+        # jargon technique inclus, quel que soit qui demandait.
 
         # Aide
         if is_short_query and any(m in msg for m in self.INTENT_WORDS["help"]):

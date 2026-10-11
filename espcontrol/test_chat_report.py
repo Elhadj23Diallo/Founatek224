@@ -235,12 +235,16 @@ class IntentCollisionTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("awa2", "awa2@test.com", "pw")
 
-    def test_short_founatek_question_still_uses_canned_text(self):
+    def test_founatek_identity_question_reaches_ai_for_adaptive_explanation(self):
+        # Plus de texte fige pour "c'est quoi founatek" : seule l'IA peut
+        # adapter l'explication a un utilisateur non technique (demande
+        # explicite du fondateur) — voir la regle d'adaptation dans
+        # PLATFORM_KNOWLEDGE.
         bot = Chatbot(self.user)
-        with patch("espcontrol.chatbot_model.call_groq_chat") as mock_groq:
+        with patch("espcontrol.chatbot_model.call_groq_chat", return_value={"content": "C'est une plateforme IoT simple à utiliser."}) as mock_groq:
             reply = bot.get_response("c'est quoi founatek")
-        mock_groq.assert_not_called()
-        self.assertIn("FOUNATEK NEXUS", reply)
+        mock_groq.assert_called_once()
+        self.assertEqual(reply, "C'est une plateforme IoT simple à utiliser.")
 
     def test_code_request_mentioning_sensor_words_reaches_ai(self):
         bot = Chatbot(self.user)
