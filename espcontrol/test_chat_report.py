@@ -224,3 +224,29 @@ class NewToolsTests(TestCase):
         with _patch("espcontrol.chatbot_model.Chatbot.get_response", return_value="Salut !"):
             resp = self.client.post("/chatbot/", data='{"message": "bonjour"}', content_type="application/json")
         self.assertIsNotNone(resp.json()["log_id"])
+
+
+class IntentCollisionTests(TestCase):
+    """Regression : des mots-cles du domaine (founatek, esp32, donnees...)
+    presents dans une VRAIE phrase ne doivent plus detourner la reponse
+    loin de l'IA — bug reproduit en conditions reelles le 2026-10-11
+    (demande de code firmware interceptee par les reponses figees)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("awa2", "awa2@test.com", "pw")
+
+    def test_short_founatek_question_still_uses_canned_text(self):
+        bot = Chatbot(self.user)
+        with patch("espcontrol.chatbot_model.call_groq_chat") as mock_groq:
+            reply = bot.get_response("c'est quoi founatek")
+        mock_groq.assert_not_called()
+        self.assertIn("FOUNATEK NEXUS", reply)
+
+    def test_code_request_mentioning_sensor_words_reaches_ai(self):
+        bot = Chatbot(self.user)
+        with patch("espcontrol.chatbot_model.call_groq_chat", return_value={"content": "Voici le firmware."}) as mock_groq:
+            reply = bot.get_response(
+                "Ecris-moi le code pour envoyer des donnees vers l'API d'ingestion Founatek, pour un ESP32",
+            )
+        mock_groq.assert_called_once()
+        self.assertEqual(reply, "Voici le firmware.")

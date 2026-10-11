@@ -326,6 +326,11 @@ MODULES DE LA PLATEFORME :
      http.end();
      ```
 
+CRÉATEUR DE LA PLATEFORME (si on te demande qui l'a conçue) : Elhadj Abdourahmane Diallo,
+étudiant en Licence 3 Physique Appliquée (Université de Lille, FST), développeur Python et
+concepteur de systèmes embarqués — projet conçu durant un stage à l'ODC Orange Guinée, Conakry
+(mai-juin 2026). Portfolio : https://elhadj23diallo.github.io/site_elhad_portfolio/
+
 RÔLES À L'INSCRIPTION (site et app) :
 À l'inscription, chaque utilisateur choisit un rôle qui détermine les modules visibles dans la
 navigation (jamais l'accès à l'administration Django, qui reste séparée) :
@@ -525,6 +530,12 @@ class Chatbot:
                     "rapport", "analyse", "evolution", "24h"}
     ALIAS_DEVICE = {"appareil", "device", "esp32", "hardware",
                     "materiel", "connecte", "online"}
+    # Signale une demande d'ecriture de code/firmware ("ecris-moi le code
+    # pour envoyer des donnees vers l'API...") — jamais une simple lecture
+    # de capteur, meme si la phrase mentionne "donnees"/"api"/"esp32" en
+    # passant (voir parse_intent, meme idiome que le court-circuit "veilleuse").
+    CODE_REQUEST_WORDS = {"code", "ecrit", "ecris", "ecrire", "programme",
+                           "programmer", "firmware", "script", "integrer", "integre"}
 
     REPONSES_ON = [
         "✅ {nom} est maintenant ACTIVÉ.",
@@ -1152,6 +1163,9 @@ class Chatbot:
         if "veilleuse" in tokens:
             return []
 
+        if tokens & self.CODE_REQUEST_WORDS:
+            return []
+
         if tokens & self.ALIAS_RESUME:
             return [{"type": "resume"}]
 
@@ -1391,9 +1405,17 @@ class Chatbot:
             return response
         return self._translate_text(response)
 
+    # Au-dela de ce nombre de mots, un message n'est plus une question
+    # simple ("c'est quoi founatek ?") mais une vraie demande composee
+    # ("ecris-moi le code pour... Founatek...") — dans ce cas le mot-cle
+    # "founatek"/"aide"/"stagiaire" etc. ne doit plus declencher le texte
+    # fige a la place de l'IA, qui seule peut comprendre la vraie intention.
+    SHORT_QUERY_MAX_WORDS = 6
+
     def get_response(self, raw_msg, history=None, channel="web"):
         self.last_escalated = False
         msg = normalize(raw_msg)
+        is_short_query = len(msg.split()) <= self.SHORT_QUERY_MAX_WORDS
 
         # Arrêt d'urgence
         if msg in {"stop", "urgence", "emergency"}:
@@ -1401,15 +1423,15 @@ class Chatbot:
             return self._localize("🛑 ARRÊT D'URGENCE — Tous les relais éteints !")
 
         # Bio
-        if any(m in msg for m in self.INTENT_WORDS["bio"]):
+        if is_short_query and any(m in msg for m in self.INTENT_WORDS["bio"]):
             return self._localize(self.BIO_TEXT)
 
         # Founatek
-        if any(m in msg for m in self.INTENT_WORDS["founatek"]):
+        if is_short_query and any(m in msg for m in self.INTENT_WORDS["founatek"]):
             return self._localize(self.FOUNATEK_TEXT)
 
         # Aide
-        if any(m in msg for m in self.INTENT_WORDS["help"]):
+        if is_short_query and any(m in msg for m in self.INTENT_WORDS["help"]):
             return self._localize({
                 "reponse": "🤖 Assistant FOUNATEK NEXUS — Que voulez-vous savoir ?",
                 "buttons": [
