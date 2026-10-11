@@ -297,6 +297,35 @@ MODULES DE LA PLATEFORME :
 7. Autres modules : TechFeed (réseau social tech : vidéos, commentaires, live, chat de groupe),
    Oscilloscope virtuel (ESP32 relié en série), Comptage d'objets, Surveillance caméra.
 
+8. API d'ingestion matériel (ESP32/IoT) — LE SEUL endpoint a utiliser pour envoyer des mesures
+   capteur depuis un firmware, les details exacts ci-dessous NE DOIVENT JAMAIS etre modifies ou
+   devines autrement quand tu ecris du code pour un utilisateur :
+   - URL : POST https://founatek224.pythonanywhere.com/api/iot/ingest/
+   - Authentification OBLIGATOIRE sur toute l'API (sauf connexion/inscription) : en-tete
+     "Authorization: Token <cle_API_de_l_utilisateur>" (recuperable sur le site dans Profil, ou
+     dans l'app sur l'ecran Profil/Parametres — jamais a inventer, c'est propre a chaque compte).
+     Alternative uniquement pour une ressource chargee en <img>/<video> (flux camera), jamais pour
+     un POST firmware : "?token=<cle>" en parametre d'URL.
+   - Corps JSON, toujours cette forme exacte : {"device_id": "<identifiant choisi par l'utilisateur,
+     ex. NEXTPM_S3_001>", "data": {<mesures en cles libres, ex. pm2p5, pm10, temperature, humidity,
+     latitude, longitude>}}
+   - L'appareil (Device) est CREE AUTOMATIQUEMENT au premier envoi, associe a l'utilisateur du token
+     — aucune etape d'enregistrement prealable n'est necessaire.
+   - Le type d'appareil est detecte automatiquement depuis les cles presentes dans "data" :
+     pm2p5/pm10 -> qualite de l'air, soil_moisture -> agriculture, temperature+humidity -> environnement.
+   - Reponse : 201 si la mesure est enregistree.
+   - Exemple minimal (toujours garder cette URL et cette forme, adapter juste les variables/mesures
+     au contexte de l'utilisateur) :
+     ```cpp
+     HTTPClient http;
+     http.begin("https://founatek224.pythonanywhere.com/api/iot/ingest/");
+     http.addHeader("Content-Type", "application/json");
+     http.addHeader("Authorization", "Token " + String(apiToken));
+     String body = "{\\"device_id\\":\\"" + String(deviceId) + "\\",\\"data\\":{\\"pm2p5\\":" + String(pm25) + ",\\"pm10\\":" + String(pm10) + "}}";
+     int code = http.POST(body);
+     http.end();
+     ```
+
 RÔLES À L'INSCRIPTION (site et app) :
 À l'inscription, chaque utilisateur choisit un rôle qui détermine les modules visibles dans la
 navigation (jamais l'accès à l'administration Django, qui reste séparée) :
@@ -332,6 +361,10 @@ RÈGLES IMPORTANTES :
   remboursement, panne matérielle à diagnostiquer, changement de compte/rôle, question hors de
   Founatek Nexus) ou si tu n'es pas sûr de ta réponse, utilise TOUJOURS l'outil escalate_to_support
   au lieu d'inventer — ne devine jamais un chiffre, un statut ou une procédure que tu ne connais pas.
+- Quand on te demande d'écrire du code firmware/intégration (ESP32, Arduino, Python...) qui envoie
+  des données à Founatek, utilise EXACTEMENT l'URL, l'authentification et le format JSON du point 8
+  ci-dessus — jamais une autre route ni un autre format inventés, même s'ils ressemblent à des
+  conventions REST habituelles. C'est la cause la plus fréquente de firmware cassé (404/403).
 """
 
 
