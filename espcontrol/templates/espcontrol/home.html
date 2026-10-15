@@ -5,6 +5,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
 
 <style>
+    /* Sans ceci, padding/border s'ajoutaient a la largeur declaree (width/100%)
+       au lieu d'etre inclus dedans — la page debordait horizontalement sur
+       petit ecran, invisible a cause de overflow-x:hidden sur body (qui
+       masquait le debordement sans le resoudre, coupant du contenu). */
+    *, *::before, *::after { box-sizing: border-box; }
     body {
         background-color: #050a1f;
         background-image: radial-gradient(circle at 50% 50%, #0d1229 0%, #050a1f 100%);
@@ -74,26 +79,28 @@
     .hub-title { margin-top: 15px; font-family: 'Orbitron'; font-weight: 700; color: #fff; text-shadow: 0 0 5px #00d2ff; text-align: center; font-size: 1rem; }
     @keyframes spin-hub { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    .group-container { position: relative; padding: 30px 25px 25px 25px; border: 1px dashed rgba(0,210,255,0.3); border-radius: 20px; background: rgba(13,18,41,0.3); }
-    .group-label-title { position: absolute; top: -14px; left: 25px; background: #050a1f; padding: 0 15px; color: #00ff99; font-weight: bold; font-family: 'Orbitron'; letter-spacing: 1px; white-space: nowrap; font-size: 0.9rem; }
-    .nodes-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; width: 100%; }
-    .node-block { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 10px; text-decoration: none; transition: transform 0.3s ease, border 0.3s ease; flex: 1 1 calc(33% - 15px); min-width: 90px; background: rgba(255,255,255,0.03); padding: 12px 8px; border-radius: 18px; border: 1px solid transparent; }
-    .node-block:hover { transform: translateY(-5px); border-color: #00d2ff; background: rgba(255,255,255,0.05); }
-    .icon-box { width: 60px; height: 60px; background: linear-gradient(145deg, #1a243d, #0d1221); border: 2px solid #00d2ff; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; color: #00d2ff; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 10px; position: relative; }
+    .group-container { position: relative; padding: 20px 20px 22px; border: 1px solid rgba(0,210,255,0.16); border-radius: 20px; background: linear-gradient(180deg, rgba(13,18,41,0.55), rgba(13,18,41,0.28)); }
+    .group-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .group-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; background: rgba(0,210,255,0.12); color: #00d2ff; border: 1px solid rgba(0,210,255,0.35); }
+    .group-title { font-family: 'Orbitron', sans-serif; font-size: 0.82rem; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+
+    /* Une seule grille pour TOUTES les sections — s'adapte au nombre d'items
+       sans jamais laisser un grand vide au milieu (l'ancien space-between
+       ecartait 2 cartes aux bords opposes des qu'une section en comptait peu). */
+    .modules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px; }
+    .node-block { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; text-decoration: none; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 14px 8px 12px; transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease; }
+    .node-block:hover { transform: translateY(-4px); border-color: #00d2ff; background: rgba(0,210,255,0.07); box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
+    .icon-box { width: 52px; height: 52px; background: linear-gradient(145deg, #1a243d, #0d1221); border: 2px solid #00d2ff; border-radius: 15px; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; color: #00d2ff; box-shadow: 0 4px 14px rgba(0,0,0,0.3); margin-bottom: 9px; }
     .node-green .icon-box  { border-color: #00ff99; color: #00ff99; }
     .node-gold .icon-box   { border-color: #ffd700; color: #ffd700; }
     .node-purple .icon-box { border-color: #a855f7; color: #a855f7; }
     .node-red .icon-box    { border-color: #ef4444; color: #ef4444; }
     .node-orange .icon-box { border-color: #f97316; color: #f97316; }
-    .node-label { font-size: 0.78rem; font-weight: 500; color: #cce; line-height: 1.3; }
-    .badge-live-mini { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; animation: pulse-red 1.5s infinite; }
+    .node-label { font-size: 0.74rem; font-weight: 500; color: #cce; line-height: 1.25; }
+    .badge-live-mini { position: absolute; top: -7px; right: 8px; background: #ef4444; color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; animation: pulse-red 1.5s infinite; }
     @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 70% { box-shadow: 0 0 0 5px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
     .counter-text { font-family: 'Orbitron'; font-weight: bold; font-size: 1rem; }
-    .relais-mini-container { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .node-mini { width: 52px; height: 52px; background: #1a243d; border: 2px solid #00ff99; border-radius: 15px; display: flex; justify-content: center; align-items: center; color: #00ff99; font-size: 1.3rem; text-decoration: none; transition: all 0.3s ease; }
-    .node-mini:hover { background: #00ff99; color: #0a1128; transform: scale(1.1); }
-    .sensors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-top: 15px; }
-    .group-split { display: flex; flex-wrap: wrap; gap: 25px; }
+    .group-split { display: flex; flex-wrap: wrap; gap: 20px; }
     .sub-group { flex: 1 1 280px; }
 
     @media (max-width: 1200px) {
@@ -116,22 +123,20 @@
         #commande { padding: 8px 12px; font-size: 0.85rem; }
         .input-area { padding: 8px; gap: 6px; }
         .input-area button { width: 32px; height: 32px; font-size: 0.85rem; }
-        .group-container { padding: 22px 12px 16px 12px; }
-        .group-label-title { font-size: 0.75rem; left: 12px; top: -11px; padding: 0 10px; }
-        .nodes-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .node-block { flex: none; min-width: auto; padding: 10px 6px; border-radius: 14px; }
-        .icon-box { width: 46px; height: 46px; font-size: 1.3rem; border-radius: 14px; margin-bottom: 8px; }
-        .node-label { font-size: 0.7rem; }
-        .relais-mini-container { gap: 8px; }
-        .node-mini { width: 42px; height: 42px; font-size: 1.1rem; border-radius: 12px; }
-        .sensors-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .group-container { padding: 16px 14px 18px; }
+        .group-header { margin-bottom: 12px; padding-bottom: 10px; gap: 8px; }
+        .group-icon { width: 28px; height: 28px; font-size: 0.85rem; }
+        .group-title { font-size: 0.74rem; }
+        .modules-grid { grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 8px; }
+        .node-block { padding: 10px 6px 9px; border-radius: 14px; }
+        .icon-box { width: 44px; height: 44px; font-size: 1.2rem; border-radius: 12px; margin-bottom: 7px; }
+        .node-label { font-size: 0.68rem; }
         .sub-group { flex: 1 1 100%; }
-        .group-split { gap: 20px; }
+        .group-split { gap: 16px; }
         .iot-grid { grid-template-columns: repeat(3, 1fr); }
     }
     @media (max-width: 400px) {
-        .nodes-row { grid-template-columns: repeat(2, 1fr); }
-        .sensors-grid { grid-template-columns: repeat(2, 1fr); }
+        .modules-grid { grid-template-columns: repeat(3, 1fr); }
         .iot-grid { grid-template-columns: repeat(2, 1fr); }
         h1.main-title { font-size: 0.95rem; }
     }
@@ -246,8 +251,11 @@
         <div class="layout-right">
             {% if published_modules.air_quality %}
             <div class="group-container">
-                <div class="group-label-title">🌍 Air Quality IoT</div>
-                <div class="nodes-row" style="margin-top:20px;">
+                <div class="group-header">
+                    <div class="group-icon"><i class="fas fa-wind"></i></div>
+                    <div class="group-title">Air Quality IoT</div>
+                </div>
+                <div class="modules-grid">
                     <a href="{% url 'air_quality_dashboard' %}" class="node-block node-green">
                         <span class="badge-live-mini">Live</span>
                         <div class="icon-box"><i class="fas fa-wind"></i></div>
@@ -285,13 +293,19 @@
 
             {% if published_modules.actionneurs %}
             <div class="group-container">
-                <div class="group-label-title">⚡ Actionneurs</div>
-                <div class="relais-mini-container" style="margin-top:18px;">
-                    <a href="{% url 'afficher_relais' %}" class="node-mini" title="Relais"><i class="fas fa-toggle-on"></i></a>
-                    <a href="{% url 'control_relais' %}" class="node-mini" title="Créer relais"><i class="fas fa-plus-circle"></i></a>
-                    <div class="node-mini" title="LED Salon"><i class="fas fa-lightbulb"></i></div>
-                    <div class="node-mini" title="Ventilateur"><i class="fas fa-fan"></i></div>
-                    <div class="node-mini" title="Prise"><i class="fas fa-plug"></i></div>
+                <div class="group-header">
+                    <div class="group-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="group-title">Actionneurs</div>
+                </div>
+                <div class="modules-grid">
+                    <a href="{% url 'afficher_relais' %}" class="node-block node-green">
+                        <div class="icon-box"><i class="fas fa-toggle-on"></i></div>
+                        <div class="node-label">Relais</div>
+                    </a>
+                    <a href="{% url 'control_relais' %}" class="node-block">
+                        <div class="icon-box"><i class="fas fa-plus-circle"></i></div>
+                        <div class="node-label">Créer relais</div>
+                    </a>
                 </div>
             </div>
             {% endif %}
@@ -299,8 +313,11 @@
             <div class="group-split">
                 {% if published_modules.capteurs %}
                 <div class="sub-group group-container">
-                    <div class="group-label-title">🌡 Capteurs</div>
-                    <div class="sensors-grid">
+                    <div class="group-header">
+                        <div class="group-icon"><i class="fas fa-thermometer-half"></i></div>
+                        <div class="group-title">Capteurs</div>
+                    </div>
+                    <div class="modules-grid">
                         <a href="{% url 'dht-data' %}" class="node-block node-green">
                             <div class="icon-box"><i class="fas fa-thermometer-half"></i></div>
                             <div class="node-label">Temp/Hum</div>
@@ -331,8 +348,11 @@
                 {% endif %}
                 {% if published_modules.eclairage %}
                 <div class="sub-group group-container">
-                    <div class="group-label-title">💡 Éclairage</div>
-                    <div class="sensors-grid">
+                    <div class="group-header">
+                        <div class="group-icon"><i class="fas fa-lightbulb"></i></div>
+                        <div class="group-title">Éclairage</div>
+                    </div>
+                    <div class="modules-grid">
                         <a href="{% url 'afficher_relais' %}" class="node-block node-green">
                             <div class="icon-box"><i class="far fa-lightbulb"></i></div>
                             <div class="node-label">LED Simple</div>
@@ -348,8 +368,11 @@
 
             {% if published_modules.surveillance_acces %}
             <div class="group-container">
-                <div class="group-label-title">🔒 Sécurité & Surveillance</div>
-                <div class="nodes-row" style="margin-top:20px;">
+                <div class="group-header">
+                    <div class="group-icon"><i class="fas fa-shield-alt"></i></div>
+                    <div class="group-title">Sécurité & Surveillance</div>
+                </div>
+                <div class="modules-grid">
                     <a href="{% url 'surveillance' %}" class="node-block node-green">
                         {% if is_abonne %}<span class="badge-live-mini">Live</span>{% endif %}
                         <div class="icon-box"><i class="fas fa-camera"></i></div>
@@ -373,8 +396,11 @@
 
             {% if published_modules.analytics_export %}
             <div class="group-container">
-                <div class="group-label-title">📊 Analytics & Export</div>
-                <div class="nodes-row" style="margin-top:20px;">
+                <div class="group-header">
+                    <div class="group-icon"><i class="fas fa-chart-bar"></i></div>
+                    <div class="group-title">Analytics & Export</div>
+                </div>
+                <div class="modules-grid">
                     <a href="{% url 'dashboard' %}" class="node-block">
                         <div class="icon-box"><span class="counter-text">000</span></div>
                         <div class="node-label">Compteur</div>
