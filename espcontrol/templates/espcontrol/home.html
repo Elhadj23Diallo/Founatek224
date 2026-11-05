@@ -261,18 +261,6 @@
                         <div class="icon-box"><i class="fas fa-wind"></i></div>
                         <div class="node-label">Dashboard Air</div>
                     </a>
-                    <a href="{% url 'air_map_view' %}" class="node-block node-green">
-                        <div class="icon-box"><i class="fas fa-map-marked-alt"></i></div>
-                        <div class="node-label">Carte Pollution</div>
-                    </a>
-                    <a href="{% url 'air_dashboard' %}" class="node-block node-gold">
-                        <div class="icon-box"><i class="fas fa-brain"></i></div>
-                        <div class="node-label">Prédiction ML</div>
-                    </a>
-                    <a href="{% url 'air_alerts' %}" class="node-block node-red">
-                        <div class="icon-box"><i class="fas fa-bell"></i></div>
-                        <div class="node-label">Alertes Air</div>
-                    </a>
                     <a href="{% url 'tableau_bord_univ' %}" class="node-block node-purple">
                         <div class="icon-box"><i class="fas fa-chart-line"></i></div>
                         <div class="node-label">Dashboard Univ</div>
@@ -283,10 +271,6 @@
                         <div class="node-label">Rapport Chatbot</div>
                     </a>
                     {% endif %}
-                    <a href="{% url 'air_sim_latest' %}" class="node-block">
-                        <div class="icon-box"><i class="fas fa-satellite-dish"></i></div>
-                        <div class="node-label">Simulateur</div>
-                    </a>
                 </div>
             </div>
             {% endif %}
