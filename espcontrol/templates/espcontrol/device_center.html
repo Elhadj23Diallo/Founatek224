@@ -1,0 +1,92 @@
+{% extends "espcontrol/base.html" %}
+
+{% block title %}État des appareils IoT{% endblock %}
+
+{% block content %}
+<style>
+    .device-center { max-width: 1120px; margin: 28px auto; color: #e2e8f0; }
+    .device-header, .device-card, .summary-card {
+        background: #0d1730;
+        border: 1px solid rgba(103, 232, 249, .2);
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgba(2, 6, 23, .2);
+    }
+    .device-header { padding: 24px; margin-bottom: 18px; }
+    .device-header h1 { margin: 0 0 8px; color: #f8fafc; font-size: clamp(1.45rem, 4vw, 2rem); }
+    .device-header p, .device-meta { color: #a7b4cb; }
+    .device-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .device-actions a { text-decoration: none; }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .summary-card { padding: 16px; }
+    .summary-card span { display: block; color: #9fb0ca; font-size: .9rem; }
+    .summary-card strong { display: block; margin-top: 4px; color: #f8fafc; font-size: 1.55rem; }
+    .device-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 16px; }
+    .device-card { padding: 20px; min-width: 0; }
+    .device-card h2 { margin: 0; color: #f8fafc; font-size: 1.2rem; overflow-wrap: anywhere; }
+    .device-id { margin-top: 5px; color: #94a3b8; font-size: .85rem; overflow-wrap: anywhere; }
+    .device-status { display: inline-flex; align-items: center; gap: 7px; margin: 14px 0; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: .85rem; }
+    .status-online { background: rgba(34, 197, 94, .12); color: #86efac; }
+    .status-offline { background: rgba(248, 113, 113, .12); color: #fca5a5; }
+    .status-disabled { background: rgba(148, 163, 184, .12); color: #cbd5e1; }
+    .metrics { margin: 14px 0 0; padding: 0; list-style: none; }
+    .metrics li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid rgba(148, 163, 184, .14); }
+    .metrics li span:first-child { color: #a7b4cb; overflow-wrap: anywhere; }
+    .metrics li span:last-child { color: #e2e8f0; text-align: right; overflow-wrap: anywhere; }
+    .empty-state { padding: 28px; border: 1px dashed rgba(148, 163, 184, .35); border-radius: 14px; text-align: center; color: #a7b4cb; }
+    .health-note { margin-top: 18px; color: #94a3b8; font-size: .9rem; line-height: 1.5; }
+    @media (max-width: 600px) {
+        .device-center { margin: 12px auto; }
+        .device-header, .device-card { padding: 16px; }
+        .summary-grid { grid-template-columns: 1fr; gap: 10px; }
+    }
+</style>
+
+<main class="device-center">
+    <header class="device-header">
+        <h1><i class="fas fa-microchip" aria-hidden="true"></i> État des appareils connectés</h1>
+        <p>Vérifie les dernières communications et les mesures reçues par Founatek.</p>
+        <div class="device-actions">
+            <a class="btn btn-outline-info" href="{% url 'home' %}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Tableau de bord</a>
+            <a class="btn btn-outline-success" href="{% url 'afficher_relais' %}"><i class="fas fa-toggle-on" aria-hidden="true"></i> Gérer les relais</a>
+        </div>
+    </header>
+
+    <section class="summary-grid" aria-label="Résumé des appareils">
+        <div class="summary-card"><span>Appareils enregistrés</span><strong>{{ device_count }}</strong></div>
+        <div class="summary-card"><span>En ligne</span><strong>{{ online_count }}</strong></div>
+        <div class="summary-card"><span>Hors ligne ou désactivés</span><strong>{{ offline_count }}</strong></div>
+    </section>
+
+    {% if devices %}
+    <section class="device-grid" aria-label="Liste des appareils">
+        {% for device in devices %}
+        <article class="device-card">
+            <h2>{{ device.name|default:"Appareil sans nom" }}</h2>
+            <div class="device-id">ID : {{ device.device_id }}{% if device.type %} · Type : {{ device.type }}{% endif %}</div>
+            {% if not device.is_active %}
+                <div class="device-status status-disabled"><i class="fas fa-ban" aria-hidden="true"></i> Désactivé</div>
+            {% elif device.is_online %}
+                <div class="device-status status-online"><i class="fas fa-circle" aria-hidden="true"></i> En ligne</div>
+            {% else %}
+                <div class="device-status status-offline"><i class="fas fa-circle" aria-hidden="true"></i> Hors ligne</div>
+            {% endif %}
+            <div class="device-meta">Dernier contact : {% if device.last_contact %}{{ device.last_contact|date:"d/m/Y H:i:s" }}{% else %}Aucune communication enregistrée{% endif %}</div>
+            {% if device.latest_metrics %}
+            <ul class="metrics" aria-label="Dernières mesures">
+                {% for metric in device.latest_metrics %}
+                <li><span>{{ metric.0 }}</span><span>{{ metric.1|truncatechars:80 }}</span></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="device-meta">Aucune mesure reçue pour cet appareil.</p>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </section>
+    {% else %}
+    <div class="empty-state">Aucun appareil n’est encore associé à ce compte.</div>
+    {% endif %}
+
+    <p class="health-note">Un appareil est indiqué « en ligne » si son dernier contact remonte à moins de {{ online_window_minutes }} minutes. Ce statut reflète les données reçues par le serveur; il ne remplace pas un accusé d’exécution matériel.</p>
+</main>
+{% endblock %}

@@ -261,6 +261,30 @@
         border: 1px dashed rgba(51, 65, 85, 0.6);
     }
 
+    .control-note, .history-section {
+        margin-top: 24px;
+        padding: 18px 20px;
+        border: 1px solid rgba(0, 210, 255, 0.18);
+        border-radius: 14px;
+        background: rgba(13, 18, 41, 0.55);
+        color: #cbd5e1;
+        line-height: 1.6;
+    }
+    .history-section h2 {
+        color: #fff;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.15rem;
+        margin: 0 0 14px;
+    }
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th, .history-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        text-align: left;
+    }
+    .history-table th { color: #67e8f9; font-weight: 600; }
+    .history-empty { color: #94a3b8; }
+
     /* =========================================
        GESTION DES PETITS ÉCRANS (RESPONSIVE)
     ========================================= */
@@ -361,6 +385,9 @@
         </a>
     </div>
 
+    <div class="control-note" role="note">
+        <strong>À savoir :</strong> cette page enregistre l’état demandé dans Founatek. Elle ne confirme pas, à elle seule, que le relais physique a exécuté la demande.
+    </div>
 
     <div class="relay-grid">
         {% for r in relais %}
@@ -397,6 +424,29 @@
         </div>
         {% endfor %}
     </div>
+
+    <section class="history-section" aria-labelledby="relay-history-title">
+        <h2 id="relay-history-title"><i class="fas fa-history"></i> Historique des demandes récentes</h2>
+        <div class="table-responsive">
+            <table class="history-table">
+                <thead>
+                    <tr><th>Relais</th><th>État demandé</th><th>Source</th><th>Date</th></tr>
+                </thead>
+                <tbody>
+                    {% for action in recent_actions %}
+                    <tr>
+                        <td>{{ action.details.relay_name|default:"Relais" }} #{{ action.details.relay_num }}</td>
+                        <td>{{ action.details.requested_state|upper }}</td>
+                        <td>{{ action.details.source|default:"—" }}</td>
+                        <td>{{ action.created_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="history-empty">Aucune demande de relais enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 
 </div>
 {% endblock %}

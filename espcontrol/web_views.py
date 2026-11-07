@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 
 from django.conf import settings
@@ -6,15 +6,20 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
 from django.db import connection
-from django.db.models import Avg, Max, Min
+from django.db.models import Avg, Max, Min, OuterRef, Subquery
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
 from .forms import RelaisForm
 from .models import (
+    ActionLog,
+    AppareilData,
     Comptage,
     DHTData,
+    Device,
     LED,
     NtcSensorData,
     Relais,
@@ -34,6 +39,49 @@ def vitrine(request):
 @login_required
 def home(request):
     return render(request, "espcontrol/home.html")
+
+
+@login_required
+def device_center(request):
+    """Centre de santé des appareils; affiche uniquement les appareils du compte connecté."""
+    cutoff = timezone.now() - timedelta(minutes=5)
+    latest_records = AppareilData.objects.filter(
+        device_id=OuterRef("pk")
+    ).order_by("-received_at")
+    devices = list(
+        Device.objects.filter(user=request.user)
+        .annotate(
+            latest_payload=Subquery(latest_records.values("payload")[:1]),
+            latest_data_at=Subquery(latest_records.values("received_at")[:1]),
+        )
+        .order_by("name", "device_id")
+    )
+
+    for device in devices:
+        contact_times = [
+            value for value in (device.last_seen, device.latest_data_at) if value
+        ]
+        device.last_contact = max(contact_times) if contact_times else None
+        device.is_online = bool(
+            device.is_active and device.last_contact and device.last_contact >= cutoff
+        )
+        payload = device.latest_payload if isinstance(device.latest_payload, dict) else {}
+        device.latest_metrics = [
+            (str(key), str(value)) for key, value in list(payload.items())[:6]
+        ]
+
+    online_count = sum(1 for device in devices if device.is_online)
+    return render(
+        request,
+        "espcontrol/device_center.html",
+        {
+            "devices": devices,
+            "device_count": len(devices),
+            "online_count": online_count,
+            "offline_count": len(devices) - online_count,
+            "online_window_minutes": 5,
+        },
+    )
 
 
 @login_required
@@ -138,14 +186,38 @@ def control_relais(request):
 @login_required
 def afficher_relais(request):
     relais = Relais.objects.filter(user=request.user)
-    return render(request, "espcontrol/relais.html", {"relais": relais})
+    recent_actions = ActionLog.objects.filter(
+        user=request.user, action="RELAY_STATE_REQUESTED"
+    ).order_by("-created_at")[:10]
+    return render(
+        request,
+        "espcontrol/relais.html",
+        {"relais": relais, "recent_actions": recent_actions},
+    )
 
 
 @login_required
+@require_POST
 def toggle_relais(request, num):
     relais = get_object_or_404(Relais, num=num, user=request.user)
+    previous_state = relais.etat
     relais.etat = not relais.etat
-    relais.save()
+    relais.save(update_fields=["etat"])
+    ActionLog.objects.create(
+        user=request.user,
+        action="RELAY_STATE_REQUESTED",
+        details={
+            "source": "web",
+            "relay_num": relais.num,
+            "relay_name": relais.nom,
+            "previous_state": "on" if previous_state else "off",
+            "requested_state": "on" if relais.etat else "off",
+        },
+    )
+    messages.success(
+        request,
+        "La demande a été enregistrée dans Founatek; l’exécution physique n’est pas confirmée par cette page.",
+    )
     return redirect("afficher_relais")
 
 

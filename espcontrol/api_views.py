@@ -18,7 +18,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.db.models import Avg, Max, Min
+from django.db.models import Avg, Count, Max, Min, OuterRef, Subquery
 from .models import (
     AccessLog,
     AccessRule,
@@ -49,6 +49,22 @@ def _json_error(message, status_code=400, **extra):
     payload = {"error": message}
     payload.update(extra)
     return JsonResponse(payload, status=status_code)
+
+
+def _record_relay_state_request(request, relay, previous_state, source):
+    if previous_state == relay.etat:
+        return
+    ActionLog.objects.create(
+        user=request.user,
+        action="RELAY_STATE_REQUESTED",
+        details={
+            "source": source,
+            "relay_num": relay.num,
+            "relay_name": relay.nom,
+            "previous_state": "on" if previous_state else "off",
+            "requested_state": "on" if relay.etat else "off",
+        },
+    )
 
 
 @csrf_exempt
@@ -96,18 +112,34 @@ def mobile_relay_detail(request, num):
 
         state = payload.get("state")
         if state in {"on", "off"}:
+            previous_state = relay.etat
             relay.etat = state == "on"
             relay.save(update_fields=["etat"])
+            _record_relay_state_request(request, relay, previous_state, "mobile_api")
             return Response(
-                {"num": relay.num, "etat": "on" if relay.etat else "off"},
+                {
+                    "num": relay.num,
+                    "etat": "on" if relay.etat else "off",
+                    "state_recorded": True,
+                    "hardware_confirmed": False,
+                    "changed": previous_state != relay.etat,
+                },
                 status=status.HTTP_200_OK,
             )
 
         if payload.get("toggle") is True:
+            previous_state = relay.etat
             relay.etat = not relay.etat
             relay.save(update_fields=["etat"])
+            _record_relay_state_request(request, relay, previous_state, "mobile_api")
             return Response(
-                {"num": relay.num, "etat": "on" if relay.etat else "off"},
+                {
+                    "num": relay.num,
+                    "etat": "on" if relay.etat else "off",
+                    "state_recorded": True,
+                    "hardware_confirmed": False,
+                    "changed": previous_state != relay.etat,
+                },
                 status=status.HTTP_200_OK,
             )
 
@@ -563,22 +595,36 @@ def mobile_chatbot_transcribe(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def mobile_devices(request):
-    devices = Device.objects.filter(user=request.user).order_by("-last_seen")
+    latest_records = AppareilData.objects.filter(
+        device_id=OuterRef("pk")
+    ).order_by("-received_at")
+    devices = (
+        Device.objects.filter(user=request.user)
+        .annotate(
+            reading_count=Count("appareildata"),
+            latest_payload=Subquery(latest_records.values("payload")[:1]),
+            latest_received_at=Subquery(latest_records.values("received_at")[:1]),
+        )
+        .order_by("-last_seen", "name")
+    )
+    now = timezone.now()
     payload = []
     for d in devices:
-        latest = AppareilData.objects.filter(device=d).order_by("-received_at").first()
+        contact_times = [value for value in (d.last_seen, d.latest_received_at) if value]
+        last_contact = max(contact_times) if contact_times else None
         payload.append({
             "id": d.id,
             "name": d.name,
             "device_id": d.device_id,
-            "type": getattr(d, "device_type", "unknown"),
+            "type": d.type or "unknown",
+            "is_active": d.is_active,
             "last_seen": d.last_seen.isoformat() if d.last_seen else None,
+            "latest_data_at": d.latest_received_at.isoformat() if d.latest_received_at else None,
             "is_online": (
-                (timezone.now() - d.last_seen).total_seconds() < 300
-                if d.last_seen else False
+                bool(d.is_active and last_contact and (now - last_contact).total_seconds() < 300)
             ),
-            "reading_count": AppareilData.objects.filter(device=d).count(),
-            "latest": latest.payload if latest else {},
+            "reading_count": d.reading_count,
+            "latest": d.latest_payload or {},
         })
     return Response(payload, status=status.HTTP_200_OK)
 

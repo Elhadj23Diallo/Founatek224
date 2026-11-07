@@ -56,6 +56,7 @@ urlpatterns = [
     path('api/mobile/profile/', api_views.mobile_profile, name='mobile_profile'),
     path('api/mobile/profile/update/', api_views.mobile_profile_update, name='mobile_profile_update'),
     path('home/', web_views.home, name='home'),  # Route pour la page d'accueil
+    path('devices/', web_views.device_center, name='device_center'),
     path('api/led/', views.led_status),
     path('api/dht-data/', web_views.led_control, name='dht-data'),
     path('irrigation/', web_views.irrigation_auto, name='irrigation_auto'),
