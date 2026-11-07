@@ -1,4 +1,5 @@
 from io import StringIO
+from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
@@ -69,6 +70,32 @@ class SeedESP32WokwiCommandTests(TestCase):
         )
         self.assertEqual(Quiz.objects.filter(lecon__parcours=parcours).count(), counts["quiz"])
         self.assertEqual(Project.objects.filter(parcours=parcours).count(), counts["projects"])
+
+    def test_course_visuals_reference_existing_local_assets_and_credits(self):
+        self.run_seed()
+        parcours = Parcours.objects.get(slug="atelier-esp32-gpio-adc-pwm-wokwi")
+        markup = "\n".join(
+            value or ""
+            for value in BlocPedagogique.objects.filter(lecon__parcours=parcours).values_list(
+                "code", flat=True
+            )
+        )
+        for filename in (
+            "esp32-devkit-cc0.webp",
+            "breadboard.webp",
+            "red-led.webp",
+            "resistors.webp",
+            "tactile-switches.webp",
+            "potentiometer.webp",
+            "schema-esp32-bouton-led.png",
+            "schema-esp32-potentiometre-pwm.png",
+        ):
+            self.assertIn(filename, markup)
+            asset = Path(__file__).resolve().parent / "static" / "iot" / "course_images" / filename
+            self.assertTrue(asset.is_file(), filename)
+        self.assertIn("CC BY-SA 3.0", markup)
+        self.assertIn("commons.wikimedia.org", markup)
+        self.assertNotIn("<iframe", markup.lower())
 
     def test_missing_formateur_fails_without_creating_course(self):
         with self.assertRaises(CommandError):

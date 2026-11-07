@@ -20,21 +20,69 @@ WOKWI_RESISTOR_URL = "https://docs.wokwi.com/parts/wokwi-resistor"
 WOKWI_POT_URL = "https://docs.wokwi.com/parts/wokwi-potentiometer"
 
 
-def resource_block(title, links):
-    """Créer une petite liste de liens HTML statiques et échappés pour le template."""
+COURSE_IMAGE_BASE = "/static/iot/course_images/"
+CC_BY_SA_30_URL = "https://creativecommons.org/licenses/by-sa/3.0/"
+CC0_URL = "https://creativecommons.org/publicdomain/zero/1.0/"
+
+
+def photo_figure(filename, alt, caption, author, source_url, license_name, license_url=None):
+    """Créer une figure photo accessible avec crédit, source et licence."""
+    license_markup = escape(license_name)
+    if license_url:
+        license_markup = '<a href="{}" target="_blank" rel="noopener noreferrer">{}</a>'.format(
+            escape(license_url, quote=True), escape(license_name)
+        )
+    return (
+        '<figure class="course-figure course-photo">'
+        '<img class="course-visual-image" src="{}{}" alt="{}" loading="lazy" decoding="async">'
+        '<figcaption><strong>{}</strong><br><span class="course-image-credit">'
+        'Photo : {} · <a href="{}" target="_blank" rel="noopener noreferrer">Source</a> · {}'
+        ' · image optimisée pour le Web et convertie en WebP.</span></figcaption></figure>'
+    ).format(
+        COURSE_IMAGE_BASE,
+        escape(filename, quote=True),
+        escape(alt, quote=True),
+        escape(caption),
+        escape(author),
+        escape(source_url, quote=True),
+        license_markup,
+    )
+
+
+def diagram_figure(filename, alt, caption):
+    """Créer une figure de schéma original avec un texte alternatif."""
+    return (
+        '<figure class="course-figure course-schematic">'
+        '<img class="course-visual-image" src="{}{}" alt="{}" loading="lazy" decoding="async">'
+        '<figcaption><strong>{}</strong><br><span class="course-image-credit">'
+        'Schéma pédagogique original Founatek Academy; vérifier le brochage de la variante exacte.'
+        '</span></figcaption></figure>'
+    ).format(
+        COURSE_IMAGE_BASE,
+        escape(filename, quote=True),
+        escape(alt, quote=True),
+        escape(caption),
+    )
+
+
+def resource_block(title, links, visuals=()):
+    """Créer une liste de ressources et des figures sûres pour le template."""
     items = "".join(
         '<li><a href="{}" target="_blank" rel="noopener noreferrer">{}</a></li>'.format(
             escape(url, quote=True), escape(label)
         )
         for label, url in links
     )
+    visual_markup = ""
+    if visuals:
+        visual_markup = '<div class="course-visual-grid">{}</div>'.format("".join(visuals))
     return {
         "type": "interactif",
         "language": "html",
         "contenu": None,
         "code": (
-            '<div class="course-resources"><strong>{}</strong><ul>{}</ul></div>'.format(
-                escape(title), items
+            '<div class="course-resources"><strong>{}</strong><ul>{}</ul>{}</div>'.format(
+                escape(title), items, visual_markup
             )
         ),
     }
@@ -80,6 +128,24 @@ COURSE = {
                 resource_block("Documents de référence", [
                     ("Recommandations matérielles Espressif", ESPRESSIF_GPIO_URL),
                     ("Format des schémas Wokwi", "https://docs.wokwi.com/diagram-format"),
+                ], visuals=[
+                    photo_figure(
+                        "esp32-devkit-cc0.webp",
+                        "Photo réelle d’une carte ESP32 DevKit avec module ESP-WROOM-32",
+                        "Carte ESP32 DevKit classique",
+                        "Ubahnverleih",
+                        "https://commons.wikimedia.org/wiki/File:ESP32_Espressif_ESP-WROOM-32_Dev_Board_(2).jpg",
+                        "CC0 1.0",
+                        CC0_URL,
+                    ),
+                    photo_figure(
+                        "breadboard.webp",
+                        "Photo réelle d’une breadboard blanche sans soudure",
+                        "Breadboard sans soudure",
+                        "Evan-Amos",
+                        "https://commons.wikimedia.org/wiki/File:Electronics-White-Breadboard.jpg",
+                        "Domaine public (PD-self)",
+                    ),
                 ]),
             ],
             "quiz": [
@@ -137,6 +203,29 @@ COURSE = {
                     ("Ouvrir le circuit bouton + LED dans Wokwi", WOKWI_GPIO_URL),
                     ("Fiche LED Wokwi : anode A et cathode C", WOKWI_LED_URL),
                     ("Fiche résistance Wokwi", WOKWI_RESISTOR_URL),
+                ], visuals=[
+                    photo_figure(
+                        "red-led.webp",
+                        "Photo réelle d’une LED rouge traversante à deux pattes",
+                        "LED rouge traversante",
+                        "Evan-Amos",
+                        "https://commons.wikimedia.org/wiki/File:Electronic-Component-Red-LED.jpg",
+                        "Domaine public (PD-self)",
+                    ),
+                    photo_figure(
+                        "resistors.webp",
+                        "Photo de résistances traversantes réelles avec plusieurs codes couleur",
+                        "Résistances traversantes",
+                        "FDominec",
+                        "https://commons.wikimedia.org/wiki/File:Electronic_component_resistors.jpg",
+                        "CC BY-SA 3.0",
+                        CC_BY_SA_30_URL,
+                    ),
+                    diagram_figure(
+                        "schema-esp32-bouton-led.png",
+                        "Schéma : GPIO23 vers une résistance de 220 ohms, anode de la LED, cathode vers GND; bouton entre GPIO18 et 3V3",
+                        "Schéma bouton + LED sur ESP32",
+                    ),
                 ]),
             ],
             "quiz": [
@@ -205,6 +294,21 @@ COURSE = {
                 resource_block("Essayer et approfondir", [
                     ("Ouvrir le circuit bouton + LED dans Wokwi", WOKWI_GPIO_URL),
                     ("Brochage et rebond des boutons Wokwi", WOKWI_BUTTON_URL),
+                ], visuals=[
+                    photo_figure(
+                        "tactile-switches.webp",
+                        "Photo réelle de trois boutons tactiles à quatre pattes, avec règle de comparaison",
+                        "Boutons-poussoirs tactiles",
+                        "Scwerllguy",
+                        "https://commons.wikimedia.org/wiki/File:Tactile_switches.jpg",
+                        "CC BY-SA 3.0",
+                        CC_BY_SA_30_URL,
+                    ),
+                    diagram_figure(
+                        "schema-esp32-bouton-led.png",
+                        "Schéma du bouton relié entre GPIO18 avec INPUT_PULLDOWN et 3V3, plus la LED sur GPIO23 avec résistance série",
+                        "Câblage de l’entrée bouton et de la sortie LED",
+                    ),
                 ]),
             ],
             "quiz": [
@@ -266,6 +370,20 @@ COURSE = {
                     ("Ouvrir le circuit potentiomètre + LED dans Wokwi", WOKWI_ADC_PWM_URL),
                     ("Fiche du potentiomètre Wokwi", WOKWI_POT_URL),
                     ("Référence ADC Espressif pour ESP32 classique", ESP32_ADC_URL),
+                ], visuals=[
+                    photo_figure(
+                        "potentiometer.webp",
+                        "Photo réelle d’un potentiomètre rotatif traversant avec trois broches",
+                        "Potentiomètre rotatif à trois bornes",
+                        "Evan-Amos",
+                        "https://commons.wikimedia.org/wiki/File:Electronic-Component-Potentiometer.jpg",
+                        "Domaine public (PD-self)",
+                    ),
+                    diagram_figure(
+                        "schema-esp32-potentiometre-pwm.png",
+                        "Schéma : potentiomètre 10 kilo-ohms entre 3V3 et GND, curseur sur GPIO34 ADC1; GPIO23 commande une LED via 220 ohms",
+                        "Schéma ADC1 + LED protégée sur ESP32",
+                    ),
                 ]),
             ],
             "quiz": [
@@ -326,6 +444,21 @@ COURSE = {
                 resource_block("Observer la conversion en direct", [
                     ("Ouvrir le circuit ADC → PWM dans Wokwi", WOKWI_ADC_PWM_URL),
                     ("Documentation du potentiomètre Wokwi", WOKWI_POT_URL),
+                ], visuals=[
+                    photo_figure(
+                        "resistors.webp",
+                        "Photo de résistances réelles dont des composants traversants à code couleur",
+                        "Résistance série : un composant réel à identifier",
+                        "FDominec",
+                        "https://commons.wikimedia.org/wiki/File:Electronic_component_resistors.jpg",
+                        "CC BY-SA 3.0",
+                        CC_BY_SA_30_URL,
+                    ),
+                    diagram_figure(
+                        "schema-esp32-potentiometre-pwm.png",
+                        "Schéma du potentiomètre sur GPIO34 ADC1 et de la LED protégée commandée en PWM par GPIO23",
+                        "Chemin de mesure ADC vers commande PWM",
+                    ),
                 ]),
             ],
             "quiz": [
@@ -392,6 +525,29 @@ COURSE = {
                     ("Variante bouton + LED", WOKWI_GPIO_URL),
                     ("Mini-projet potentiomètre + PWM", WOKWI_ADC_PWM_URL),
                     ("Précautions GPIO Espressif", ESPRESSIF_GPIO_URL),
+                ], visuals=[
+                    photo_figure(
+                        "esp32-devkit-cc0.webp",
+                        "Photo réelle d’une carte de développement ESP32 DevKit",
+                        "Carte de calcul du mini-projet",
+                        "Ubahnverleih",
+                        "https://commons.wikimedia.org/wiki/File:ESP32_Espressif_ESP-WROOM-32_Dev_Board_(2).jpg",
+                        "CC0 1.0",
+                        CC0_URL,
+                    ),
+                    photo_figure(
+                        "breadboard.webp",
+                        "Photo d’une breadboard sans soudure pour prototyper le montage",
+                        "Support de prototypage physique",
+                        "Evan-Amos",
+                        "https://commons.wikimedia.org/wiki/File:Electronics-White-Breadboard.jpg",
+                        "Domaine public (PD-self)",
+                    ),
+                    diagram_figure(
+                        "schema-esp32-potentiometre-pwm.png",
+                        "Schéma complet du mini-projet : potentiomètre 10 kilo-ohms vers ADC1 GPIO34 et LED via résistance commandée par PWM GPIO23",
+                        "Montage complet du variateur PWM",
+                    ),
                 ]),
             ],
             "quiz": [

@@ -1,0 +1,26 @@
+flowchart LR
+    subgraph ESP["ESP32 DevKit classique — logique 3,3 V"]
+        GPIO34["GPIO34 / ADC1<br/>entrée seule"]
+        GPIO23["GPIO23<br/>sortie PWM"]
+        V33["3V3"]
+        GND["GND commun"]
+    end
+
+    subgraph POT["Entrée analogique"]
+        P10K["Potentiomètre linéaire<br/>10 kΩ — 3 bornes"]
+    end
+
+    subgraph SORTIE["Sortie lumineuse"]
+        R1["R1<br/>220 Ω"]
+        D1["LED<br/>anode A → cathode C"]
+    end
+
+    V33 -->|"extrémité 1"| P10K
+    P10K -->|"curseur SIG"| GPIO34
+    P10K -->|"extrémité 3"| GND
+    GPIO23 --> R1 --> D1 --> GND
+
+    classDef board fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e,stroke-width:2px;
+    classDef component fill:#f8fafc,stroke:#334155,color:#0f172a,stroke-width:2px;
+    class GPIO34,GPIO23,V33,GND board;
+    class P10K,R1,D1 component;

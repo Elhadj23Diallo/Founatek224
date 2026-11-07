@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph ESP["ESP32 DevKit classique — logique 3,3 V"]
+        GPIO18["GPIO18<br/>entrée INPUT_PULLDOWN"]
+        GPIO23["GPIO23<br/>sortie"]
+        V33["3V3"]
+        GND["GND"]
+    end
+
+    subgraph BOUTON["Entrée numérique"]
+        BTN["Bouton-poussoir<br/>momentané"]
+    end
+
+    subgraph LED["Sortie LED"]
+        R1["R1<br/>220 Ω"]
+        D1["LED<br/>anode A → cathode C"]
+    end
+
+    GPIO18 --- BTN
+    BTN -->|"contact fermé à l’appui"| V33
+    GPIO23 --> R1 --> D1 --> GND
+
+    classDef board fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e,stroke-width:2px;
+    classDef component fill:#f8fafc,stroke:#334155,color:#0f172a,stroke-width:2px;
+    class GPIO18,GPIO23,V33,GND board;
+    class BTN,R1,D1 component;

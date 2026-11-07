@@ -132,6 +132,64 @@
         border-radius: 12px;
         padding: 18px;
     }
+
+    .course-visual-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+    }
+
+    .course-figure {
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid rgba(0,210,255,0.22);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.035);
+    }
+
+    .course-visual-image {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 440px;
+        object-fit: contain;
+        background: #fff;
+    }
+
+    .course-photo .course-visual-image {
+        max-height: 360px;
+    }
+
+    .course-figure figcaption {
+        padding: 10px 12px;
+        color: #e0e6ff;
+        line-height: 1.45;
+    }
+
+    .course-image-credit {
+        display: inline-block;
+        margin-top: 4px;
+        color: #b5bfd9;
+        font-size: 0.78rem;
+        line-height: 1.5;
+    }
+
+    .course-image-credit a {
+        color: #63d7ff;
+        text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+        .interactive-embed {
+            padding: 12px;
+        }
+
+        .course-visual-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="lesson-container">
