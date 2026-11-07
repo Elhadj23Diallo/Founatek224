@@ -35,7 +35,7 @@ def photo_figure(filename, alt, caption, author, source_url, license_name, licen
     return (
         '<figure class="course-figure course-photo">'
         '<button type="button" class="course-zoom-trigger" aria-label="Agrandir le visuel : {}">'
-        '<img class="course-visual-image" src="{}{}" alt="{}" loading="lazy" decoding="async">'
+        '<img class="course-visual-image" src="{}{}" alt="{}" decoding="async">'
         '<span class="course-zoom-hint" aria-hidden="true"><i class="fas fa-expand"></i> Agrandir</span>'
         '</button>'
         '<figcaption><strong>{}</strong><br><span class="course-image-credit">'
@@ -58,7 +58,7 @@ def diagram_figure(filename, alt, caption):
     return (
         '<figure class="course-figure course-schematic">'
         '<button type="button" class="course-zoom-trigger" aria-label="Agrandir le visuel : {}">'
-        '<img class="course-visual-image" src="{}{}" alt="{}" loading="lazy" decoding="async">'
+        '<img class="course-visual-image" src="{}{}" alt="{}" decoding="async">'
         '<span class="course-zoom-hint" aria-hidden="true"><i class="fas fa-expand"></i> Agrandir</span>'
         '</button>'
         '<figcaption><strong>{}</strong><br><span class="course-image-credit">'

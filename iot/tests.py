@@ -95,6 +95,7 @@ class SeedESP32WokwiCommandTests(TestCase):
             self.assertTrue(asset.is_file(), filename)
         self.assertEqual(markup.count('class="course-zoom-trigger"'), 14)
         self.assertIn('aria-label="Agrandir le visuel :', markup)
+        self.assertNotIn('loading="lazy"', markup)
         self.assertIn("CC BY-SA 3.0", markup)
         self.assertIn("commons.wikimedia.org", markup)
         self.assertNotIn("<iframe", markup.lower())

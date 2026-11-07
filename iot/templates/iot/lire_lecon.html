@@ -131,19 +131,28 @@
         border: 1px solid rgba(0,210,255,0.3);
         border-radius: 12px;
         padding: 18px;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
 
     .course-visual-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
         gap: 14px;
         margin-top: 18px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
 
     .course-figure {
         min-width: 0;
+        max-width: 100%;
         margin: 0;
         overflow: hidden;
+        box-sizing: border-box;
         border: 1px solid rgba(0,210,255,0.22);
         border-radius: 12px;
         background: rgba(255,255,255,0.035);
@@ -152,6 +161,7 @@
     .course-visual-image {
         display: block;
         width: 100%;
+        max-width: 100%;
         height: auto;
         max-height: 440px;
         object-fit: contain;
@@ -162,6 +172,9 @@
         position: relative;
         display: block;
         width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         padding: 0;
         border: 0;
         background: transparent;
@@ -278,7 +291,28 @@
         }
 
         .course-visual-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
+        }
+
+        .course-figure,
+        .course-zoom-trigger,
+        .course-visual-image {
+            max-width: 100%;
+        }
+
+        .course-photo .course-visual-image {
+            max-height: none;
+        }
+
+        .course-lightbox {
+            width: calc(100vw - 16px);
+            max-height: calc(100vh - 16px);
+            padding: 58px 10px 12px;
+        }
+
+        .course-lightbox-image {
+            max-height: calc(100vh - 132px);
         }
     }
 </style>
