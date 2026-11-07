@@ -37,7 +37,7 @@ def photo_figure(filename, alt, caption, author, source_url, license_name, licen
         '<img class="course-visual-image" src="{}{}" alt="{}" loading="lazy" decoding="async">'
         '<figcaption><strong>{}</strong><br><span class="course-image-credit">'
         'Photo : {} · <a href="{}" target="_blank" rel="noopener noreferrer">Source</a> · {}'
-        ' · image optimisée pour le Web et convertie en WebP.</span></figcaption></figure>'
+        ' · image optimisée pour le Web et convertie en JPEG.</span></figcaption></figure>'
     ).format(
         COURSE_IMAGE_BASE,
         escape(filename, quote=True),
@@ -130,7 +130,7 @@ COURSE = {
                     ("Format des schémas Wokwi", "https://docs.wokwi.com/diagram-format"),
                 ], visuals=[
                     photo_figure(
-                        "esp32-devkit-cc0.webp",
+                        "esp32-devkit-cc0.jpg",
                         "Photo réelle d’une carte ESP32 DevKit avec module ESP-WROOM-32",
                         "Carte ESP32 DevKit classique",
                         "Ubahnverleih",
@@ -139,7 +139,7 @@ COURSE = {
                         CC0_URL,
                     ),
                     photo_figure(
-                        "breadboard.webp",
+                        "breadboard.jpg",
                         "Photo réelle d’une breadboard blanche sans soudure",
                         "Breadboard sans soudure",
                         "Evan-Amos",
@@ -205,7 +205,7 @@ COURSE = {
                     ("Fiche résistance Wokwi", WOKWI_RESISTOR_URL),
                 ], visuals=[
                     photo_figure(
-                        "red-led.webp",
+                        "red-led.jpg",
                         "Photo réelle d’une LED rouge traversante à deux pattes",
                         "LED rouge traversante",
                         "Evan-Amos",
@@ -213,7 +213,7 @@ COURSE = {
                         "Domaine public (PD-self)",
                     ),
                     photo_figure(
-                        "resistors.webp",
+                        "resistors.jpg",
                         "Photo de résistances traversantes réelles avec plusieurs codes couleur",
                         "Résistances traversantes",
                         "FDominec",
@@ -296,7 +296,7 @@ COURSE = {
                     ("Brochage et rebond des boutons Wokwi", WOKWI_BUTTON_URL),
                 ], visuals=[
                     photo_figure(
-                        "tactile-switches.webp",
+                        "tactile-switches.jpg",
                         "Photo réelle de trois boutons tactiles à quatre pattes, avec règle de comparaison",
                         "Boutons-poussoirs tactiles",
                         "Scwerllguy",
@@ -372,7 +372,7 @@ COURSE = {
                     ("Référence ADC Espressif pour ESP32 classique", ESP32_ADC_URL),
                 ], visuals=[
                     photo_figure(
-                        "potentiometer.webp",
+                        "potentiometer.jpg",
                         "Photo réelle d’un potentiomètre rotatif traversant avec trois broches",
                         "Potentiomètre rotatif à trois bornes",
                         "Evan-Amos",
@@ -446,7 +446,7 @@ COURSE = {
                     ("Documentation du potentiomètre Wokwi", WOKWI_POT_URL),
                 ], visuals=[
                     photo_figure(
-                        "resistors.webp",
+                        "resistors.jpg",
                         "Photo de résistances réelles dont des composants traversants à code couleur",
                         "Résistance série : un composant réel à identifier",
                         "FDominec",
@@ -527,7 +527,7 @@ COURSE = {
                     ("Précautions GPIO Espressif", ESPRESSIF_GPIO_URL),
                 ], visuals=[
                     photo_figure(
-                        "esp32-devkit-cc0.webp",
+                        "esp32-devkit-cc0.jpg",
                         "Photo réelle d’une carte de développement ESP32 DevKit",
                         "Carte de calcul du mini-projet",
                         "Ubahnverleih",
@@ -536,7 +536,7 @@ COURSE = {
                         CC0_URL,
                     ),
                     photo_figure(
-                        "breadboard.webp",
+                        "breadboard.jpg",
                         "Photo d’une breadboard sans soudure pour prototyper le montage",
                         "Support de prototypage physique",
                         "Evan-Amos",

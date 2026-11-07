@@ -81,12 +81,12 @@ class SeedESP32WokwiCommandTests(TestCase):
             )
         )
         for filename in (
-            "esp32-devkit-cc0.webp",
-            "breadboard.webp",
-            "red-led.webp",
-            "resistors.webp",
-            "tactile-switches.webp",
-            "potentiometer.webp",
+            "esp32-devkit-cc0.jpg",
+            "breadboard.jpg",
+            "red-led.jpg",
+            "resistors.jpg",
+            "tactile-switches.jpg",
+            "potentiometer.jpg",
             "schema-esp32-bouton-led.png",
             "schema-esp32-potentiometre-pwm.png",
         ):

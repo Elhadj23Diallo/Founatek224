@@ -1,15 +1,15 @@
 # Crédits des visuels — parcours ESP32
 
-Les photos sont des photographies de composants physiques publiées sur Wikimedia Commons. Les crédits et liens de source/licence sont également affichés sous les images dans les leçons. Les fichiers ont été optimisés pour le Web, redimensionnés lorsque nécessaire en conservant leur ratio, puis convertis en WebP; aucun contenu ni annotation n’a été ajouté.
+Les photos sont des photographies de composants physiques publiées sur Wikimedia Commons. Les crédits et liens de source/licence sont également affichés sous les images dans les leçons. Les fichiers ont été optimisés pour le Web, redimensionnés lorsque nécessaire en conservant leur ratio, puis convertis en JPEG; aucun contenu ni annotation n’a été ajouté.
 
 | Fichier | Crédit et licence | Source |
 |---|---|---|
-| `esp32-devkit-cc0.webp` | Ubahnverleih, CC0 1.0; redimensionnée et convertie en WebP | [ESP32 Espressif ESP-WROOM-32 Dev Board (2).jpg](https://commons.wikimedia.org/wiki/File:ESP32_Espressif_ESP-WROOM-32_Dev_Board_(2).jpg) · [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
-| `breadboard.webp` | Evan-Amos, domaine public (PD-self); redimensionnée et convertie en WebP | [Electronics-White-Breadboard.jpg](https://commons.wikimedia.org/wiki/File:Electronics-White-Breadboard.jpg) |
-| `red-led.webp` | Evan-Amos, domaine public (PD-self); redimensionnée et convertie en WebP | [Electronic-Component-Red-LED.jpg](https://commons.wikimedia.org/wiki/File:Electronic-Component-Red-LED.jpg) |
-| `resistors.webp` | FDominec, CC BY-SA 3.0; redimensionnée et convertie en WebP | [Electronic component resistors.jpg](https://commons.wikimedia.org/wiki/File:Electronic_component_resistors.jpg) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
-| `tactile-switches.webp` | Scwerllguy, CC BY-SA 3.0; convertie en WebP | [Tactile switches.jpg](https://commons.wikimedia.org/wiki/File:Tactile_switches.jpg) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
-| `potentiometer.webp` | Evan-Amos, domaine public (PD-self); redimensionnée et convertie en WebP | [Electronic-Component-Potentiometer.jpg](https://commons.wikimedia.org/wiki/File:Electronic-Component-Potentiometer.jpg) |
+| `esp32-devkit-cc0.jpg` | Ubahnverleih, CC0 1.0; redimensionnée et convertie en JPEG | [ESP32 Espressif ESP-WROOM-32 Dev Board (2).jpg](https://commons.wikimedia.org/wiki/File:ESP32_Espressif_ESP-WROOM-32_Dev_Board_(2).jpg) · [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| `breadboard.jpg` | Evan-Amos, domaine public (PD-self); redimensionnée et convertie en JPEG | [Electronics-White-Breadboard.jpg](https://commons.wikimedia.org/wiki/File:Electronics-White-Breadboard.jpg) |
+| `red-led.jpg` | Evan-Amos, domaine public (PD-self); redimensionnée et convertie en JPEG | [Electronic-Component-Red-LED.jpg](https://commons.wikimedia.org/wiki/File:Electronic-Component-Red-LED.jpg) |
+| `resistors.jpg` | FDominec, CC BY-SA 3.0; redimensionnée et convertie en JPEG | [Electronic component resistors.jpg](https://commons.wikimedia.org/wiki/File:Electronic_component_resistors.jpg) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| `tactile-switches.jpg` | Scwerllguy, CC BY-SA 3.0; convertie en JPEG | [Tactile switches.jpg](https://commons.wikimedia.org/wiki/File:Tactile_switches.jpg) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| `potentiometer.jpg` | Evan-Amos, domaine public (PD-self); redimensionnée et convertie en JPEG | [Electronic-Component-Potentiometer.jpg](https://commons.wikimedia.org/wiki/File:Electronic-Component-Potentiometer.jpg) |
 
 Les adaptations issues des fichiers CC BY-SA restent créditées et publiées sous la licence correspondante; cela ne prétend pas appliquer ces licences aux autres contenus du cours.
 
