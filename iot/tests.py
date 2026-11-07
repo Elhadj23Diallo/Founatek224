@@ -1,3 +1,82 @@
+from io import StringIO
+
+from django.contrib.auth.models import User
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 
-# Create your tests here.
+from iot.models import BlocPedagogique, Lecon, Parcours, Progression, Project, Quiz
+
+
+class SeedESP32WokwiCommandTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="elhadj",
+            password="test-password",
+        )
+
+    def run_seed(self):
+        call_command("seed_esp32_wokwi", stdout=StringIO())
+
+    def test_seed_is_idempotent_and_preserves_progress_and_publish_state(self):
+        self.run_seed()
+        parcours = Parcours.objects.get(slug="atelier-esp32-gpio-adc-pwm-wokwi")
+        self.assertTrue(parcours.is_published)
+
+        lecon = Lecon.objects.get(parcours=parcours, ordre=3)
+        Progression.objects.create(
+            user=self.user,
+            lecon=lecon,
+            completed=True,
+            score=100,
+        )
+        counts = {
+            "lecons": Lecon.objects.filter(parcours=parcours).count(),
+            "blocs": BlocPedagogique.objects.filter(lecon__parcours=parcours).count(),
+            "quiz": Quiz.objects.filter(lecon__parcours=parcours).count(),
+            "projects": Project.objects.filter(parcours=parcours).count(),
+        }
+        self.assertEqual(counts, {"lecons": 6, "blocs": 17, "quiz": 12, "projects": 1})
+        self.assertEqual(parcours.created_by_id, self.user.id)
+        self.assertEqual(parcours.organisation.nom, "Founatek Academy")
+
+        parcours.is_published = False
+        parcours.save(update_fields=["is_published"])
+        lecon.titre = "Titre temporaire à remplacer par le seed"
+        lecon.save(update_fields=["titre"])
+
+        self.run_seed()
+
+        parcours.refresh_from_db()
+        lecon.refresh_from_db()
+        self.assertFalse(parcours.is_published)
+        self.assertEqual(
+            lecon.titre,
+            "Entrée numérique : lire un bouton et éviter les faux appuis",
+        )
+        self.assertTrue(
+            Progression.objects.filter(
+                user=self.user,
+                lecon=lecon,
+                completed=True,
+                score=100,
+            ).exists()
+        )
+        self.assertEqual(Lecon.objects.filter(parcours=parcours).count(), counts["lecons"])
+        self.assertEqual(
+            BlocPedagogique.objects.filter(lecon__parcours=parcours).count(),
+            counts["blocs"],
+        )
+        self.assertEqual(Quiz.objects.filter(lecon__parcours=parcours).count(), counts["quiz"])
+        self.assertEqual(Project.objects.filter(parcours=parcours).count(), counts["projects"])
+
+    def test_missing_formateur_fails_without_creating_course(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "seed_esp32_wokwi",
+                username="compte-inexistant",
+                stdout=StringIO(),
+            )
+        self.assertFalse(
+            Parcours.objects.filter(slug="atelier-esp32-gpio-adc-pwm-wokwi").exists()
+        )
