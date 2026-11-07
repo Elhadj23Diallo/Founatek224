@@ -93,6 +93,8 @@ class SeedESP32WokwiCommandTests(TestCase):
             self.assertIn(filename, markup)
             asset = Path(__file__).resolve().parent / "static" / "iot" / "course_images" / filename
             self.assertTrue(asset.is_file(), filename)
+        self.assertEqual(markup.count('class="course-zoom-trigger"'), 14)
+        self.assertIn('aria-label="Agrandir le visuel :', markup)
         self.assertIn("CC BY-SA 3.0", markup)
         self.assertIn("commons.wikimedia.org", markup)
         self.assertNotIn("<iframe", markup.lower())

@@ -34,11 +34,15 @@ def photo_figure(filename, alt, caption, author, source_url, license_name, licen
         )
     return (
         '<figure class="course-figure course-photo">'
+        '<button type="button" class="course-zoom-trigger" aria-label="Agrandir le visuel : {}">'
         '<img class="course-visual-image" src="{}{}" alt="{}" loading="lazy" decoding="async">'
+        '<span class="course-zoom-hint" aria-hidden="true"><i class="fas fa-expand"></i> Agrandir</span>'
+        '</button>'
         '<figcaption><strong>{}</strong><br><span class="course-image-credit">'
         'Photo : {} · <a href="{}" target="_blank" rel="noopener noreferrer">Source</a> · {}'
         ' · image optimisée pour le Web et convertie en JPEG.</span></figcaption></figure>'
     ).format(
+        escape(alt, quote=True),
         COURSE_IMAGE_BASE,
         escape(filename, quote=True),
         escape(alt, quote=True),
@@ -53,11 +57,15 @@ def diagram_figure(filename, alt, caption):
     """Créer une figure de schéma original avec un texte alternatif."""
     return (
         '<figure class="course-figure course-schematic">'
+        '<button type="button" class="course-zoom-trigger" aria-label="Agrandir le visuel : {}">'
         '<img class="course-visual-image" src="{}{}" alt="{}" loading="lazy" decoding="async">'
+        '<span class="course-zoom-hint" aria-hidden="true"><i class="fas fa-expand"></i> Agrandir</span>'
+        '</button>'
         '<figcaption><strong>{}</strong><br><span class="course-image-credit">'
         'Schéma pédagogique original Founatek Academy; vérifier le brochage de la variante exacte.'
         '</span></figcaption></figure>'
     ).format(
+        escape(alt, quote=True),
         COURSE_IMAGE_BASE,
         escape(filename, quote=True),
         escape(alt, quote=True),

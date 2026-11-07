@@ -158,6 +158,97 @@
         background: #fff;
     }
 
+    .course-zoom-trigger {
+        position: relative;
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        font: inherit;
+        cursor: zoom-in;
+    }
+
+    .course-zoom-trigger:focus-visible {
+        outline: 3px solid #00d2ff;
+        outline-offset: 3px;
+        z-index: 1;
+    }
+
+    .course-zoom-hint {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        padding: 7px 10px;
+        border: 1px solid rgba(255,255,255,0.4);
+        border-radius: 999px;
+        background: rgba(5,10,31,0.88);
+        color: #fff;
+        font-size: 0.82rem;
+        pointer-events: none;
+    }
+
+    .course-lightbox {
+        position: fixed;
+        inset: 0;
+        width: min(96vw, 1200px);
+        max-width: none;
+        max-height: 94vh;
+        margin: auto;
+        padding: 58px 16px 16px;
+        overflow: auto;
+        border: 1px solid rgba(0,210,255,0.45);
+        border-radius: 16px;
+        background: #050a1f;
+        color: #e0e6ff;
+        box-shadow: 0 20px 70px rgba(0,0,0,0.65);
+    }
+
+    .course-lightbox::backdrop {
+        background: rgba(2,5,14,0.86);
+        backdrop-filter: blur(4px);
+    }
+
+    .course-lightbox-figure {
+        display: grid;
+        justify-items: center;
+        gap: 12px;
+        margin: 0;
+    }
+
+    .course-lightbox-image {
+        display: block;
+        max-width: 100%;
+        max-height: calc(90vh - 130px);
+        object-fit: contain;
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .course-lightbox-caption {
+        max-width: 100%;
+        color: #e0e6ff;
+        font-size: 0.92rem;
+        line-height: 1.5;
+        text-align: left;
+    }
+
+    .course-lightbox-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: grid;
+        width: 46px;
+        height: 46px;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,0.45);
+        border-radius: 50%;
+        background: #111a36;
+        color: #fff;
+        font-size: 1.6rem;
+        cursor: pointer;
+    }
+
     .course-photo .course-visual-image {
         max-height: 360px;
     }
@@ -428,6 +519,53 @@
         </div>
 
     {% endif %}
+
+    <dialog class="course-lightbox" id="course-image-lightbox" aria-label="Visionneuse de visuel agrandi">
+        <button type="button" class="course-lightbox-close" aria-label="Fermer l’aperçu">&times;</button>
+        <figure class="course-lightbox-figure">
+            <img class="course-lightbox-image" alt="">
+            <figcaption class="course-lightbox-caption"></figcaption>
+        </figure>
+    </dialog>
+
+    <script>
+        (() => {
+            const dialog = document.getElementById("course-image-lightbox");
+            if (!dialog || typeof dialog.showModal !== "function") return;
+
+            const expandedImage = dialog.querySelector(".course-lightbox-image");
+            const expandedCaption = dialog.querySelector(".course-lightbox-caption");
+            const closeButton = dialog.querySelector(".course-lightbox-close");
+            let lastTrigger = null;
+
+            document.addEventListener("click", (event) => {
+                const target = event.target instanceof Element ? event.target : null;
+                const trigger = target && target.closest(".course-zoom-trigger");
+                if (!trigger) return;
+
+                const thumbnail = trigger.querySelector(".course-visual-image");
+                if (!thumbnail) return;
+
+                lastTrigger = trigger;
+                expandedImage.src = thumbnail.currentSrc || thumbnail.src;
+                expandedImage.alt = thumbnail.alt || "Visuel agrandi";
+                const figure = trigger.closest("figure");
+                const caption = figure && figure.querySelector("figcaption");
+                expandedCaption.textContent = caption ? caption.innerText.trim() : thumbnail.alt;
+                dialog.showModal();
+                closeButton.focus();
+            });
+
+            closeButton.addEventListener("click", () => dialog.close());
+            dialog.addEventListener("click", (event) => {
+                if (event.target === dialog) dialog.close();
+            });
+            dialog.addEventListener("close", () => {
+                expandedImage.removeAttribute("src");
+                if (lastTrigger) lastTrigger.focus();
+            });
+        })();
+    </script>
 
 </div>
 
