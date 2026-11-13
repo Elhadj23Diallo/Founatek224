@@ -48,6 +48,9 @@ class AppareilData(models.Model):
     payload = models.JSONField()  # 👈 DONNÉES DYNAMIQUES
     received_at = models.DateTimeField(auto_now_add=True)
     is_anomaly = models.BooleanField(default=False)  # ← flag détection anomalies
+    # Ligne de synthèse (moyenne sur 1h) créée par purge_old_sensor_data,
+    # en remplacement de plusieurs mesures brutes trop anciennes pour le plan.
+    is_hourly_average = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-received_at"]

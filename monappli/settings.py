@@ -98,6 +98,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'middleware.api_key_middleware.APIKeyMiddleware',
+    'middleware.iot_quota_middleware.IoTQuotaMiddleware',
 ]
 
 # Autoriser toutes les origines (pour tester) :

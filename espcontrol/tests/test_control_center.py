@@ -5,6 +5,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from espcontrol.models import ActionLog, AppareilData, Device, Relais
@@ -70,6 +71,10 @@ class RelayControlSafetyTests(TestCase):
         self.client.force_login(self.user)
         self.api_client = APIClient()
         self.api_client.force_authenticate(user=self.user)
+        # APIKeyMiddleware checks the raw Authorization header before DRF's
+        # own auth runs, so force_authenticate() alone isn't enough here.
+        token, _ = Token.objects.get_or_create(user=self.user)
+        self.api_client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 
     def test_web_relay_toggle_rejects_get_without_changing_state(self):
         response = self.client.get(reverse("toggle_relais", args=[self.relay.num]))

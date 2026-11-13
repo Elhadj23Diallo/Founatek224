@@ -88,14 +88,15 @@ def check_api_quota(user):
 # ------------------------------
 # monetisation/utils.py
 
-from espcontrol.models import LED, Relais, Door, Badge
+from espcontrol.models import Device
 
 # ------------------------------
 # ⚡ Vérifie quota appareils
 # ------------------------------
 def check_device_quota(user):
     """
-    Vérifie si l'utilisateur a atteint la limite d'appareils autorisés par son plan.
+    Vérifie si l'utilisateur a atteint la limite d'appareils ESP32 (Device)
+    autorisés par son plan.
     Retourne :
         ok (bool): True si quota pas atteint
         device_count (int): nombre actuel de devices
@@ -104,12 +105,7 @@ def check_device_quota(user):
     limits = get_plan_limits(user)
     max_devices = limits['devices']
 
-    # Compter tous les "devices" liés à l'utilisateur
-    device_count = 0
-    device_count += LED.objects.filter(user=user).count()
-    device_count += Relais.objects.filter(user=user).count()
-    device_count += Door.objects.filter(accesslog__user=user).distinct().count()  # CORRIGÉ
-    device_count += Badge.objects.filter(owner=user).count()
+    device_count = Device.objects.filter(user=user).count()
 
     ok = device_count < max_devices
     return ok, device_count, max_devices

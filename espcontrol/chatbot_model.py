@@ -322,6 +322,11 @@ MODULES DE LA PLATEFORME :
    - Le type d'appareil est detecte automatiquement depuis les cles presentes dans "data" :
      pm2p5/pm10 -> qualite de l'air, soil_moisture -> agriculture, temperature+humidity -> environnement.
    - Reponse : 201 si la mesure est enregistree.
+   - Quota journalier : chaque compte a une limite d'appels IoT par jour selon son plan (gratuit
+     3000, basic 30000, pro 200000). Au-dela, l'API repond 429 au lieu de 201. QUAND TU ECRIS DU
+     FIRMWARE, dis TOUJOURS a l'utilisateur d'ajouter un backoff sur 429 (attendre plusieurs minutes
+     avant de reessayer, jamais reessayer en boucle immediatement — ca ne ferait qu'aggraver la
+     situation jusqu'a minuit, heure de reinitialisation du quota).
    - Exemple minimal (toujours garder cette URL et cette forme, adapter juste les variables/mesures
      au contexte de l'utilisateur) :
      ```cpp
@@ -332,6 +337,10 @@ MODULES DE LA PLATEFORME :
      String body = "{\\"device_id\\":\\"" + String(deviceId) + "\\",\\"data\\":{\\"pm2p5\\":" + String(pm25) + ",\\"pm10\\":" + String(pm10) + "}}";
      int code = http.POST(body);
      http.end();
+     if (code == 429) {
+       // Quota journalier atteint : attendre avant de reessayer, pas de boucle immediate.
+       delay(5 * 60 * 1000);
+     }
      ```
 
 CRÉATEUR DE LA PLATEFORME (si on te demande qui l'a conçue) : Elhadj Abdourahmane Diallo,

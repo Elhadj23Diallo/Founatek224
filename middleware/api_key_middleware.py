@@ -22,6 +22,11 @@ class APIKeyMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Distingue un appel authentifié par token (ESP32, script externe) d'un
+        # appel authentifié par session (utilisateur connecté sur le site/l'app) —
+        # utilisé par IoTQuotaMiddleware pour ne compter que les premiers.
+        request.authenticated_via_token = False
+
         if request.path.startswith('/api/') and request.path not in EXEMPT_PATHS:
             if not request.user.is_authenticated:
                 try:
@@ -30,6 +35,7 @@ class APIKeyMiddleware:
                         user_auth_tuple = _authenticate_via_query_token(request)
                     if user_auth_tuple is not None:
                         request.user, request.auth = user_auth_tuple
+                        request.authenticated_via_token = True
                     else:
                         return JsonResponse({'error': 'Token manquant ou invalide'}, status=403)
                 except AuthenticationFailed:

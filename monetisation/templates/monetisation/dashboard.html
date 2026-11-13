@@ -252,13 +252,13 @@
             <i class="fas fa-chart-pie"></i> Utilisation du jour
         </div>
 
-        {% with api_percent=usage.api_calls|div:limits.calls|mul:100 %}
+        {% with api_percent=usage.iot_calls|div:limits.iot_calls|mul:100 %}
         {% with device_percent=usage.device_count|div:limits.devices|mul:100 %}
 
         <div class="progress-container">
             <div class="progress-label">
-                <span><i class="fas fa-server"></i> Appels API</span>
-                <span>{{ usage.api_calls }} / {{ limits.calls }} ({{ api_percent|floatformat:0 }}%)</span>
+                <span><i class="fas fa-server"></i> Appels API IoT</span>
+                <span>{{ usage.iot_calls }} / {{ limits.iot_calls }} ({{ api_percent|floatformat:0 }}%)</span>
             </div>
             <div class="progress-track">
                 <div class="progress-fill
@@ -268,9 +268,9 @@
                     style="width: {{ api_percent }}%">
                 </div>
             </div>
-            {% if usage.api_calls >= limits.calls %}
+            {% if usage.iot_calls >= limits.iot_calls %}
             <div class="alert-box alert-danger" style="margin-top: 10px;">
-                🚫 Quota API atteint pour aujourd'hui.
+                🚫 Quota API IoT atteint pour aujourd'hui.
             </div>
             {% endif %}
         </div>

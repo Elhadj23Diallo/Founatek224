@@ -120,20 +120,19 @@ def capture_paypal_order(request):
 @login_required
 @never_cache
 def dashboard(request):
-    from monetisation.quota import get_limits_for_user
-    from .models import UsageLog
+    from monetisation.quota import check_iot_quota
+    from monetisation.utils import check_device_quota
 
     wallet = Wallet.objects.get(user=request.user)
     subscription = Subscription.objects.get(user=request.user)
-    limits, plan = get_limits_for_user(request.user)
-    usage = UsageLog.objects.filter(user=request.user, date=timezone.now().date()).first()
-    usage = usage or type("u", (), {"api_calls": 0, "device_count": 0})()
+    _, plan, iot_calls_used, max_iot_calls = check_iot_quota(request.user)
+    _, device_count, max_devices = check_device_quota(request.user)
 
     return render(request, 'monetisation/dashboard.html', {
         'wallet': wallet,
         'subscription': subscription,
-        'usage': usage,
-        'limits': limits,
+        'usage': {'iot_calls': iot_calls_used, 'device_count': device_count},
+        'limits': {'iot_calls': max_iot_calls, 'devices': max_devices},
         'plan': plan,
         'currency': 'EUR'
     })
@@ -188,7 +187,7 @@ def transactions(request):
 # Définition des prix des plans
 PLAN_PRICES = {
     'free': 0,
-    'basic': 0.1,
+    'basic': 3,
     'pro': 15
 }
 

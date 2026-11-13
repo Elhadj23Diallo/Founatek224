@@ -1600,7 +1600,7 @@ def mobile_education_materiel_pdf(request, parcours_id):
 # MODULE MONETISATION
 # ══════════════════════════════════════════════════════════════════════════════
 
-PLAN_PRICES = {"free": 0, "basic": 0.1, "pro": 15}
+PLAN_PRICES = {"free": 0, "basic": 3, "pro": 15}
 
 @csrf_exempt
 @api_view(["GET"])
@@ -1608,7 +1608,8 @@ PLAN_PRICES = {"free": 0, "basic": 0.1, "pro": 15}
 def mobile_monetisation_dashboard(request):
     try:
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
-        from monetisation.utils import PLAN_LIMITS, check_api_quota, check_device_quota
+        from monetisation.utils import PLAN_LIMITS, check_device_quota
+        from monetisation.quota import check_iot_quota
         wallet = Wallet.objects.filter(user=request.user).first()
         sub = Subscription.objects.filter(user=request.user).first()
         txns = Transaction.objects.filter(user=request.user).order_by("-timestamp")[:20]
@@ -1616,7 +1617,7 @@ def mobile_monetisation_dashboard(request):
 
         plan = sub.plan if sub else "free"
         limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
-        _, api_calls_used, max_calls = check_api_quota(request.user)
+        _, _, iot_calls_used, max_iot_calls = check_iot_quota(request.user)
         _, device_count, max_devices = check_device_quota(request.user)
 
         return Response({
@@ -1627,8 +1628,8 @@ def mobile_monetisation_dashboard(request):
                 "end_date": sub.end_date.isoformat() if sub and sub.end_date else None,
             },
             "usage": {
-                "api_calls": api_calls_used,
-                "max_calls": max_calls,
+                "iot_calls": iot_calls_used,
+                "max_iot_calls": max_iot_calls,
                 "device_count": device_count,
                 "max_devices": max_devices,
                 "history_days": limits["history_days"],
@@ -1809,11 +1810,18 @@ def mobile_monetisation_admin_review(request, payment_id):
 def mobile_monetisation_referral(request):
     try:
         from monetisation.models import Referral, ReferralTransaction
-        referral = Referral.objects.filter(referrer=request.user).first()
-        if not referral:
-            import uuid as uuid_lib
-            referral = Referral.objects.create(referrer=request.user, referred=request.user, code=str(uuid_lib.uuid4())[:8])
-        referred_users = Referral.objects.filter(referrer=request.user).exclude(referred=request.user)
+        import uuid as uuid_lib
+        # Chaque utilisateur a déjà sa propre ligne (créée à l'inscription) où
+        # il est "referred" : c'est cette ligne qui porte SON code à partager.
+        # Filtrer par referrer=user cherchait la ligne créée quand il a parrainé
+        # quelqu'un d'autre — absente pour tout nouvel utilisateur, ce qui
+        # provoquait un IntegrityError (referred est OneToOne) en tentant d'en
+        # recréer une.
+        referral, _ = Referral.objects.get_or_create(
+            referred=request.user,
+            defaults={"code": str(uuid_lib.uuid4())[:8]},
+        )
+        referred_users = Referral.objects.filter(referrer=request.user)
         commissions = ReferralTransaction.objects.filter(referral__referrer=request.user).order_by("-created_at")[:20]
         total_points = sum(c.amount for c in commissions if not c.converted)
         return Response({

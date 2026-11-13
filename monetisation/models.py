@@ -85,7 +85,9 @@ class UsageLog(models.Model):
     date = models.DateField(default=timezone.now)
     api_calls = models.IntegerField(default=0)
     device_count = models.IntegerField(default=0)
-    # autres compteurs possibles : storage_mb = models.IntegerField(default=0)
+    # Appels aux API IoT (ingestion ESP32, relais, LED, accès...) authentifiés
+    # par token — distinct de api_calls, qui n'est jamais incrémenté en pratique.
+    iot_calls = models.IntegerField(default=0)
 
     class Meta:
         unique_together = ('user', 'date')

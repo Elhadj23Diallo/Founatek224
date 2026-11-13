@@ -53,9 +53,8 @@ class DeviceLast10APITest(TestCase):
         url = f"/api/device/{self.device.id}/last10/"
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
+        data = resp.json()["readings"]
         self.assertTrue(len(data) >= 1)
-        self.assertIn('received_at', data[0])
-        # received_at should be ISO-like (contain 'T')
-        self.assertIn('T', data[0]['received_at'])
-        self.assertIn('is_anomaly', data[0])
+        self.assertIn('time', data[0])
+        self.assertIn('pm25', data[0])
+        self.assertEqual(data[0]['temperature'], 12)
