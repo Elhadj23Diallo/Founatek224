@@ -8,6 +8,7 @@ from .models import Wallet, Transaction, Subscription, PaymentRequest, Referral,
 import uuid
 import json
 from .utils import PLAN_LIMITS
+from .quota import IOT_LIMITS
 
 #integration paypal
 # monetisation/views.py
@@ -220,7 +221,7 @@ def subscription_view(request):
             # Vérifier le solde
             if wallet.balance < amount:
                 plans_info = [
-                    {'name': k, **v, 'price': PLAN_PRICES[k]}
+                    {'name': k, **v, 'price': PLAN_PRICES[k], 'calls': IOT_LIMITS[k]}
                     for k, v in PLAN_LIMITS.items()
                 ]
                 return render(request, 'monetisation/abonnement.html', {
@@ -288,7 +289,7 @@ def subscription_view(request):
     for plan_name, limits in PLAN_LIMITS.items():
         plans_info.append({
             'name': plan_name,
-            'calls': limits['calls'],
+            'calls': IOT_LIMITS[plan_name],
             'devices': limits['devices'],
             'history_days': limits['history_days'],
             'alerts': limits['alerts'],

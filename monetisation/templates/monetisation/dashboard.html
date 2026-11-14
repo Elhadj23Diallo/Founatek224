@@ -258,7 +258,7 @@
         <div class="progress-container">
             <div class="progress-label">
                 <span><i class="fas fa-server"></i> Appels API IoT</span>
-                <span>{{ usage.iot_calls }} / {{ limits.iot_calls }} ({{ api_percent|floatformat:0 }}%)</span>
+                <span>{{ usage.iot_calls|thousands }} / {{ limits.iot_calls|thousands }} ({{ api_percent|floatformat:0 }}%)</span>
             </div>
             <div class="progress-track">
                 <div class="progress-fill

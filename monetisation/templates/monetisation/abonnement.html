@@ -1,4 +1,5 @@
 {% extends 'espcontrol/base.html' %}
+{% load math_filters %}
 {% block content %}
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -18,7 +19,7 @@ body {
     margin: 0;
 }
 .container-custom {
-    max-width: 800px;
+    max-width: 1100px;
     margin: 40px auto;
     padding: 30px 20px;
     background-color: rgba(15, 23, 42, 0.6);
@@ -29,6 +30,69 @@ body {
 .header-section { text-align: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
 .header-section h2 { font-size: 2rem; color: #22d3ee; text-shadow: 0 0 10px rgba(34, 211, 238, 0.3); margin-bottom: 10px; }
 .header-section p { color: #94a3b8; }
+
+/* --- Cartes de plans --- */
+.plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-bottom: 35px;
+}
+.plan-card {
+    position: relative;
+    display: block;
+    background-color: rgba(30, 41, 59, 0.95);
+    border: 2px solid #334155;
+    border-radius: 16px;
+    padding: 24px 22px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.plan-card:hover { border-color: #475569; transform: translateY(-3px); }
+.plan-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.plan-card.is-selected {
+    border-color: #22d3ee;
+    box-shadow: 0 0 25px rgba(34, 211, 238, 0.25);
+    transform: translateY(-3px);
+}
+.plan-card.is-featured { border-color: #a855f7; }
+.plan-card.is-featured.is-selected { border-color: #22d3ee; }
+
+.plan-badge {
+    position: absolute;
+    top: -12px;
+    right: 18px;
+    background: #22d3ee;
+    color: #0f172a;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+}
+.plan-badge-pro { background: #a855f7; box-shadow: 0 0 10px rgba(168, 85, 247, 0.4); }
+
+.plan-name { font-size: 1.3rem; font-weight: 800; color: #fff; letter-spacing: 1px; margin-bottom: 12px; }
+.plan-price { margin-bottom: 18px; min-height: 58px; }
+.plan-price-amount { font-size: 2.1rem; font-weight: 800; color: #22d3ee; text-shadow: 0 0 10px rgba(34, 211, 238, 0.25); }
+.plan-price-period { color: #64748b; font-size: 0.9rem; }
+.plan-price-gnf { color: #64748b; font-size: 0.8rem; margin-top: 2px; }
+
+.plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.plan-features li { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #cbd5e1; }
+.plan-features li i { width: 18px; color: #22d3ee; }
+.plan-features li.is-disabled { color: #475569; }
+.plan-features li.is-disabled i { color: #475569; }
+
+/* --- Formulaire (méthode de paiement) --- */
 .form-group { margin-bottom: 25px; }
 .form-label { display: block; margin-bottom: 8px; color: #cbd5e1; font-weight: 600; font-size: 0.95rem; }
 .form-label i { color: #22d3ee; margin-right: 8px; }
@@ -98,15 +162,39 @@ body {
     <form method="POST" id="plan-form">
         {% csrf_token %}
 
-        <div class="form-group">
-            <label class="form-label"><i class="fas fa-list-check"></i> Choisir un plan</label>
-            <select name="plan" id="plan-select" class="form-control-dark">
-                {% for plan in plans %}
-                    <option value="{{ plan.name }}" {% if subscription.plan == plan.name %}selected{% endif %}>
-                        {{ plan.name|upper }} - Appels API: {{ plan.calls }} / Appareils: {{ plan.devices }} - Prix: {{ plan.price }} USD
-                    </option>
-                {% endfor %}
-            </select>
+        <div class="plans-grid">
+            {% for plan in plans %}
+            <label class="plan-card {% if plan.name == 'pro' %}is-featured{% endif %}" data-plan-card>
+                <input type="radio" name="plan" value="{{ plan.name }}" data-price="{{ plan.price }}"
+                    {% if subscription.plan == plan.name %}checked{% elif not subscription.plan and plan.name == 'free' %}checked{% endif %}>
+
+                {% if subscription.plan == plan.name %}
+                    <span class="plan-badge"><i class="fas fa-check"></i> Plan actuel</span>
+                {% elif plan.name == 'pro' %}
+                    <span class="plan-badge plan-badge-pro"><i class="fas fa-star"></i> Recommandé</span>
+                {% endif %}
+
+                <div class="plan-name">{{ plan.name|upper }}</div>
+
+                <div class="plan-price">
+                    {% if plan.price > 0 %}
+                        <span class="plan-price-amount">{{ plan.price }} €</span><span class="plan-price-period">/an</span>
+                        <div class="plan-price-gnf">≈ {{ plan.price|mul:10000|thousands }} GNF</div>
+                    {% else %}
+                        <span class="plan-price-amount">Gratuit</span>
+                    {% endif %}
+                </div>
+
+                <ul class="plan-features">
+                    <li><i class="fas fa-server"></i> {{ plan.calls|thousands }} appels API IoT / jour</li>
+                    <li><i class="fas fa-microchip"></i> {{ plan.devices }} appareil{{ plan.devices|pluralize }} connecté{{ plan.devices|pluralize }}</li>
+                    <li><i class="fas fa-database"></i> Historique détaillé {{ plan.history_days }} jour{{ plan.history_days|pluralize }}</li>
+                    <li class="{% if not plan.alerts %}is-disabled{% endif %}"><i class="fas fa-bell"></i> Alertes {% if plan.alerts %}incluses{% else %}non incluses{% endif %}</li>
+                    <li class="{% if not plan.marketplace %}is-disabled{% endif %}"><i class="fas fa-store"></i> Marketplace {% if plan.marketplace %}incluse{% else %}non incluse{% endif %}</li>
+                    <li class="{% if not plan.pdf_reports %}is-disabled{% endif %}"><i class="fas fa-file-pdf"></i> Rapports PDF {% if plan.pdf_reports %}inclus{% else %}non inclus{% endif %}</li>
+                </ul>
+            </label>
+            {% endfor %}
         </div>
 
         <div class="form-group">
@@ -140,9 +228,26 @@ body {
 <script>
 const form = document.getElementById("plan-form");
 const providerSelect = document.getElementById("provider-select");
-const planSelect = document.getElementById("plan-select");
+const planRadios = document.querySelectorAll('input[name="plan"]');
 const paypalContainer = document.getElementById("paypal-button-container");
 const submitBtn = document.getElementById("submit-btn");
+
+function getSelectedPlan() {
+    const checked = document.querySelector('input[name="plan"]:checked');
+    return checked
+        ? { name: checked.value, price: parseFloat(checked.dataset.price) || 0 }
+        : { name: "free", price: 0 };
+}
+
+function updateCardSelection() {
+    document.querySelectorAll('[data-plan-card]').forEach(function (card) {
+        card.classList.toggle('is-selected', card.querySelector('input').checked);
+    });
+}
+planRadios.forEach(function (radio) {
+    radio.addEventListener('change', updateCardSelection);
+});
+updateCardSelection();
 
 function toggleButtonState() {
     if (providerSelect.value === 'paypal') {
@@ -159,23 +264,15 @@ toggleButtonState();
 form.addEventListener("submit", function(e) {
     e.preventDefault();
     const provider = providerSelect.value;
-    const plan = planSelect.value;
-
-    let planPrice = 0;
-    try {
-        const selectedText = planSelect.options[planSelect.selectedIndex].text;
-        if(selectedText.includes('Prix: ')) {
-            planPrice = parseFloat(selectedText.split('Prix: ')[1]);
-        }
-    } catch (error) {
-        console.error("Erreur parsing prix", error);
-    }
+    const selected = getSelectedPlan();
+    const plan = selected.name;
+    const planPrice = selected.price;
 
     if (provider === "paypal" && planPrice > 0) {
         submitBtn.style.display = "none";
         paypalContainer.style.display = "block";
         paypalContainer.innerHTML = '<p style="text-align: center; color: #94a3b8; margin-bottom: 15px; font-size: 0.9rem;"><i class="fab fa-paypal"></i> Paiement sécurisé via PayPal</p>';
-        
+
         paypal.Buttons({
             style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' },
             createOrder: function(data, actions) {

@@ -1609,7 +1609,7 @@ def mobile_monetisation_dashboard(request):
     try:
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
         from monetisation.utils import PLAN_LIMITS, check_device_quota
-        from monetisation.quota import check_iot_quota
+        from monetisation.quota import check_iot_quota, IOT_LIMITS
         wallet = Wallet.objects.filter(user=request.user).first()
         sub = Subscription.objects.filter(user=request.user).first()
         txns = Transaction.objects.filter(user=request.user).order_by("-timestamp")[:20]
@@ -1638,7 +1638,7 @@ def mobile_monetisation_dashboard(request):
                 "pdf_reports": limits["pdf_reports"],
             },
             "plans": {
-                key: {**vals, "price": PLAN_PRICES.get(key, 0)}
+                key: {**vals, "price": PLAN_PRICES.get(key, 0), "calls": IOT_LIMITS.get(key, IOT_LIMITS["free"])}
                 for key, vals in PLAN_LIMITS.items()
             },
             "transactions": [{
