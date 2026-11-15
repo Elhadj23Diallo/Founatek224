@@ -53,7 +53,8 @@ def create_wallet_topup_checkout(user, amount, success_url, cancel_url):
     stripe.api_key = settings.STRIPE_SECRET_KEY
     session = stripe.checkout.Session.create(
         mode="payment",
-        payment_method_types=["card"],
+        # Les moyens de paiement (carte, etc.) se gèrent désormais dans le
+        # tableau de bord Stripe : Paramètres > Moyens de paiement.
         line_items=[{
             "price_data": {
                 "currency": "eur",
