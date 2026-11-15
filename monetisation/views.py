@@ -292,11 +292,14 @@ def subscription_view(request):
 @login_required
 @never_cache
 def wallet_dashboard(request):
+    from .stripe_payments import STRIPE_TOPUP_CHOICES_EUR
     wallet = Wallet.objects.get(user=request.user)
     payments = PaymentRequest.objects.filter(user=request.user).order_by('-created_at')
     return render(request, 'monetisation/wallet_dashboard.html', {
         'wallet': wallet,
-        'payments': payments
+        'payments': payments,
+        'stripe_enabled': settings.STRIPE_ENABLED,
+        'stripe_topup_choices': STRIPE_TOPUP_CHOICES_EUR,
     })
 
 

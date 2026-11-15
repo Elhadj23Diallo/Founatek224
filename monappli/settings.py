@@ -25,6 +25,13 @@ PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
 PAYPAL_SECRET = os.getenv("PAYPAL_SECRET", "")
 PAYPAL_API_BASE = "https://api-m.sandbox.paypal.com"  # Mode test
 
+# Stripe (recharge du wallet par carte) — jamais de clé en dur dans le code :
+# si absentes des variables d'environnement, le bouton "Payer par carte" est
+# simplement masqué côté template (voir STRIPE_ENABLED).
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET)
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

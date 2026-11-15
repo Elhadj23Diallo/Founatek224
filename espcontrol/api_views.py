@@ -2032,6 +2032,37 @@ def mobile_monetisation_paypal_capture_order(request):
         return Response({"error": str(e)}, status=500)
 
 
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_stripe_create_checkout(request):
+    """Recharge du wallet par carte (Stripe). Body: {amount}.
+    Retourne {"url": "https://checkout.stripe.com/..."} que l'appli ouvre via
+    expo-web-browser (WebBrowser.openBrowserAsync). Seul le webhook Stripe
+    (monetisation/stripe/webhook/) credite le wallet, jamais cet endpoint."""
+    from django.conf import settings as _settings
+    if not _settings.STRIPE_ENABLED:
+        return Response({"error": "Paiement par carte indisponible pour le moment."}, status=503)
+
+    import stripe as _stripe
+    from monetisation.stripe_payments import create_wallet_topup_checkout, _validate_topup_amount
+
+    try:
+        amount = _validate_topup_amount(request.data.get("amount"))
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+
+    success_url = request.build_absolute_uri("/monetisation/stripe/success/") + "?session_id={CHECKOUT_SESSION_ID}"
+    cancel_url = request.build_absolute_uri("/monetisation/wallet/")
+
+    try:
+        session = create_wallet_topup_checkout(request.user, amount, success_url, cancel_url)
+    except _stripe.StripeError:
+        return Response({"error": "Impossible de créer la session de paiement."}, status=502)
+
+    return Response({"url": session.url})
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MODULE TRANSPARENCE PRODUIT
 # ══════════════════════════════════════════════════════════════════════════════

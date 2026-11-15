@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import stripe_payments
 
 app_name = 'monetisation'
 urlpatterns = [
@@ -19,4 +20,9 @@ urlpatterns = [
     path("payment/success/", views.payment_success, name="payment_success"),
     path('convert-commission/', views.convert_commission_to_wallet, name='convert_commission_to_wallet'),
 
+    path('stripe/create-checkout/', stripe_payments.stripe_create_checkout, name='stripe_create_checkout'),
+    path('stripe/success/', stripe_payments.stripe_success, name='stripe_success'),
+    # Hors de /api/ : APIKeyMiddleware n'exige pas de Token ici — l'authenticité
+    # de l'appel est garantie par la signature Stripe-Signature, pas un header.
+    path('stripe/webhook/', stripe_payments.stripe_webhook, name='stripe_webhook'),
 ]

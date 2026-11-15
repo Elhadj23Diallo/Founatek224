@@ -82,6 +82,7 @@ scikit-learn==1.7.1
 scipy==1.16.1
 setuptools==70.2.0
 six==1.17.0
+stripe==17.0.0
 sqlparse==0.5.5
 sympy==1.13.3
 threadpoolctl==3.6.0

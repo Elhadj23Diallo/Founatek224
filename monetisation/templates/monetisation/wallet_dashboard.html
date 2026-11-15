@@ -130,6 +130,51 @@
         </a>
     </div>
 
+    {% if stripe_enabled %}
+    <div class="balance-card" style="margin-bottom: 30px;">
+        <div class="balance-title"><i class="fas fa-credit-card"></i> Recharger par carte (Stripe)</div>
+        <p style="color: #94a3b8; margin: 10px 0 20px;">Paiement sécurisé par carte bancaire, crédité automatiquement.</p>
+        <div id="stripe-amount-choices" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:15px;">
+            {% for choice in stripe_topup_choices %}
+            <button type="button" class="action-btn btn-back stripe-amount-btn" data-amount="{{ choice }}" style="min-width:70px;">{{ choice }} €</button>
+            {% endfor %}
+        </div>
+        <div id="stripe-checkout-feedback" style="display:none; color:#fca5a5; margin-top:10px;"></div>
+    </div>
+    <script>
+    document.querySelectorAll('.stripe-amount-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const feedback = document.getElementById('stripe-checkout-feedback');
+            feedback.style.display = 'none';
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            fetch("{% url 'monetisation:stripe_create_checkout' %}", {
+                method: "POST",
+                headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+                body: JSON.stringify({amount: parseFloat(btn.dataset.amount)})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    feedback.textContent = data.error || "Impossible de démarrer le paiement.";
+                    feedback.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = btn.dataset.amount + ' €';
+                }
+            })
+            .catch(() => {
+                feedback.textContent = "Erreur réseau, réessayez.";
+                feedback.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.amount + ' €';
+            });
+        });
+    });
+    </script>
+    {% endif %}
+
     <h3 class="section-title">Historique des transactions</h3>
 
     <div class="table-responsive">
