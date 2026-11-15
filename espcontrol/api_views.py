@@ -1685,6 +1685,7 @@ def mobile_monetisation_upgrade(request):
                 user=request.user, type="debit",
                 amount=price, description=f"Abonnement {plan.upper()}"
             )
+            # Pas de commission ici : argent déjà commissionné à la recharge du wallet.
         sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
         sub.plan = plan
         sub.start_date = timezone.now().date()

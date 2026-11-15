@@ -287,3 +287,54 @@ class ReferralCommissionTimingTest(TestCase):
         )
         self.assertEqual(resp2.status_code, 404)
         self.assertEqual(ReferralTransaction.objects.filter(referral__referred=self.user).count(), 1)
+
+
+class ReferralCommissionNotDuplicatedOnWalletSpendTest(TestCase):
+    """Règle : la commission se donne UNE seule fois, quand l'argent entre
+    réellement (recharge confirmée). Dépenser ce même argent plus tard pour
+    payer un abonnement avec le solde du wallet ne doit PAS donner une 2e
+    commission — ce serait commissionner deux fois le même argent."""
+
+    def setUp(self):
+        self.referrer = User.objects.create_user(username="parrain-nodup", password="pass")
+        self.user = User.objects.create_user(username="filleul-nodup", password="pass")
+        Referral.objects.create(referrer=self.referrer, referred=self.user, code="refnodup1")
+
+    def test_wallet_subscription_after_confirmed_recharge_gives_no_extra_commission(self):
+        # 1) Recharge confirmée par un admin (10 EUR) -> exactement 1 commission.
+        pr = PaymentRequest.objects.create(
+            user=self.user, provider="orange", phone_number="+224000000",
+            amount=10.0, status="pending", transaction_id="TX-NODUP-1",
+        )
+        staff = User.objects.create_user(username="staff-nodup", password="pass", is_staff=True)
+        token, _ = Token.objects.get_or_create(user=staff)
+        api_client = APIClient()
+        api_client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        resp = api_client.post(
+            f"/api/mobile/monetisation/admin/{pr.id}/review/",
+            {"action": "confirm"}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(ReferralTransaction.objects.filter(referral__referred=self.user).count(), 1)
+        commission_after_recharge = ReferralTransaction.objects.get(referral__referred=self.user).amount
+        self.assertEqual(commission_after_recharge, 10.0 * 0.05 * 1000)  # 500 points
+
+        wallet = Wallet.objects.get(user=self.user)
+        self.assertEqual(wallet.balance, 10.0)
+
+        # 2) Payer l'abonnement Basic (3 EUR) avec ce même solde wallet ->
+        #    aucune commission supplémentaire (même argent, déjà commissionné).
+        self.client.force_login(self.user)
+        resp2 = self.client.post(
+            "/monetisation/abonnement/",
+            {"plan": "basic", "provider": "wallet"},
+        )
+        self.assertEqual(resp2.status_code, 302)
+
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, 7.0)
+        self.assertEqual(ReferralTransaction.objects.filter(referral__referred=self.user).count(), 1)
+        self.assertEqual(
+            ReferralTransaction.objects.get(referral__referred=self.user).amount,
+            commission_after_recharge,
+        )

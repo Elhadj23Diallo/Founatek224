@@ -250,18 +250,11 @@ def subscription_view(request):
                 transaction_id=str(uuid.uuid4())
             )
 
-            # Attribution de la commission au parrain
-            if hasattr(request.user, 'referred_by'):
-                ref = request.user.referred_by
-                commission = amount * 0.05
-                wallet_referrer = Wallet.objects.get(user=ref.referrer)
-                wallet_referrer.balance += commission
-                wallet_referrer.save()
-                ReferralTransaction.objects.create(
-                    referral=ref,
-                    amount=commission,
-                    description=f"Commission sur abonnement de {request.user.username}"
-                )
+            # ⚡ Pas de commission ici : payer un abonnement avec le solde du
+            # wallet, c'est dépenser de l'argent déjà commissionné à la
+            # recharge (admin, callback signé ou webhook Stripe) ou lors d'un
+            # paiement PayPal direct d'abonnement. Une commission ici serait
+            # une 2e commission sur le même argent.
 
             return redirect('monetisation:payment_success')
 
