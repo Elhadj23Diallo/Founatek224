@@ -145,7 +145,10 @@ def stripe_webhook(request):
     if event["type"] != "checkout.session.completed":
         return JsonResponse({"received": True}, status=200)
 
-    session = event["data"]["object"]
+    # Depuis stripe-python 13+, les objets Stripe ne sont plus des dict :
+    # session.get(...) lève AttributeError (→ erreur 500 renvoyée à Stripe).
+    # to_dict() les convertit en vrai dict Python.
+    session = event["data"]["object"].to_dict()
     if session.get("payment_status") != "paid":
         return JsonResponse({"received": True}, status=200)
 

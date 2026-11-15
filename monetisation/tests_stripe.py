@@ -88,15 +88,21 @@ class StripeWebhookTest(TestCase):
         )
 
     def _completed_event(self, session_id="cs_test_valid", amount_total=1000, currency="eur", payment_status="paid"):
-        return {
+        # Un vrai objet stripe.Event (comme celui que renvoie construct_event en
+        # production) et non un simple dict : avec stripe-python récent, ces
+        # objets n'ont plus .get(), et un dict dans le mock masquait ce bug.
+        return stripe.Event.construct_from({
+            "id": "evt_test_1",
+            "object": "event",
             "type": "checkout.session.completed",
             "data": {"object": {
                 "id": session_id,
+                "object": "checkout.session",
                 "payment_status": payment_status,
                 "amount_total": amount_total,
                 "currency": currency,
             }},
-        }
+        }, "sk_test_dummy")
 
     @patch("monetisation.stripe_payments.stripe.Webhook.construct_event")
     def test_invalid_signature_returns_400_and_does_not_credit(self, mock_construct):
