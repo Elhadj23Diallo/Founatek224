@@ -1,5 +1,5 @@
 # ...existing code...
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -30,6 +30,72 @@ class IngestEndpointTest(TestCase):
         appdata = AppareilData.objects.filter(device=device)
         self.assertTrue(appdata.exists(), "AppareilData non créé")
         self.assertTrue(ActionLog.objects.exists(), "Aucun ActionLog trouvé")
+
+
+class DeviceQuotaIngestTest(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="quota-ingest-user", password="pass")
+        Token.objects.filter(user=self.user).delete()
+        self.token = Token.objects.create(user=self.user, key="quotaingesttoken123")
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.token.key)
+        self.url = "/api/iot/ingest/"
+        # Plan free (par défaut, sans Subscription) = 1 appareil max.
+        self.existing_device = Device.objects.create(user=self.user, device_id="DEV_EXISTING", name="Existant")
+
+    def test_existing_device_can_still_send_data_at_quota(self):
+        resp = self.client.post(
+            self.url,
+            {"device_id": "DEV_EXISTING", "data": {"temperature": 21}},
+            format="json",
+        )
+        self.assertIn(resp.status_code, (200, 201), msg=resp.content)
+
+    def test_new_device_blocked_once_quota_reached(self):
+        resp = self.client.post(
+            self.url,
+            {"device_id": "DEV_NEW", "data": {"temperature": 21}},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403, msg=resp.content)
+        self.assertFalse(Device.objects.filter(device_id="DEV_NEW").exists())
+
+    def test_superuser_bypasses_device_quota(self):
+        self.user.is_superuser = True
+        self.user.save()
+        resp = self.client.post(
+            self.url,
+            {"device_id": "DEV_NEW_SUPERUSER", "data": {"temperature": 21}},
+            format="json",
+        )
+        self.assertIn(resp.status_code, (200, 201), msg=resp.content)
+
+
+class ExportAirDataPlanGateTest(TestCase):
+    def setUp(self):
+        from monetisation.models import Subscription
+        User = get_user_model()
+        self.user = User.objects.create_user(username="export-user", password="pass")
+        self.subscription, _ = Subscription.objects.get_or_create(user=self.user, defaults={"plan": "free"})
+        self.device = Device.objects.create(user=self.user, device_id="EXPORT_DEV", name="Capteur export")
+        self.client = Client()
+        self.client.force_login(self.user)
+        self.url = f"/export/air-data/{self.device.id}/"
+
+    def test_free_plan_cannot_export(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 403, msg=resp.content)
+
+    def test_basic_plan_can_export(self):
+        self.subscription.plan = "basic"
+        self.subscription.save()
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
 
 class DeviceLast10APITest(TestCase):

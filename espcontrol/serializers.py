@@ -60,6 +60,18 @@ class AppareilDataSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError("Utilisateur non authentifié")
 
+        # 🔒 Limite d'appareils du plan : seulement pour un device_id jamais vu
+        # chez cet utilisateur (un device déjà connu peut toujours envoyer des mesures).
+        if not user.is_superuser and not Device.objects.filter(device_id=device_id, user=user).exists():
+            from monetisation.utils import check_device_quota
+            device_ok, device_count, max_devices = check_device_quota(user)
+            if not device_ok:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied(
+                    f"Limite d'appareils atteinte pour votre plan ({device_count}/{max_devices}). "
+                    "Passez à un plan supérieur pour connecter un nouvel appareil."
+                )
+
         # 🔥 1. CRÉATION AUTO SÉCURISÉE PAR USER
         with transaction.atomic():
             device, created = Device.objects.get_or_create(

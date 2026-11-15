@@ -178,7 +178,7 @@ body {
 
                 <div class="plan-price">
                     {% if plan.price > 0 %}
-                        <span class="plan-price-amount">{{ plan.price }} €</span><span class="plan-price-period">/an</span>
+                        <span class="plan-price-amount">{{ plan.price }} €</span><span class="plan-price-period">/mois</span>
                         <div class="plan-price-gnf">≈ {{ plan.price|mul:10000|thousands }} GNF</div>
                     {% else %}
                         <span class="plan-price-amount">Gratuit</span>
@@ -189,9 +189,8 @@ body {
                     <li><i class="fas fa-server"></i> {{ plan.calls|thousands }} appels API IoT / jour</li>
                     <li><i class="fas fa-microchip"></i> {{ plan.devices }} appareil{{ plan.devices|pluralize }} connecté{{ plan.devices|pluralize }}</li>
                     <li><i class="fas fa-database"></i> Historique détaillé {{ plan.history_days }} jour{{ plan.history_days|pluralize }}</li>
-                    <li class="{% if not plan.alerts %}is-disabled{% endif %}"><i class="fas fa-bell"></i> Alertes {% if plan.alerts %}incluses{% else %}non incluses{% endif %}</li>
-                    <li class="{% if not plan.marketplace %}is-disabled{% endif %}"><i class="fas fa-store"></i> Marketplace {% if plan.marketplace %}incluse{% else %}non incluse{% endif %}</li>
-                    <li class="{% if not plan.pdf_reports %}is-disabled{% endif %}"><i class="fas fa-file-pdf"></i> Rapports PDF {% if plan.pdf_reports %}inclus{% else %}non inclus{% endif %}</li>
+                    <li><i class="fas fa-bell"></i> Alertes incluses</li>
+                    <li class="{% if not plan.pdf_reports %}is-disabled{% endif %}"><i class="fas fa-file-excel"></i> Export des rapports (Excel) {% if plan.pdf_reports %}inclus{% else %}non inclus{% endif %}</li>
                 </ul>
             </label>
             {% endfor %}

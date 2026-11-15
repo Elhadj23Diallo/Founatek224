@@ -288,9 +288,10 @@ MODULES DE LA PLATEFORME :
    l'administration technique Django (réservée aux comptes staff internes, distincte du rôle).
 
 4. Monétisation — portefeuille (wallet) en EUR, recharge via Mobile Money (MTN/Orange/Moov/Wave) ou
-   PayPal, abonnements Free/Basic/Pro (limites d'appels API, d'appareils, d'historique, d'alertes,
-   de marketplace, de rapports PDF selon le plan), système de parrainage (code personnel, commissions
-   en points convertibles en crédits wallet, 1000 pts = 1 EUR).
+   PayPal, abonnements Free/Basic/Pro par mois (limites d'appels API IoT/jour, d'appareils connectés,
+   de jours d'historique détaillé, et export des rapports en Excel réservé à Basic/Pro — les alertes
+   sont incluses dans tous les plans), système de parrainage (code personnel, commissions en points
+   convertibles en crédits wallet, 1000 pts = 1 EUR).
 
 5. Traçabilité Produit — chaque produit d'une entreprise a un QR code unique ; le scanner affiche
    nom, prix, dates de production/expiration, statut VALIDE/EXPIRÉ, photo, historique des prix.

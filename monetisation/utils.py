@@ -32,8 +32,7 @@ PLAN_LIMITS = {
         'calls': 100,
         'devices': 1,
         'history_days': 1,
-        'alerts': False,
-        'marketplace': False,
+        'alerts': True,
         'pdf_reports': False,
     },
     'basic': {
@@ -41,15 +40,13 @@ PLAN_LIMITS = {
         'devices': 3,
         'history_days': 7,
         'alerts': True,
-        'marketplace': False,
-        'pdf_reports': False,
+        'pdf_reports': True,
     },
     'pro': {
         'calls': 10000,
         'devices': 10,
         'history_days': 30,
         'alerts': True,
-        'marketplace': True,
         'pdf_reports': True,
     },
 }

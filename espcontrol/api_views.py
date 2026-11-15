@@ -1634,7 +1634,6 @@ def mobile_monetisation_dashboard(request):
                 "max_devices": max_devices,
                 "history_days": limits["history_days"],
                 "alerts": limits["alerts"],
-                "marketplace": limits["marketplace"],
                 "pdf_reports": limits["pdf_reports"],
             },
             "plans": {
@@ -1931,6 +1930,7 @@ def mobile_monetisation_paypal_capture_order(request):
     """Capture un ordre PayPal et credite le wallet / active l'abonnement. Body: {orderID}"""
     try:
         import requests as _requests
+        from datetime import timedelta as _timedelta
         from django.conf import settings as _settings
         from django.utils import timezone as _timezone
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest, ReferralTransaction
@@ -1961,7 +1961,7 @@ def mobile_monetisation_paypal_capture_order(request):
         elif payment_type == "subscription" and plan:
             sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
             sub.plan = plan
-            sub.end_date = None if plan == "free" else _timezone.now().date().replace(year=_timezone.now().year + 1)
+            sub.end_date = None if plan == "free" else _timezone.now().date() + _timedelta(days=30)
             sub.save()
             Transaction.objects.create(user=request.user, type="subscription", amount=amount, description=f"Abonnement {plan} via PayPal")
 

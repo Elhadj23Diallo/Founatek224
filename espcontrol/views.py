@@ -1902,6 +1902,7 @@ from django.http import HttpResponse
 
 
 @login_required
+@plan_required(['basic', 'pro'])
 def export_air_founatek_nexus_excel(request, device_id):
 
     # ──────────────────────────────────────────────────────────
@@ -2124,6 +2125,7 @@ def export_gas_excel(request):
     return response
 
 @login_required
+@plan_required(['basic', 'pro'])
 def export_air_data_excel(request):
     # Récupérer les données des appareils de l'utilisateur
     # On prend les 1000 dernières mesures par exemple

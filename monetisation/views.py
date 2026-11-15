@@ -4,6 +4,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils import timezone
+from datetime import timedelta
 from .models import Wallet, Transaction, Subscription, PaymentRequest, Referral, ReferralTransaction
 import uuid
 import json
@@ -86,7 +87,7 @@ def capture_paypal_order(request):
     elif payment_type == "subscription" and plan:
         sub = Subscription.objects.get(user=request.user)
         sub.plan = plan
-        sub.end_date = None if plan == "free" else timezone.now().date().replace(year=timezone.now().year + 1)
+        sub.end_date = None if plan == "free" else timezone.now().date() + timedelta(days=30)
         sub.save()
         Transaction.objects.create(
             user=request.user,
@@ -237,7 +238,7 @@ def subscription_view(request):
 
             # Mettre à jour l'abonnement
             sub.plan = new_plan
-            sub.end_date = timezone.now().date().replace(year=timezone.now().year + 1)
+            sub.end_date = timezone.now().date() + timedelta(days=30)
             sub.save()
 
             # ⚡ Créer la transaction
@@ -293,7 +294,6 @@ def subscription_view(request):
             'devices': limits['devices'],
             'history_days': limits['history_days'],
             'alerts': limits['alerts'],
-            'marketplace': limits['marketplace'],
             'pdf_reports': limits['pdf_reports'],
             'price': PLAN_PRICES[plan_name],
         })
