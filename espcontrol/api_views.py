@@ -1599,8 +1599,10 @@ def mobile_education_materiel_pdf(request, parcours_id):
 # ══════════════════════════════════════════════════════════════════════════════
 # MODULE MONETISATION
 # ══════════════════════════════════════════════════════════════════════════════
-
-PLAN_PRICES = {"free": 0, "basic": 3, "pro": 15}
+# NB: PLAN_PRICES est importé localement (dans chaque fonction, pas ici en
+# haut de fichier) depuis monetisation.utils — comme tous les autres imports
+# "monetisation" de ce fichier — pour éviter tout souci d'ordre de chargement
+# des apps Django. C'est la même constante que monetisation/views.py (source unique).
 
 @csrf_exempt
 @api_view(["GET"])
@@ -1608,7 +1610,7 @@ PLAN_PRICES = {"free": 0, "basic": 3, "pro": 15}
 def mobile_monetisation_dashboard(request):
     try:
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
-        from monetisation.utils import PLAN_LIMITS, check_device_quota
+        from monetisation.utils import PLAN_LIMITS, PLAN_PRICES, check_device_quota
         from monetisation.quota import check_iot_quota, IOT_LIMITS
         wallet = Wallet.objects.filter(user=request.user).first()
         sub = Subscription.objects.filter(user=request.user).first()
@@ -1666,6 +1668,7 @@ def mobile_monetisation_upgrade(request):
     """Body: { "plan": "basic" | "pro" | "free" }"""
     try:
         from monetisation.models import Wallet, Subscription, Transaction
+        from monetisation.utils import PLAN_PRICES, round_money
         from django.utils import timezone
         from datetime import timedelta
         plan = request.data.get("plan", "free")
@@ -1676,7 +1679,7 @@ def mobile_monetisation_upgrade(request):
             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
             if wallet.balance < price:
                 return Response({"error": "Solde insuffisant"}, status=402)
-            wallet.balance -= price
+            wallet.balance = round_money(wallet.balance - price)
             wallet.save()
             Transaction.objects.create(
                 user=request.user, type="debit",
@@ -1700,14 +1703,14 @@ def mobile_monetisation_recharge(request):
     en EUR pour le credit wallet (devise interne, requise pour PayPal/plans)."""
     try:
         from monetisation.models import PaymentRequest
-        from monetisation.utils import gnf_to_eur, get_gnf_to_eur_rate
+        from monetisation.utils import gnf_to_eur, get_gnf_to_eur_rate, round_money
         provider = request.data.get("provider", "MTN")
         phone = request.data.get("phone_number", "")
         amount_gnf = float(request.data.get("amount_gnf", request.data.get("amount", 0)))
         transaction_id = request.data.get("transaction_id", "")
         if amount_gnf <= 0 or not phone:
             return Response({"error": "Paramètres invalides"}, status=400)
-        amount_eur = gnf_to_eur(amount_gnf)
+        amount_eur = round_money(gnf_to_eur(amount_gnf))
         pay = PaymentRequest.objects.create(
             user=request.user, provider=provider,
             phone_number=phone, amount=amount_eur,
@@ -1776,27 +1779,42 @@ def mobile_monetisation_admin_review(request, payment_id):
     if not request.user.is_staff:
         return Response({"error": "Accès réservé aux administrateurs"}, status=403)
     try:
+        from django.db import transaction as _transaction
         from django.utils import timezone as _timezone
-        from monetisation.models import PaymentRequest, Wallet, Transaction
-        payment = PaymentRequest.objects.get(id=payment_id, status="pending")
-        action = request.data.get("action")
-        if action == "confirm":
-            payment.status = "success"
-            wallet, _ = Wallet.objects.get_or_create(user=payment.user, defaults={"balance": 0})
-            wallet.balance += payment.amount
-            wallet.save()
-            Transaction.objects.create(
-                user=payment.user, type="credit", amount=payment.amount,
-                description=f"Recharge {payment.provider} confirmée par {request.user.username}",
-            )
-        elif action == "reject":
-            payment.status = "failed"
-        else:
-            return Response({"error": "action doit être 'confirm' ou 'reject'"}, status=400)
-        payment.reviewed_by = request.user
-        payment.reviewed_at = _timezone.now()
-        payment.save()
-        return Response({"id": payment.id, "status": payment.status})
+        from monetisation.models import PaymentRequest, Wallet, Transaction, ReferralTransaction
+        from monetisation.utils import round_money
+
+        with _transaction.atomic():
+            payment = PaymentRequest.objects.select_for_update().get(id=payment_id, status="pending")
+            action = request.data.get("action")
+            if action == "confirm":
+                payment.status = "success"
+                wallet, _ = Wallet.objects.select_for_update().get_or_create(user=payment.user, defaults={"balance": 0})
+                wallet.balance = round_money(wallet.balance + payment.amount)
+                wallet.save()
+                Transaction.objects.create(
+                    user=payment.user, type="credit", amount=payment.amount,
+                    description=f"Recharge {payment.provider} confirmée par {request.user.username}",
+                )
+                # ⚡ Commission au parrain — UNIQUEMENT ici, maintenant que le
+                # paiement est confirmé par un admin (plus jamais avant, voir
+                # l'ancien mobile_money_callback non authentifié, supprimé).
+                if hasattr(payment.user, "referred_by"):
+                    ref = payment.user.referred_by
+                    commission_points = payment.amount * 0.05 * 1000
+                    ReferralTransaction.objects.create(
+                        referral=ref, amount=commission_points,
+                        description=f"Commission sur recharge de {payment.user.username}",
+                        converted=False,
+                    )
+            elif action == "reject":
+                payment.status = "failed"
+            else:
+                return Response({"error": "action doit être 'confirm' ou 'reject'"}, status=400)
+            payment.reviewed_by = request.user
+            payment.reviewed_at = _timezone.now()
+            payment.save()
+            return Response({"id": payment.id, "status": payment.status})
     except PaymentRequest.DoesNotExist:
         return Response({"error": "Demande introuvable ou déjà traitée"}, status=404)
     except Exception as e:
@@ -1846,16 +1864,17 @@ def mobile_monetisation_convert(request):
     """Convertit les points de parrainage en crédits wallet (1000 pts = 1 EUR)"""
     try:
         from monetisation.models import Referral, ReferralTransaction, Wallet, Transaction
+        from monetisation.utils import round_money
         commissions = ReferralTransaction.objects.filter(
             referral__referrer=request.user, converted=False
         )
         total = sum(c.amount for c in commissions)
         if total < 1000:
             return Response({"error": "Minimum 1000 points requis"}, status=400)
-        euros = round(total / 1000, 2)
+        euros = round_money(total / 1000)
         commissions.update(converted=True)
         wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
-        wallet.balance += euros
+        wallet.balance = round_money(wallet.balance + euros)
         wallet.save()
         Transaction.objects.create(
             user=request.user, type="credit",
@@ -1897,28 +1916,44 @@ def mobile_monetisation_transactions(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def mobile_monetisation_paypal_create_order(request):
-    """Cree un ordre PayPal reel. Body: {amount, type: 'credit'|'subscription', plan?}"""
+    """Cree un ordre PayPal reel. Body: {type: 'credit'|'subscription', plan?, amount? (credit only)}
+
+    Le montant n'est jamais pris tel quel depuis le client : voir
+    monetisation.utils.validate_paypal_order_params (meme regle que la version web)."""
     try:
         import requests as _requests
         from django.conf import settings as _settings
-        amount = request.data.get("amount")
+        from monetisation.models import PaymentRequest
+        from monetisation.utils import validate_paypal_order_params
+
         payment_type = request.data.get("type", "credit")
         plan = request.data.get("plan")
-        if not amount:
-            return Response({"error": "Montant requis"}, status=400)
+
+        try:
+            amount, plan = validate_paypal_order_params(payment_type, plan, request.data.get("amount"))
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=400)
+
+        custom_id = f"{payment_type}|{plan}|{request.user.id}"
         url = f"{_settings.PAYPAL_API_BASE}/v2/checkout/orders"
         auth = (_settings.PAYPAL_CLIENT_ID, _settings.PAYPAL_SECRET)
         payload = {
             "intent": "CAPTURE",
             "purchase_units": [{
-                "amount": {"currency_code": "EUR", "value": str(amount)},
-                "custom_id": f"{payment_type}|{plan or ''}",
+                "amount": {"currency_code": "EUR", "value": f"{amount:.2f}"},
+                "custom_id": custom_id,
             }],
         }
         resp = _requests.post(url, json=payload, auth=auth, timeout=10)
-        if resp.status_code == 201:
-            return Response(resp.json(), status=201)
-        return Response({"error": "Impossible de creer la commande PayPal"}, status=400)
+        if resp.status_code != 201:
+            return Response({"error": "Impossible de creer la commande PayPal"}, status=400)
+
+        order = resp.json()
+        PaymentRequest.objects.create(
+            user=request.user, provider="paypal", amount=amount,
+            status="pending", transaction_id=order.get("id"),
+        )
+        return Response(order, status=201)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -1928,59 +1963,70 @@ def mobile_monetisation_paypal_create_order(request):
 @permission_classes([IsAuthenticated])
 def mobile_monetisation_paypal_capture_order(request):
     """Capture un ordre PayPal et credite le wallet / active l'abonnement. Body: {orderID}"""
+    from django.db import transaction as _transaction
+    from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest, ReferralTransaction
+    from monetisation.utils import round_money, verify_paypal_capture
+
+    order_id = request.data.get("orderID")
+    if not order_id:
+        return Response({"error": "orderID requis"}, status=400)
+
     try:
-        import requests as _requests
-        from datetime import timedelta as _timedelta
-        from django.conf import settings as _settings
-        from django.utils import timezone as _timezone
-        from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest, ReferralTransaction
+        with _transaction.atomic():
+            try:
+                payment = PaymentRequest.objects.select_for_update().get(
+                    transaction_id=order_id, provider="paypal"
+                )
+            except PaymentRequest.DoesNotExist:
+                return Response({"error": "Commande inconnue"}, status=400)
 
-        order_id = request.data.get("orderID")
-        if not order_id:
-            return Response({"error": "orderID requis"}, status=400)
+            if payment.user_id != request.user.id:
+                return Response({"error": "Cette commande n'appartient pas a cet utilisateur"}, status=403)
 
-        url = f"{_settings.PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture"
-        auth = (_settings.PAYPAL_CLIENT_ID, _settings.PAYPAL_SECRET)
-        resp = _requests.post(url, auth=auth, timeout=10)
-        result = resp.json()
+            if payment.status == "success":
+                return Response({"success": True, "already_processed": True})
 
-        if result.get("status") != "COMPLETED":
-            return Response({"success": False, "error": "Paiement non complete"}, status=400)
+            import requests as _requests
+            from django.conf import settings as _settings
+            url = f"{_settings.PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture"
+            auth = (_settings.PAYPAL_CLIENT_ID, _settings.PAYPAL_SECRET)
+            resp = _requests.post(url, auth=auth, timeout=10)
+            result = resp.json()
 
-        purchase_unit = result["purchase_units"][0]
-        custom_id = purchase_unit.get("custom_id", "")
-        amount = float(purchase_unit["payments"]["captures"][0]["amount"]["value"])
-        payment_type, plan = custom_id.split("|") if "|" in custom_id else ("credit", "")
+            try:
+                payment_type, plan, captured_amount = verify_paypal_capture(result, request.user.id)
+            except ValueError as exc:
+                return Response({"success": False, "error": str(exc)}, status=400)
 
-        wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
-
-        if payment_type == "credit":
-            wallet.balance += amount
-            wallet.save()
-            Transaction.objects.create(user=request.user, type="credit", amount=amount, description="Recharge via PayPal")
-        elif payment_type == "subscription" and plan:
-            sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
-            sub.plan = plan
-            sub.end_date = None if plan == "free" else _timezone.now().date() + _timedelta(days=30)
-            sub.save()
-            Transaction.objects.create(user=request.user, type="subscription", amount=amount, description=f"Abonnement {plan} via PayPal")
-
-        if hasattr(request.user, "referred_by"):
-            ref = request.user.referred_by
-            commission_points = amount * 0.05 * 1000
-            ReferralTransaction.objects.create(
-                referral=ref, amount=commission_points,
-                description=f"Commission sur {payment_type} de {request.user.username}", converted=False,
+            wallet, _ = Wallet.objects.select_for_update().get_or_create(
+                user=request.user, defaults={"balance": 0}
             )
 
-        try:
-            payment = PaymentRequest.objects.get(user=request.user, amount=amount, status="pending", provider="paypal")
+            if payment_type == "credit":
+                wallet.balance = round_money(wallet.balance + captured_amount)
+                wallet.save()
+                Transaction.objects.create(user=request.user, type="credit", amount=captured_amount, description="Recharge via PayPal")
+            elif payment_type == "subscription" and plan:
+                from datetime import timedelta as _timedelta
+                from django.utils import timezone as _timezone
+                sub, _ = Subscription.objects.select_for_update().get_or_create(user=request.user, defaults={"plan": "free"})
+                sub.plan = plan
+                sub.end_date = _timezone.now().date() + _timedelta(days=30)
+                sub.save()
+                Transaction.objects.create(user=request.user, type="subscription", amount=captured_amount, description=f"Abonnement {plan} via PayPal")
+
+            if hasattr(request.user, "referred_by"):
+                ref = request.user.referred_by
+                commission_points = captured_amount * 0.05 * 1000
+                ReferralTransaction.objects.create(
+                    referral=ref, amount=commission_points,
+                    description=f"Commission sur {payment_type} de {request.user.username}", converted=False,
+                )
+
             payment.status = "success"
             payment.save()
-        except PaymentRequest.DoesNotExist:
-            pass
 
-        return Response({"success": True, "new_balance": wallet.balance})
+            return Response({"success": True, "new_balance": wallet.balance})
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 

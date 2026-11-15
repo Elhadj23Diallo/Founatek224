@@ -9,7 +9,8 @@ urlpatterns = [
     path('abonnement/', views.subscription_view, name='monetisation_abonnement'),
     path('wallet/', views.wallet_dashboard, name='wallet_dashboard'),
     path('wallet/init/', views.init_mobile_money, name='init_mobile_money'),
-    path('wallet/callback/', views.mobile_money_callback, name='mobile_money_callback'),
+    # wallet/callback/ (mobile_money_callback) retiré : faille de sécurité, voir
+    # le commentaire dans views.py — aucun opérateur ne l'appelle réellement.
     path("buy-credit/", views.init_mobile_money, name="buy_credit"),
     path("paypal/create-order/", views.create_paypal_order, name="create_paypal_order"),
     path("paypal/capture-order/", views.capture_paypal_order, name="capture_paypal_order"),

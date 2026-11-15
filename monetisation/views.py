@@ -4,11 +4,18 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils import timezone
+from django.db import transaction
 from datetime import timedelta
 from .models import Wallet, Transaction, Subscription, PaymentRequest, Referral, ReferralTransaction
 import uuid
 import json
-from .utils import PLAN_LIMITS
+from .utils import (
+    PLAN_LIMITS,
+    PLAN_PRICES,
+    round_money,
+    validate_paypal_order_params,
+    verify_paypal_capture,
+)
 from .quota import IOT_LIMITS
 
 #integration paypal
@@ -22,15 +29,23 @@ def create_paypal_order(request):
     Crée un ordre PayPal pour l'achat de crédits ou le changement d'abonnement.
     JSON attendu :
     {
-        "amount": 10,
         "type": "credit" ou "subscription",
-        "plan": "basic" (si type=subscription)
+        "plan": "basic" (si type=subscription),
+        "amount": 10 (si type=credit — ignoré pour un abonnement)
     }
+    Le montant n'est JAMAIS pris tel quel depuis le client : pour un abonnement
+    il est fixé par PLAN_PRICES, pour une recharge il est borné (anti-abus).
     """
     data = json.loads(request.body)
-    amount = data.get("amount")
     payment_type = data.get("type", "credit")
-    plan = data.get("plan")  # facultatif, pour abonnement
+    plan = data.get("plan")
+
+    try:
+        amount, plan = validate_paypal_order_params(payment_type, plan, data.get("amount"))
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    custom_id = f"{payment_type}|{plan}|{request.user.id}"
 
     # Créer l'ordre PayPal
     url = f"{settings.PAYPAL_API_BASE}/v2/checkout/orders"
@@ -39,81 +54,101 @@ def create_paypal_order(request):
         "intent": "CAPTURE",
         "purchase_units": [
             {
-                "amount": {"currency_code": "EUR", "value": str(amount)},
-                "custom_id": f"{payment_type}|{plan or ''}"  # stocke info type/plan
+                "amount": {"currency_code": "EUR", "value": f"{amount:.2f}"},
+                "custom_id": custom_id,
             }
         ]
     }
 
     response = requests.post(url, json=payload, auth=auth)
-    if response.status_code == 201:
-        return JsonResponse(response.json())
-    return JsonResponse({"error": "Impossible de créer la commande PayPal"}, status=400)
+    if response.status_code != 201:
+        return JsonResponse({"error": "Impossible de créer la commande PayPal"}, status=400)
+
+    order = response.json()
+    PaymentRequest.objects.create(
+        user=request.user,
+        provider='paypal',
+        amount=amount,
+        status='pending',
+        transaction_id=order.get("id"),
+    )
+    return JsonResponse(order)
 
 
-#📌 B. Capturer l’ordre PayPal et créditer le walle
-from .models import Wallet, Transaction
+#📌 B. Capturer l’ordre PayPal et créditer le wallet
 
 @login_required
 def capture_paypal_order(request):
     data = json.loads(request.body)
     order_id = data.get("orderID")
+    if not order_id:
+        return JsonResponse({"error": "orderID requis"}, status=400)
 
-    url = f"{settings.PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture"
-    auth = (settings.PAYPAL_CLIENT_ID, settings.PAYPAL_SECRET)
-    response = requests.post(url, auth=auth)
-    result = response.json()
+    with transaction.atomic():
+        try:
+            payment = PaymentRequest.objects.select_for_update().get(
+                transaction_id=order_id, provider='paypal'
+            )
+        except PaymentRequest.DoesNotExist:
+            # Soit l'ordre n'existe pas, soit il n'a pas été créé par
+            # create_paypal_order (donc jamais au bon prix) : on refuse.
+            return JsonResponse({"error": "Commande inconnue"}, status=400)
 
-    if result.get("status") != "COMPLETED":
-        return JsonResponse({"success": False, "error": "Paiement non complété"}, status=400)
+        if payment.user_id != request.user.id:
+            return JsonResponse({"error": "Cette commande n'appartient pas à cet utilisateur"}, status=403)
 
-    purchase_unit = result["purchase_units"][0]
-    custom_id = purchase_unit.get("custom_id", "")
-    amount = float(purchase_unit["payments"]["captures"][0]["amount"]["value"])
-    payment_type, plan = custom_id.split("|") if "|" in custom_id else ("credit", "")
+        if payment.status == 'success':
+            # Déjà traité (rejeu/double appel) : ne pas créditer une 2e fois.
+            return JsonResponse({"success": True, "already_processed": True})
 
-    wallet = Wallet.objects.get(user=request.user)
+        url = f"{settings.PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture"
+        auth = (settings.PAYPAL_CLIENT_ID, settings.PAYPAL_SECRET)
+        response = requests.post(url, auth=auth)
+        result = response.json()
 
-    if payment_type == "credit":
-        wallet.balance += amount
-        wallet.save()
-        Transaction.objects.create(
-            user=request.user,
-            type="credit",
-            amount=amount,
-            description="Recharge via PayPal"
-        )
+        try:
+            payment_type, plan, captured_amount = verify_paypal_capture(result, request.user.id)
+        except ValueError as exc:
+            return JsonResponse({"success": False, "error": str(exc)}, status=400)
 
-    elif payment_type == "subscription" and plan:
-        sub = Subscription.objects.get(user=request.user)
-        sub.plan = plan
-        sub.end_date = None if plan == "free" else timezone.now().date() + timedelta(days=30)
-        sub.save()
-        Transaction.objects.create(
-            user=request.user,
-            type="subscription",
-            amount=amount,
-            description=f"Abonnement {plan} via PayPal"
-        )
+        wallet = Wallet.objects.select_for_update().get(user=request.user)
 
-    # ⚡ Attribution de la commission au parrain (points, pas wallet)
-    if hasattr(request.user, 'referred_by'):
-        ref = request.user.referred_by
-        commission_points = amount * 0.05 * 1000  # 1000 points = 1€
-        ReferralTransaction.objects.create(
-            referral=ref,
-            amount=commission_points,
-            description=f"Commission sur {payment_type} de {request.user.username}",
-            converted=False
-        )
+        if payment_type == "credit":
+            wallet.balance = round_money(wallet.balance + captured_amount)
+            wallet.save()
+            Transaction.objects.create(
+                user=request.user,
+                type="credit",
+                amount=captured_amount,
+                description="Recharge via PayPal"
+            )
 
-    # ✅ Mettre à jour le PaymentRequest correspondant
-    try:
-        payment = PaymentRequest.objects.get(user=request.user, amount=amount, status='pending', provider='paypal')
+        elif payment_type == "subscription" and plan:
+            sub = Subscription.objects.select_for_update().get(user=request.user)
+            sub.plan = plan
+            sub.end_date = timezone.now().date() + timedelta(days=30)
+            sub.save()
+            Transaction.objects.create(
+                user=request.user,
+                type="subscription",
+                amount=captured_amount,
+                description=f"Abonnement {plan} via PayPal"
+            )
+
+        # ⚡ Attribution de la commission au parrain (points, pas wallet) —
+        # seulement ici, APRÈS confirmation du paiement par PayPal lui-même.
+        if hasattr(request.user, 'referred_by'):
+            ref = request.user.referred_by
+            commission_points = captured_amount * 0.05 * 1000  # 1000 points = 1€
+            ReferralTransaction.objects.create(
+                referral=ref,
+                amount=commission_points,
+                description=f"Commission sur {payment_type} de {request.user.username}",
+                converted=False
+            )
+
         payment.status = 'success'
         payment.save()
-    except PaymentRequest.DoesNotExist:
-        pass
 
     return JsonResponse({"success": True})
 
@@ -140,44 +175,6 @@ def dashboard(request):
     })
 
 
-# ---------------- Acheter Crédit ----------------
-@login_required
-def buy_credit(request):
-    wallet = Wallet.objects.get(user=request.user)
-
-    if request.method == 'POST':
-        amount = float(request.POST.get('amount', 0))
-        provider = request.POST.get('provider', 'paypal')
-
-        if amount <= 0:
-            return JsonResponse({"error": "Montant invalide"}, status=400)
-
-        payment = PaymentRequest.objects.create(
-            user=request.user,
-            provider=provider,
-            amount=amount,
-            status='pending',
-            transaction_id=str(uuid.uuid4()),
-        )
-
-        # ⚡ Attribution commission au parrain (en points, pas wallet)
-        if hasattr(request.user, 'referred_by'):
-            ref = request.user.referred_by
-            commission_points = amount * 0.05 * 1000  # 1000 pts = 1€
-            ReferralTransaction.objects.create(
-                referral=ref,
-                amount=commission_points,
-                description=f"Commission sur achat de {request.user.username}",
-                converted=False
-            )
-
-        return redirect('monetisation:wallet_dashboard')
-
-    return render(request, 'monetisation/acheter_credit.html', {'wallet': wallet})
-
-
-
-
 # ---------------- Historique des Transactions ----------------
 @login_required
 def transactions(request):
@@ -186,12 +183,7 @@ def transactions(request):
 
 
 # ---------------- Gestion Abonnement ----------------
-# Définition des prix des plans
-PLAN_PRICES = {
-    'free': 0,
-    'basic': 3,
-    'pro': 15
-}
+# PLAN_PRICES importé depuis .utils (source unique, partagée avec espcontrol/api_views.py)
 
 @login_required
 @never_cache
@@ -233,7 +225,7 @@ def subscription_view(request):
                 })
 
             # Débiter le wallet
-            wallet.balance -= amount
+            wallet.balance = round_money(wallet.balance - amount)
             wallet.save()
 
             # Mettre à jour l'abonnement
@@ -339,13 +331,13 @@ def init_mobile_money(request):
         # PayPal facture directement en EUR. Le Mobile Money guineen se paie en GNF :
         # on convertit vers EUR (devise interne du wallet) pour rester coherent.
         if provider.lower() == 'paypal':
-            amount_eur = amount
+            amount_eur = round_money(amount)
             amount_local = None
             currency_local = 'EUR'
         else:
             amount_local = amount
             currency_local = 'GNF'
-            amount_eur = gnf_to_eur(amount)
+            amount_eur = round_money(gnf_to_eur(amount))
 
         # Créer un PaymentRequest
         payment = PaymentRequest.objects.create(
@@ -376,52 +368,17 @@ def init_mobile_money(request):
 
 
 # ---------------- Callback Mobile Money ----------------
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-
-@csrf_exempt
-def mobile_money_callback(request):
-    """
-    Callback Mobile Money. Créditer le wallet utilisateur et le parrain après paiement réussi.
-    """
-    data = json.loads(request.body)
-    try:
-        pr = PaymentRequest.objects.get(transaction_id=data['transaction_id'])
-        wallet = Wallet.objects.get(user=pr.user)
-
-        if data['status'] == 'SUCCESS':
-            pr.status = 'success'
-            wallet.balance += pr.amount
-            wallet.save()
-
-            Transaction.objects.create(
-                user=pr.user,
-                type='credit',
-                amount=pr.amount,
-                description=f"Recharge via {pr.provider}"
-            )
-
-            # ⚡ Attribution commission au parrain
-            if hasattr(pr.user, 'referred_by'):
-                ref = pr.user.referred_by
-                commission = pr.amount * 0.05
-                wallet_referrer = Wallet.objects.get(user=ref.referrer)
-                wallet_referrer.balance += commission
-                wallet_referrer.save()
-                ReferralTransaction.objects.create(
-                    referral=ref,
-                    amount=commission,
-                    description=f"Commission sur recharge de {pr.user.username}"
-                )
-
-        else:
-            pr.status = 'failed'
-
-        pr.save()
-        return JsonResponse({"message": "OK"})
-
-    except PaymentRequest.DoesNotExist:
-        return JsonResponse({"message": "Payment not found"}, status=404)
+# ⚠️ Route volontairement désactivée (faille de sécurité) : aucun opérateur
+# Mobile Money n'appelle réellement cette URL aujourd'hui (voir le commentaire
+# sur MobileMoneyAccount dans models.py — pas d'API opérateur, paiement manuel
+# vers un numéro marchand). Elle était en @csrf_exempt, hors de /api/ (donc pas
+# protégée par APIKeyMiddleware) et sans aucune vérification de signature :
+# n'importe qui pouvait POSTer {"transaction_id": ..., "status": "SUCCESS"} sur
+# une demande 'pending' pour créditer le wallet et payer la commission du
+# parrain sans jamais payer. La validation des recharges Mobile Money reste
+# manuelle, via mobile_monetisation_admin_review (staff only, espcontrol/api_views.py).
+# Si un opérateur fournit un jour un vrai callback, le réintroduire avec une
+# signature HMAC vérifiée (hmac.compare_digest) sur un secret d'environnement.
 
 
 from monetisation.quota import get_limits_for_user
@@ -525,10 +482,10 @@ def convert_commission_to_wallet(request):
         messages.error(request, "Vous n'avez pas assez de points pour convertir.")
         return redirect('monetisation:referral_dashboard')
 
-    wallet_credit = total_points / POINTS_PER_EURO
+    wallet_credit = round_money(total_points / POINTS_PER_EURO)
 
     wallet, _ = Wallet.objects.get_or_create(user=user)
-    wallet.balance += wallet_credit
+    wallet.balance = round_money(wallet.balance + wallet_credit)
     wallet.save()
 
     commissions.update(amount=0, converted=True)
