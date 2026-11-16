@@ -119,7 +119,9 @@ ROOT_URLCONF = 'monappli.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['templates'],
+        # Chemin absolu : le même dossier en local et sur PythonAnywhere (un
+        # chemin relatif dépend du dossier depuis lequel le serveur est lancé).
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
