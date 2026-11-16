@@ -13,12 +13,36 @@
       <img src="{% static 'img/logo_fou.jpeg' %}" alt="FOUNATEK"
            class="mx-auto mb-3" style="height:90px; border-radius:12px;">
 
+      {% if order.awaiting_card_payment %}
+      <div class="mb-3">
+        <span style="font-size:3.5rem;">⏳</span>
+      </div>
+      <h2 class="fw-bold text-warning mb-1">Paiement en cours de confirmation</h2>
+      <p class="text-muted mb-4">Votre commande sera confirmée dès que Stripe aura validé le paiement — en général quelques secondes. Cette page se met à jour toute seule.</p>
+      <script>
+        (function () {
+          var key = 'founatek-refresh-{{ order.pk }}', n = 0;
+          try { n = parseInt(sessionStorage.getItem(key) || '0', 10); } catch (e) {}
+          if (n < 6) {
+            try { sessionStorage.setItem(key, String(n + 1)); } catch (e) {}
+            setTimeout(function () { window.location.reload(); }, 4000);
+          }
+        })();
+      </script>
+      {% elif order.payment_method == 'card' and order.status == 'cancelled' %}
+      <div class="mb-3">
+        <span style="font-size:3.5rem;">❌</span>
+      </div>
+      <h2 class="fw-bold text-danger mb-1">Commande annulée</h2>
+      <p class="text-muted mb-4">Le paiement par carte n'a pas abouti. Vous pouvez repasser commande depuis votre panier.</p>
+      {% else %}
       <div class="mb-3">
         <span style="font-size:3.5rem;">✅</span>
       </div>
 
       <h2 class="fw-bold text-success mb-1">Commande confirmée !</h2>
       <p class="text-muted mb-4">Merci pour votre achat sur <strong>FOUNATEK SHOP</strong></p>
+      {% endif %}
 
       <div class="bg-light rounded-3 p-3 mb-4 text-start">
         <div class="row g-2">
@@ -28,7 +52,7 @@
           </div>
           <div class="col-6 text-end">
             <small class="text-muted d-block">Total payé</small>
-            <strong class="fs-5 text-success">{% if currency_code != 'GNF' and exchange_rate %}{{ order.total|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}{{ order.total }} GNF{% endif %}</strong>
+            <strong class="fs-5 text-success">{% if order.card_amount_display %}{{ order.card_amount_display }}{% elif currency_code != 'GNF' and exchange_rate %}{{ order.total|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}{{ order.total }} GNF{% endif %}</strong>
           </div>
           {% if order.discount %}
           <div class="col-12">

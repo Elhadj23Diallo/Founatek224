@@ -14,6 +14,27 @@
   </div>
 </div>
 
+{% if order.awaiting_card_payment %}
+<div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-3">
+  <div>
+    <i class="bi bi-credit-card me-1"></i>
+    <strong>{% if payment_cancelled %}Paiement non effectué.{% else %}Paiement par carte en attente.{% endif %}</strong>
+    Payez maintenant{% if order.card_amount_display %} ({{ order.card_amount_display }}){% endif %}, ou annulez la commande pour choisir un autre mode de paiement : vos articles reviendront dans le panier.
+    <small class="d-block text-muted mt-1">Sans paiement, la commande est annulée automatiquement au bout d'une heure.</small>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <form method="post" action="{% url 'founatekapp:order_pay_card' order.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning"><i class="bi bi-credit-card me-1"></i>Payer par carte</button>
+    </form>
+    <form method="post" action="{% url 'founatekapp:order_cancel_card' order.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-dark"><i class="bi bi-x-circle me-1"></i>Annuler la commande</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-4">
   <div class="col-md-8">
     <div class="card border-0 shadow-sm">
@@ -92,6 +113,10 @@
           <span class="badge {% if order.status == 'pending' %}bg-warning text-dark{% elif order.status == 'confirmed' %}bg-info{% elif order.status == 'shipped' %}bg-primary{% elif order.status == 'delivered' %}bg-success{% else %}bg-danger{% endif %}">
             {{ order.get_status_display }}
           </span>
+        </p>
+        <p class="mb-2"><strong>Paiement :</strong> {{ order.get_payment_method_display }}
+          <span class="badge {% if order.payment_status == 'paid' %}bg-success{% elif order.payment_status == 'failed' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ order.get_payment_status_display }}</span>
+          {% if order.card_amount_display %}<br><small class="text-muted">Montant carte : {{ order.card_amount_display }}</small>{% endif %}
         </p>
         {% if order.phone %}
         <p class="mb-2"><strong>Téléphone :</strong> {{ order.phone }}</p>

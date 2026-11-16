@@ -14,10 +14,28 @@ def create_loyalty_account(sender, instance, created, **kwargs):
         LoyaltyAccount.objects.get_or_create(user=instance)
 
 
+ADMIN_ORDER_RECIPIENTS = ['jallohelhadjabdul@gmail.com', 'dialloelhadjabdourahmane510@gmail.com']
+
+
+def send_admin_alert(subject, body):
+    """Alerte l'admin par email (stock insuffisant, paiement sur commande
+    annulée...). Ne lève jamais d'exception."""
+    try:
+        send_mail(
+            subject=f'[FOUNATEK SHOP] {subject}',
+            message=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=ADMIN_ORDER_RECIPIENTS,
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
 def send_admin_order_notification(order):
     """Notifie le vendeur/admin par email de la nouvelle commande."""
     from django.conf import settings as dj_settings
-    recipients = ['jallohelhadjabdul@gmail.com', 'dialloelhadjabdourahmane510@gmail.com']
+    recipients = ADMIN_ORDER_RECIPIENTS
     if not recipients:
         return
     subject = f'Nouvelle commande #{order.pk:06d} - FOUNATEK SHOP'

@@ -4,6 +4,7 @@ from django.views.decorators.cache import never_cache
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
 from django.urls import reverse
@@ -134,6 +135,54 @@ def cart_update(request, item_id):
     return redirect('founatekapp:cart')
 
 
+ALLOWED_PAYMENT_METHODS = {code for code, _ in Order.PAYMENT_METHOD_CHOICES}
+
+
+def stock_problems(lines):
+    """lines : (produit, quantité). Retourne les messages des articles qu'on
+    ne peut pas commander (produit retiré ou stock insuffisant)."""
+    problems = []
+    for product, quantity in lines:
+        if not product.is_active:
+            problems.append(f"« {product.name} » n'est plus disponible.")
+        elif quantity > product.stock:
+            problems.append(
+                f"Stock insuffisant pour « {product.name} » : {product.stock} disponible(s), "
+                f"{quantity} demandé(s)."
+            )
+    return problems
+
+
+def _checkout_context(request, cart, loyalty):
+    from .stripe_checkout import card_availability, stripe_enabled, CARD_CURRENCIES
+    context = {'cart': cart, 'loyalty': loyalty}
+    context.update(_apply_currency_to_request(request))
+    card_available, card_message = card_availability(context['currency_code'])
+    context.update({
+        'stripe_enabled': stripe_enabled(),
+        'card_available': card_available,
+        'card_message': card_message,
+        # Devises carte configurées, pour les boutons « Afficher en EUR/USD ».
+        'card_switch_currencies': list(
+            ExchangeRate.objects.filter(currency_code__in=CARD_CURRENCIES)
+            .values_list('currency_code', flat=True)
+        ),
+    })
+    return context
+
+
+def _card_urls(request, order):
+    success_url = request.build_absolute_uri(
+        reverse('founatekapp:order_confirmation', kwargs={'pk': order.pk})
+    )
+    # Retour depuis Stripe sans payer : page de la commande, où le client peut
+    # relancer le paiement ou annuler (ses articles reviennent dans le panier).
+    cancel_url = request.build_absolute_uri(
+        reverse('founatekapp:order_detail', kwargs={'pk': order.pk})
+    ) + '?paiement=annule'
+    return success_url, cancel_url
+
+
 @login_required
 def checkout(request):
     cart = _get_or_create_cart(request.user)
@@ -150,21 +199,72 @@ def checkout(request):
         note = request.POST.get('note', '').strip()
         payment_method = request.POST.get('payment_method', 'cash')
         payment_reference = request.POST.get('payment_reference', '').strip()
-        use_points = int(request.POST.get('use_points', 0))
+        try:
+            use_points = max(0, int(request.POST.get('use_points', 0) or 0))
+        except ValueError:
+            use_points = 0
 
-        from django.conf import settings as _settings
-        stripe_enabled = getattr(_settings, 'STRIPE_ENABLED', False)
+        def _error(message):
+            messages.error(request, message)
+            return render(request, 'store/checkout.html', _checkout_context(request, cart, loyalty))
 
         if not address:
-            messages.error(request, "L'adresse de livraison est obligatoire.")
-            return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty, 'stripe_enabled': stripe_enabled})
+            return _error("L'adresse de livraison est obligatoire.")
         if not phone:
-            messages.error(request, "Le numéro de téléphone est obligatoire.")
-            return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty, 'stripe_enabled': stripe_enabled})
+            return _error("Le numéro de téléphone est obligatoire.")
+        if payment_method not in ALLOWED_PAYMENT_METHODS:
+            return _error("Mode de paiement invalide.")
+
+        cart_items = list(cart.cart_items.select_related('product'))
+        problems = stock_problems((ci.product, ci.quantity) for ci in cart_items)
+        if problems:
+            for problem in problems:
+                messages.error(request, problem)
+            return redirect('founatekapp:cart')
 
         # Calcul remise fidélité
         use_points = min(use_points, loyalty.points)
         discount = (use_points // 10) * 400
+
+        if payment_method == 'card':
+            from .stripe_checkout import card_availability, create_order_checkout_session, CardPaymentError
+            import stripe
+            currency_code = _get_currency_context(request)['currency_code']
+            card_available, card_message = card_availability(currency_code)
+            if not card_available:
+                return _error(card_message)
+            try:
+                # Tout ou rien : si Stripe refuse, ni commande, ni points
+                # débités, et le panier reste intact.
+                with transaction.atomic():
+                    order = Order.objects.create(
+                        user=request.user,
+                        shipping_address=address,
+                        phone=phone,
+                        contact_email=contact_email or request.user.email,
+                        note=note,
+                        discount=discount,
+                        payment_method='card',
+                        pending_points_used=use_points if discount > 0 else 0,
+                    )
+                    for ci in cart_items:
+                        OrderItem.objects.create(
+                            order=order, product=ci.product,
+                            quantity=ci.quantity, unit_price=ci.product.price,
+                        )
+                    # Points réservés tout de suite (rendus si la commande est
+                    # annulée ou expire) ; le stock, lui, attend le paiement.
+                    if discount > 0 and use_points > 0:
+                        loyalty.use_points(use_points, order)
+                    success_url, cancel_url = _card_urls(request, order)
+                    session = create_order_checkout_session(order, currency_code, success_url, cancel_url)
+                    cart.cart_items.all().delete()
+            except CardPaymentError as exc:
+                return _error(str(exc))
+            except stripe.StripeError:
+                logger.exception("Erreur Stripe lors de la création du paiement carte")
+                return _error("Impossible de démarrer le paiement par carte, réessayez dans un instant.")
+            return redirect(session.url)
 
         order = Order.objects.create(
             user=request.user,
@@ -175,44 +275,17 @@ def checkout(request):
             discount=discount,
             payment_method=payment_method,
             payment_reference=payment_reference,
-            pending_points_used=use_points if payment_method == 'card' else 0,
         )
-        for cart_item in cart.cart_items.all():
-            unit_price = cart_item.product.price
+        for cart_item in cart_items:
             OrderItem.objects.create(
                 order=order,
                 product=cart_item.product,
                 quantity=cart_item.quantity,
-                unit_price=unit_price,
+                unit_price=cart_item.product.price,
             )
-            if payment_method != 'card':
-                # Carte : stock et points différés jusqu'à confirmation du
-                # paiement par le webhook Stripe (voir stripe_checkout.py).
-                p = cart_item.product
-                p.stock = max(0, p.stock - cart_item.quantity)
-                p.save()
-
-        if payment_method == 'card':
-            from django.conf import settings
-            import stripe
-            from .stripe_checkout import create_order_checkout_session
-            if not getattr(settings, 'STRIPE_ENABLED', False):
-                order.delete()
-                messages.error(request, "Le paiement par carte n'est pas disponible pour le moment.")
-                return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty})
-
-            cart.cart_items.all().delete()
-            success_url = request.build_absolute_uri(
-                reverse('founatekapp:order_confirmation', kwargs={'pk': order.pk})
-            )
-            cancel_url = request.build_absolute_uri(reverse('founatekapp:checkout'))
-            try:
-                session = create_order_checkout_session(order, success_url, cancel_url)
-            except stripe.StripeError:
-                logger.exception("Erreur Stripe lors de la création du Checkout Session (commande #%s)", order.pk)
-                messages.error(request, "Impossible de démarrer le paiement par carte, réessayez.")
-                return redirect('founatekapp:order_detail', pk=order.pk)
-            return redirect(session.url)
+            p = cart_item.product
+            p.stock = max(0, p.stock - cart_item.quantity)
+            p.save()
 
         # Points de fidélité — appelé après création des items pour que order.total soit correct
         earned = loyalty.add_points(order)
@@ -220,7 +293,7 @@ def checkout(request):
         # Appliquer la remise points si demandé
         if discount > 0 and use_points > 0:
             loyalty.use_points(use_points, order)
-            messages.info(request, f'{use_points} points utilisés â†’ -{discount:,} GNF de remise.'.replace(',', ' '))
+            messages.info(request, f'{use_points} points utilisés → -{discount:,} GNF de remise.'.replace(',', ' '))
 
         send_order_email(order, earned, loyalty)
         send_admin_order_notification(order)
@@ -228,10 +301,61 @@ def checkout(request):
         messages.success(request, f'Commande #{order.pk} passée avec succès !')
         return redirect('founatekapp:order_confirmation', pk=order.pk)
 
-    from django.conf import settings as _settings
-    context = {'cart': cart, 'loyalty': loyalty, 'stripe_enabled': getattr(_settings, 'STRIPE_ENABLED', False)}
-    context.update(_apply_currency_to_request(request))
-    return render(request, 'store/checkout.html', context)
+    return render(request, 'store/checkout.html', _checkout_context(request, cart, loyalty))
+
+
+@login_required
+def order_pay_card(request, pk):
+    """Relance le paiement carte d'une commande non payée (client revenu de
+    Stripe sans payer, ou erreur temporaire)."""
+    order = get_object_or_404(Order, pk=pk, user=request.user)
+    if request.method != 'POST':
+        return redirect('founatekapp:order_detail', pk=order.pk)
+    if order.payment_method != 'card' or order.payment_status != 'pending' or order.status != 'pending':
+        messages.info(request, "Cette commande n'attend pas de paiement par carte.")
+        return redirect('founatekapp:order_detail', pk=order.pk)
+
+    from .stripe_checkout import create_order_checkout_session, CardPaymentError
+    import stripe
+    currency_code = (order.card_currency or _get_currency_context(request)['currency_code']).upper()
+    success_url, cancel_url = _card_urls(request, order)
+    try:
+        session = create_order_checkout_session(order, currency_code, success_url, cancel_url)
+    except CardPaymentError as exc:
+        messages.error(request, str(exc))
+        return redirect('founatekapp:order_detail', pk=order.pk)
+    except stripe.StripeError:
+        logger.exception("Erreur Stripe en relançant le paiement de la commande #%s", order.pk)
+        messages.error(request, "Impossible de démarrer le paiement par carte, réessayez dans un instant.")
+        return redirect('founatekapp:order_detail', pk=order.pk)
+    return redirect(session.url)
+
+
+@login_required
+def order_cancel_card(request, pk):
+    """Annule une commande carte non payée : points rendus, articles remis
+    dans le panier pour choisir un autre mode de paiement."""
+    order = get_object_or_404(Order, pk=pk, user=request.user)
+    if request.method != 'POST':
+        return redirect('founatekapp:order_detail', pk=order.pk)
+
+    from .stripe_checkout import cancel_card_order_by_customer, CardPaymentError
+    import stripe
+    try:
+        cancelled = cancel_card_order_by_customer(order)
+    except CardPaymentError as exc:
+        messages.error(request, str(exc))
+        return redirect('founatekapp:order_detail', pk=order.pk)
+    except stripe.StripeError:
+        logger.exception("Erreur Stripe en annulant la commande #%s", order.pk)
+        messages.error(request, "Impossible d'annuler pour le moment, réessayez dans un instant.")
+        return redirect('founatekapp:order_detail', pk=order.pk)
+
+    if cancelled:
+        messages.success(request, f"Commande #{order.pk} annulée : vos articles sont de retour dans le panier.")
+        return redirect('founatekapp:cart')
+    messages.info(request, "Cette commande ne peut plus être annulée.")
+    return redirect('founatekapp:order_detail', pk=order.pk)
 
 
 @login_required
@@ -269,7 +393,7 @@ def order_list(request):
 @login_required
 def order_detail(request, pk):
     order = get_object_or_404(Order, pk=pk, user=request.user)
-    context = {'order': order}
+    context = {'order': order, 'payment_cancelled': request.GET.get('paiement') == 'annule'}
     context.update(_apply_currency_to_request(request))
     return render(request, 'store/order_detail.html', context)
 

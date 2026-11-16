@@ -175,6 +175,8 @@ def api_order_detail(request, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def api_checkout(request):
+    from .views import stock_problems, ALLOWED_PAYMENT_METHODS
+
     cart = get_object_or_404(Cart, user=request.user)
     if not cart.cart_items.exists():
         return Response({'error': 'Panier vide.'}, status=400)
@@ -186,11 +188,77 @@ def api_checkout(request):
     if not phone:
         return Response({'error': "Le numéro de téléphone est obligatoire."}, status=400)
 
+    payment_method = request.data.get('payment_method', 'cash')
+    if payment_method not in ALLOWED_PAYMENT_METHODS:
+        return Response({'error': 'Mode de paiement invalide.'}, status=400)
+
+    cart_items = list(cart.cart_items.select_related('product'))
+    problems = stock_problems((ci.product, ci.quantity) for ci in cart_items)
+    if problems:
+        return Response({'error': ' '.join(problems), 'details': problems}, status=400)
+
     loyalty, _ = LoyaltyAccount.objects.get_or_create(user=request.user)
-    use_points = min(int(request.data.get('use_points', 0) or 0), loyalty.points)
+    try:
+        requested_points = max(0, int(request.data.get('use_points', 0) or 0))
+    except (TypeError, ValueError):
+        requested_points = 0
+    use_points = min(requested_points, loyalty.points)
     discount = (use_points // 10) * 400
 
-    payment_method = request.data.get('payment_method', 'cash')
+    if payment_method == 'card':
+        import stripe
+        from django.db import transaction
+        from django.urls import reverse
+        from .models import CurrencyPreference
+        from .stripe_checkout import card_availability, create_order_checkout_session, CardPaymentError
+
+        # Devise : celle envoyée par l'appli, sinon la devise d'affichage
+        # enregistrée pour l'utilisateur. Carte seulement en EUR ou USD.
+        currency_code = (request.data.get('currency') or '').upper()
+        if not currency_code:
+            pref = CurrencyPreference.objects.filter(user=request.user).first()
+            currency_code = (pref.currency_code if pref else 'GNF').upper()
+        card_available, card_message = card_availability(currency_code)
+        if not card_available:
+            return Response({'error': card_message, 'code': 'card_unavailable'}, status=400)
+
+        try:
+            with transaction.atomic():
+                order = Order.objects.create(
+                    user=request.user,
+                    shipping_address=address,
+                    phone=phone,
+                    contact_email=request.data.get('contact_email', '').strip() or request.user.email,
+                    note=request.data.get('note', ''),
+                    discount=discount,
+                    payment_method='card',
+                    pending_points_used=use_points if discount > 0 else 0,
+                )
+                for ci in cart_items:
+                    OrderItem.objects.create(
+                        order=order, product=ci.product,
+                        quantity=ci.quantity, unit_price=ci.product.price,
+                    )
+                if discount > 0 and use_points > 0:
+                    loyalty.use_points(use_points, order)
+                success_url = request.build_absolute_uri(
+                    reverse('founatekapp:order_confirmation', kwargs={'pk': order.pk})
+                )
+                cancel_url = request.build_absolute_uri(
+                    reverse('founatekapp:order_detail', kwargs={'pk': order.pk})
+                ) + '?paiement=annule'
+                session = create_order_checkout_session(order, currency_code, success_url, cancel_url)
+                cart.cart_items.all().delete()
+        except CardPaymentError as exc:
+            return Response({'error': str(exc), 'code': 'card_unavailable'}, status=400)
+        except stripe.StripeError:
+            return Response({'error': "Impossible de démarrer le paiement par carte, réessayez."}, status=502)
+        return Response({
+            'url': session.url,
+            'order_id': order.pk,
+            'currency': order.card_currency.upper(),
+            'amount': order.card_amount_cents / 100,
+        }, status=201)
 
     order = Order.objects.create(
         user=request.user,
@@ -201,41 +269,17 @@ def api_checkout(request):
         discount=discount,
         payment_method=payment_method,
         payment_reference=request.data.get('payment_reference', '').strip(),
-        pending_points_used=use_points if payment_method == 'card' else 0,
     )
-    for ci in cart.cart_items.all():
+    for ci in cart_items:
         OrderItem.objects.create(
             order=order,
             product=ci.product,
             quantity=ci.quantity,
             unit_price=ci.product.price,
         )
-        if payment_method != 'card':
-            # Carte : stock et points différés jusqu'à confirmation du
-            # paiement par le webhook Stripe (voir stripe_checkout.py).
-            p = ci.product
-            p.stock = max(0, p.stock - ci.quantity)
-            p.save()
-
-    if payment_method == 'card':
-        from django.conf import settings
-        import stripe
-        from .stripe_checkout import create_order_checkout_session
-        if not getattr(settings, 'STRIPE_ENABLED', False):
-            order.delete()
-            return Response({'error': "Le paiement par carte n'est pas disponible pour le moment."}, status=503)
-
-        cart.cart_items.all().delete()
-        from django.urls import reverse
-        success_url = request.build_absolute_uri(
-            reverse('founatekapp:order_confirmation', kwargs={'pk': order.pk})
-        )
-        cancel_url = request.build_absolute_uri(reverse('founatekapp:cart'))
-        try:
-            session = create_order_checkout_session(order, success_url, cancel_url)
-        except stripe.StripeError:
-            return Response({'error': "Impossible de démarrer le paiement par carte, réessayez."}, status=502)
-        return Response({'url': session.url, 'order_id': order.pk}, status=201)
+        p = ci.product
+        p.stock = max(0, p.stock - ci.quantity)
+        p.save()
 
     earned = loyalty.add_points(order)
     if discount > 0 and use_points > 0:

@@ -142,25 +142,38 @@ def stripe_webhook(request):
     except (ValueError, stripe.SignatureVerificationError):
         return JsonResponse({"error": "Signature invalide"}, status=400)
 
-    if event["type"] != "checkout.session.completed":
+    event_type = event["type"]
+    if event_type not in ("checkout.session.completed", "checkout.session.expired"):
         return JsonResponse({"received": True}, status=200)
 
     # Depuis stripe-python 13+, les objets Stripe ne sont plus des dict :
     # session.get(...) lève AttributeError (→ erreur 500 renvoyée à Stripe).
     # to_dict() les convertit en vrai dict Python.
     session = event["data"]["object"].to_dict()
-    if session.get("payment_status") != "paid":
-        return JsonResponse({"received": True}, status=200)
+    session_id = session.get("id")
 
     # Un seul webhook Stripe pour tout le projet : on route selon
     # metadata.kind plutôt que de dupliquer un endpoint/secret par app.
     kind = (session.get("metadata") or {}).get("kind")
-    if kind == "shop_order":
-        from founatekapp.stripe_checkout import handle_shop_order_webhook_event
-        handle_shop_order_webhook_event(session)
+
+    if event_type == "checkout.session.expired":
+        # Session jamais payée (abandon) : on clôt ce qui l'attendait.
+        if kind == "shop_order":
+            from founatekapp.stripe_checkout import handle_shop_order_expired
+            handle_shop_order_expired(session)
+        else:
+            PaymentRequest.objects.filter(
+                transaction_id=session_id, provider="stripe", status="pending"
+            ).update(status="failed")
         return JsonResponse({"received": True}, status=200)
 
-    session_id = session.get("id")
+    if session.get("payment_status") != "paid":
+        return JsonResponse({"received": True}, status=200)
+
+    if kind == "shop_order":
+        from founatekapp.stripe_checkout import handle_shop_order_paid
+        handle_shop_order_paid(session)
+        return JsonResponse({"received": True}, status=200)
 
     with transaction.atomic():
         try:

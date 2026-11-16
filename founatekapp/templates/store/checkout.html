@@ -50,6 +50,23 @@
                   <span><i class="bi bi-bank2 me-2"></i>Paiement manuel</span>
                 </label>
               </div>
+              {% if stripe_enabled %}
+              <div class="col-md-4">
+                {% if card_available %}
+                <label class="card h-100 p-3 border-secondary">
+                  <input type="radio" name="payment_method" value="card" class="form-check-input me-2">
+                  <span><i class="bi bi-credit-card me-2"></i>Carte bancaire</span>
+                  <small class="text-muted d-block mt-1">Débitée en {{ currency_code }}</small>
+                </label>
+                {% else %}
+                <label class="card h-100 p-3 border-secondary bg-light text-muted">
+                  <input type="radio" name="payment_method" value="card" class="form-check-input me-2" disabled>
+                  <span><i class="bi bi-credit-card me-2"></i>Carte bancaire</span>
+                  <small class="d-block mt-1">Prix en EUR ou USD uniquement</small>
+                </label>
+                {% endif %}
+              </div>
+              {% endif %}
  <!--              Ceci est un commentaire
               <div class="col-md-4">
                 <label class="card h-100 p-3 border-secondary">
@@ -65,9 +82,23 @@
               </div>
 -->
             </div>
-            <div class="form-text">Le paiement reste à confirmer par l’équipe après votre commande.</div>
+            <div class="form-text" id="payment-help-text">Le paiement reste à confirmer par l’équipe après votre commande.</div>
+            {% if stripe_enabled and not card_available %}
+            <div class="alert alert-warning small mt-2 mb-0">
+              <i class="bi bi-info-circle me-1"></i>{{ card_message }}
+              {% if card_switch_currencies %}
+              <div class="mt-2 d-flex flex-wrap gap-2">
+                {% for code in card_switch_currencies %}
+                <button type="submit" form="switch-currency-{{ code }}" class="btn btn-sm btn-outline-dark">
+                  <i class="bi bi-currency-exchange me-1"></i>Afficher les prix en {{ code }} pour payer par carte
+                </button>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
           </div>
-          <div class="mb-3">
+          <div class="mb-3" id="payment-reference-field">
             <label class="form-label fw-semibold">Numéro de paiement</label>
             <input type="text" name="payment_reference" class="form-control" placeholder="+224 6XX XX XX XX">
           </div>
@@ -91,6 +122,15 @@
             <i class="bi bi-bag-check me-1"></i>Confirmer la commande
           </button>
         </form>
+        {# Formulaires hors du formulaire de commande (pas de formulaires imbriqués) #}
+        {% if stripe_enabled and not card_available %}
+        {% for code in card_switch_currencies %}
+        <form method="post" action="{% url 'founatekapp:set_currency' %}" id="switch-currency-{{ code }}" class="d-none">
+          {% csrf_token %}
+          <input type="hidden" name="currency_code" value="{{ code }}">
+        </form>
+        {% endfor %}
+        {% endif %}
       </div>
     </div>
   </div>
@@ -129,7 +169,11 @@
         </div>
         <div class="alert alert-info small mt-3 mb-0">
           <i class="bi bi-info-circle me-1"></i>
+          {% if card_available %}
+          Paiement manuel : réglé en GNF. Carte bancaire : débitée en <strong>{{ currency_code }}</strong> (montant ci-dessus).
+          {% else %}
           Montant affiché en devise locale : <strong>{{ currency_code }}</strong>. Le paiement final reste en GNF.
+          {% endif %}
         </div>
       </div>
     </div>
@@ -162,6 +206,21 @@
           document.getElementById('final-total').textContent = fmt(newTotal);
         }
     </script>
+{% endif %}
+
+{% if card_available %}
+<script>
+  // Carte : pas de numéro de paiement à saisir, redirection vers Stripe.
+  document.querySelectorAll('input[name="payment_method"]').forEach(function (input) {
+    input.addEventListener('change', function () {
+      var isCard = this.value === 'card';
+      document.getElementById('payment-reference-field').style.display = isCard ? 'none' : '';
+      document.getElementById('payment-help-text').textContent = isCard
+        ? 'Vous serez redirigé vers la page de paiement sécurisée Stripe.'
+        : 'Le paiement reste à confirmer par l’équipe après votre commande.';
+    });
+  });
+</script>
 {% endif %}
 {% endblock %}
 

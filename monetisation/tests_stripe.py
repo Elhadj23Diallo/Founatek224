@@ -174,3 +174,29 @@ class StripeWebhookTest(TestCase):
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, "failed")
         self.assertEqual(ReferralTransaction.objects.count(), 0)
+
+    @patch("monetisation.stripe_payments.stripe.Webhook.construct_event")
+    def test_expired_topup_session_marks_payment_failed_without_credit(self, mock_construct):
+        mock_construct.return_value = stripe.Event.construct_from({
+            "id": "evt_expired_1",
+            "object": "event",
+            "type": "checkout.session.expired",
+            "data": {"object": {
+                "id": "cs_test_valid",
+                "object": "checkout.session",
+                "payment_status": "unpaid",
+                "metadata": {"kind": "wallet_topup"},
+            }},
+        }, "sk_test_dummy")
+
+        resp = self.client.post(
+            "/monetisation/stripe/webhook/",
+            data="{}", content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="good-sig",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, "failed")
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, 0)

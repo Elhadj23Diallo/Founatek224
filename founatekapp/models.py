@@ -114,12 +114,17 @@ class Order(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     payment_reference = models.CharField(max_length=100, blank=True)
-    # Paiement carte (Stripe) uniquement : id de la Checkout Session, pour que
-    # le webhook retrouve la commande ; nombre de points fidélité à débiter
-    # UNE FOIS le paiement confirmé (stock et points sont différés pour la
-    # carte, contrairement à cash/Mobile Money où ils sont immédiats).
+    # Paiement carte (Stripe) uniquement.
+    # - stripe_session_id : la Checkout Session EN COURS (le webhook retrouve la
+    #   commande avec). Remplacée si le client relance le paiement.
+    # - pending_points_used : points fidélité réservés (déjà débités) pour la
+    #   remise ; rendus au client si la commande est annulée ou expire.
+    # - card_currency / card_amount_cents : devise ('eur' ou 'usd') et montant
+    #   exact demandés à Stripe, comparés au montant reçu par le webhook.
     stripe_session_id = models.CharField(max_length=255, blank=True, null=True)
     pending_points_used = models.PositiveIntegerField(default=0)
+    card_currency = models.CharField(max_length=3, blank=True, default='')
+    card_amount_cents = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     shipping_address = models.TextField(blank=True)
@@ -148,6 +153,17 @@ class Order(models.Model):
     @property
     def total_items(self):
         return sum(item.quantity for item in self.items.all())
+
+    @property
+    def card_amount_display(self):
+        """Montant demandé par carte, ex. « 12,50 EUR » (vide si pas de carte)."""
+        if self.card_amount_cents is None:
+            return ''
+        return f'{self.card_amount_cents / 100:.2f} {self.card_currency.upper()}'.replace('.', ',')
+
+    @property
+    def awaiting_card_payment(self):
+        return self.payment_method == 'card' and self.payment_status == 'pending' and self.status == 'pending'
 
 
 class OrderItem(models.Model):
@@ -305,6 +321,22 @@ class LoyaltyAccount(models.Model):
             order=order,
         )
 
+    def refund_points(self, points, order):
+        """Rend des points réservés pour une commande annulée (paiement carte
+        abandonné ou expiré)."""
+        if points <= 0:
+            return
+        self.points += points
+        self.update_level()
+        self.save()
+        LoyaltyTransaction.objects.create(
+            account=self,
+            points=points,
+            kind='refund',
+            description=f'Points rendus — commande #{order.pk} annulée',
+            order=order,
+        )
+
     @property
     def discount_value(self):
         """Valeur GNF des points : 10 pts = 400 GNF."""
@@ -328,7 +360,7 @@ class LoyaltyAccount(models.Model):
 
 
 class LoyaltyTransaction(models.Model):
-    KIND_CHOICES = [('earn', 'Points gagnés'), ('redeem', 'Points utilisés')]
+    KIND_CHOICES = [('earn', 'Points gagnés'), ('redeem', 'Points utilisés'), ('refund', 'Points rendus')]
 
     account     = models.ForeignKey(LoyaltyAccount, on_delete=models.CASCADE, related_name='transactions')
     points      = models.IntegerField()
