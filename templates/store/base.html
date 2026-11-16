@@ -14,7 +14,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container">
-    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'Founatekapp:home' %}">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'founatekapp:home' %}">
       <img src="{% static 'img/logo_fou.jpeg' %}" alt="FOUNATEK" height="38" style="border-radius:6px;">
       <span>FOUNATEK <span class="text-warning">SHOP</span></span>
     </a>
@@ -22,13 +22,13 @@
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarMain">
-      <form class="d-flex me-auto my-2 my-lg-0 w-100 w-lg-auto" action="{% url 'Founatekapp:product_list' %}" method="get" style="max-width:360px;">
+      <form class="d-flex me-auto my-2 my-lg-0 w-100 w-lg-auto" action="{% url 'founatekapp:product_list' %}" method="get" style="max-width:360px;">
         <input class="form-control me-2" type="search" name="q" placeholder="Rechercher..." value="{{ request.GET.q }}">
         <button class="btn btn-outline-light flex-shrink-0" type="submit"><i class="bi bi-search"></i></button>
       </form>
       <ul class="navbar-nav ms-2 align-items-center">
         <li class="nav-item me-2">
-          <form method="post" action="{% url 'Founatekapp:set_currency' %}" class="d-flex align-items-center gap-2">
+          <form method="post" action="{% url 'founatekapp:set_currency' %}" class="d-flex align-items-center gap-2">
             {% csrf_token %}
             <select name="currency_code" class="form-select form-select-sm" onchange="this.form.submit()">
               <option value="GNF" {% if currency_code == 'GNF' %}selected{% endif %}>GNF</option>
@@ -40,13 +40,13 @@
           </form>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'Founatekapp:product_list' %}">
+          <a class="nav-link" href="{% url 'founatekapp:product_list' %}">
             <i class="bi bi-grid-3x3-gap me-1"></i>Produits
           </a>
         </li>
         {% if user.is_authenticated %}
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'Founatekapp:cart' %}">
+          <a class="nav-link" href="{% url 'founatekapp:cart' %}">
             <i class="bi bi-cart3 me-1"></i>Panier
             {% if user.cart.total_items %}
               <span class="badge bg-warning text-dark">{{ user.cart.total_items }}</span>
@@ -54,12 +54,12 @@
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'Founatekapp:order_list' %}">
+          <a class="nav-link" href="{% url 'founatekapp:order_list' %}">
             <i class="bi bi-bag-check me-1"></i>Commandes
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'Founatekapp:loyalty' %}">
+          <a class="nav-link" href="{% url 'founatekapp:loyalty' %}">
             <i class="bi bi-trophy me-1"></i>Fidélité
             {% if user.loyalty.points %}
               <span class="badge" style="background:{{ user.loyalty.level_color }}; color:#000;">

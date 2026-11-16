@@ -1,10 +1,11 @@
 {% extends 'store/base.html' %}
+{% load shop_extras %}
 {% block title %}{{ category.name }} â€” FOUNATEK SHOP{% endblock %}
 {% block content %}
 
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{% url 'Founatekapp:home' %}">Accueil</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'founatekapp:home' %}">Accueil</a></li>
     <li class="breadcrumb-item active">{{ category.name }}</li>
   </ol>
 </nav>
@@ -37,7 +38,7 @@
         <div class="d-flex gap-2">
           <a href="{{ product.get_absolute_url }}" class="btn btn-outline-dark btn-sm flex-grow-1">Voir</a>
           {% if product.in_stock %}
-          <form method="post" action="{% url 'Founatekapp:cart_add' product.pk %}" class="d-inline">
+          <form method="post" action="{% url 'founatekapp:cart_add' product.pk %}" class="d-inline">
             {% csrf_token %}
             <button type="submit" class="btn btn-warning btn-sm">
               <i class="bi bi-cart-plus"></i>

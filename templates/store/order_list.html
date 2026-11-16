@@ -26,7 +26,7 @@
         <td class="fw-bold">{{ order.total }} GNF</td>
         <td class="d-flex gap-1">
           <a href="{{ order.get_absolute_url }}" class="btn btn-sm btn-outline-dark">Détails</a>
-          <a href="{% url 'Founatekapp:order_receipt' order.pk %}" class="btn btn-sm btn-success" title="Reçu PDF">
+          <a href="{% url 'founatekapp:order_receipt' order.pk %}" class="btn btn-sm btn-success" title="Reçu PDF">
             <i class="bi bi-file-earmark-pdf"></i>
           </a>
         </td>
@@ -52,7 +52,7 @@
         <span class="fw-bold text-success">{{ order.total }} GNF</span>
         <div class="d-flex gap-2">
           <a href="{{ order.get_absolute_url }}" class="btn btn-sm btn-outline-dark">Détails</a>
-          <a href="{% url 'Founatekapp:order_receipt' order.pk %}" class="btn btn-sm btn-success">
+          <a href="{% url 'founatekapp:order_receipt' order.pk %}" class="btn btn-sm btn-success">
             <i class="bi bi-file-earmark-pdf"></i>
           </a>
         </div>
@@ -66,7 +66,7 @@
 <div class="text-center py-5">
   <i class="bi bi-bag-x" style="font-size:4rem;color:#ccc;"></i>
   <p class="mt-3 text-muted fs-5">Aucune commande pour l'instant.</p>
-  <a href="{% url 'Founatekapp:product_list' %}" class="btn btn-warning">Commencer mes achats</a>
+  <a href="{% url 'founatekapp:product_list' %}" class="btn btn-warning">Commencer mes achats</a>
 </div>
 {% endif %}
 {% endblock %}

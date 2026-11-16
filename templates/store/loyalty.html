@@ -33,7 +33,7 @@
               <i class="bi bi-info-circle me-1"></i>
               Utilisez-la au moment du paiement
             </div>
-            <a href="{% url 'Founatekapp:checkout' %}" class="btn btn-warning btn-sm mt-2 fw-bold">
+            <a href="{% url 'founatekapp:checkout' %}" class="btn btn-warning btn-sm mt-2 fw-bold">
               <i class="bi bi-credit-card me-1"></i>Utiliser ma réduction
             </a>
           {% else %}
@@ -223,7 +223,7 @@
         {% else %}
         <p class="text-muted text-center py-3">
           Aucune transaction pour l'instant.<br>
-          <a href="{% url 'Founatekapp:product_list' %}" class="btn btn-warning mt-2">
+          <a href="{% url 'founatekapp:product_list' %}" class="btn btn-warning mt-2">
             <i class="bi bi-cart me-1"></i>Commencer Ã  gagner des points
           </a>
         </p>

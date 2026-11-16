@@ -1,10 +1,11 @@
 {% extends 'store/base.html' %}
+{% load shop_extras %}
 {% block title %}{{ product.name }} â€” FOUNATEK SHOP{% endblock %}
 
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{% url 'Founatekapp:home' %}">Accueil</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'founatekapp:home' %}">Accueil</a></li>
     <li class="breadcrumb-item"><a href="{{ product.category.get_absolute_url }}">{{ product.category.name }}</a></li>
     <li class="breadcrumb-item active">{{ product.name }}</li>
   </ol>
@@ -117,7 +118,7 @@
 
     {% if product.in_stock %}
     <div class="d-grid gap-2 mb-4">
-      <form method="post" action="{% url 'Founatekapp:cart_add' product.pk %}" class="d-grid">
+      <form method="post" action="{% url 'founatekapp:cart_add' product.pk %}" class="d-grid">
         {% csrf_token %}
         <button type="submit" class="btn btn-warning btn-lg fw-bold">
           <i class="bi bi-cart-plus me-2"></i>Ajouter au panier
@@ -178,7 +179,7 @@
         <div class="text-muted small">{{ product.review_count }} avis</div>
       </div>
       {% if user.is_authenticated %}
-      <form method="post" action="{% url 'Founatekapp:submit_review' product.pk %}" class="mt-3">
+      <form method="post" action="{% url 'founatekapp:submit_review' product.pk %}" class="mt-3">
         {% csrf_token %}
         <div class="row g-2 align-items-end">
           <div class="col-md-3">

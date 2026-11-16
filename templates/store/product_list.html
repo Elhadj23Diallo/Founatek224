@@ -1,4 +1,5 @@
 {% extends 'store/base.html' %}
+{% load shop_extras %}
 {% block title %}Produits â€” FOUNATEK SHOP{% endblock %}
 {% block content %}
 
@@ -14,7 +15,7 @@
     <div class="collapse d-md-block mb-3" id="sidebar-cats">
       <h5 class="d-none d-md-block">Catégories</h5>
       <div class="list-group">
-        <a href="{% url 'Founatekapp:product_list' %}" class="list-group-item list-group-item-action {% if not current_category %}active{% endif %}">
+        <a href="{% url 'founatekapp:product_list' %}" class="list-group-item list-group-item-action {% if not current_category %}active{% endif %}">
           Tous les produits
         </a>
         {% for cat in categories %}
@@ -63,7 +64,7 @@
                 <i class="bi bi-eye"></i> Voir
               </a>
               {% if product.in_stock %}
-              <form method="post" action="{% url 'Founatekapp:cart_add' product.pk %}" class="d-inline">
+              <form method="post" action="{% url 'founatekapp:cart_add' product.pk %}" class="d-inline">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-warning btn-sm">
                   <i class="bi bi-cart-plus"></i>

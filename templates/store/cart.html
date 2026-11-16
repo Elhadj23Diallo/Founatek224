@@ -1,4 +1,5 @@
 {% extends 'store/base.html' %}
+{% load shop_extras %}
 {% block title %}Panier â€” FOUNATEK SHOP{% endblock %}
 {% block content %}
 
@@ -33,7 +34,7 @@
               {% endif %}
             </td>
             <td style="width:130px;">
-              <form method="post" action="{% url 'Founatekapp:cart_update' item.pk %}" class="d-flex gap-1">
+              <form method="post" action="{% url 'founatekapp:cart_update' item.pk %}" class="d-flex gap-1">
                 {% csrf_token %}
                 <input type="number" name="quantity" value="{{ item.quantity }}" min="0" max="{{ item.product.stock }}" class="form-control form-control-sm" style="width:65px;">
                 <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-check"></i></button>
@@ -47,7 +48,7 @@
               {% endif %}
             </td>
             <td>
-              <form method="post" action="{% url 'Founatekapp:cart_remove' item.pk %}" class="d-inline">
+              <form method="post" action="{% url 'founatekapp:cart_remove' item.pk %}" class="d-inline">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-sm btn-outline-danger">
                   <i class="bi bi-trash"></i>
@@ -69,7 +70,7 @@
             <a href="{{ item.product.get_absolute_url }}" class="fw-semibold text-decoration-none" style="max-width:70%;">
               {{ item.product.name }}
             </a>
-            <form method="post" action="{% url 'Founatekapp:cart_remove' item.pk %}" class="d-inline">
+            <form method="post" action="{% url 'founatekapp:cart_remove' item.pk %}" class="d-inline">
               {% csrf_token %}
               <button type="submit" class="btn btn-sm btn-outline-danger ms-2">
                 <i class="bi bi-trash"></i>
@@ -78,7 +79,7 @@
           </div>
           <small class="text-muted d-block mb-2">{{ item.product.category.name }}</small>
           <div class="d-flex justify-content-between align-items-center">
-            <form method="post" action="{% url 'Founatekapp:cart_update' item.pk %}" class="d-flex gap-1">
+            <form method="post" action="{% url 'founatekapp:cart_update' item.pk %}" class="d-flex gap-1">
               {% csrf_token %}
               <button type="submit" name="quantity" value="{{ item.quantity|add:'-1' }}"
                       class="btn btn-sm btn-outline-secondary">âˆ’</button>
@@ -128,10 +129,10 @@
             {% endif %}
           </span>
         </div>
-        <a href="{% url 'Founatekapp:checkout' %}" class="btn btn-warning w-100 btn-lg mb-2">
+        <a href="{% url 'founatekapp:checkout' %}" class="btn btn-warning w-100 btn-lg mb-2">
           <i class="bi bi-credit-card me-1"></i>Commander
         </a>
-        <a href="{% url 'Founatekapp:product_list' %}" class="btn btn-outline-dark w-100">
+        <a href="{% url 'founatekapp:product_list' %}" class="btn btn-outline-dark w-100">
           <i class="bi bi-arrow-left me-1"></i>Continuer mes achats
         </a>
       </div>
@@ -144,7 +145,7 @@
 <div class="text-center py-5">
   <i class="bi bi-cart-x" style="font-size:4rem;color:#ccc;"></i>
   <p class="mt-3 text-muted fs-5">Votre panier est vide.</p>
-  <a href="{% url 'Founatekapp:product_list' %}" class="btn btn-warning">
+  <a href="{% url 'founatekapp:product_list' %}" class="btn btn-warning">
     <i class="bi bi-grid-3x3-gap me-1"></i>Parcourir les produits
   </a>
 </div>
