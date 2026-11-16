@@ -190,6 +190,8 @@ def api_checkout(request):
     use_points = min(int(request.data.get('use_points', 0) or 0), loyalty.points)
     discount = (use_points // 10) * 400
 
+    payment_method = request.data.get('payment_method', 'cash')
+
     order = Order.objects.create(
         user=request.user,
         shipping_address=address,
@@ -197,8 +199,9 @@ def api_checkout(request):
         contact_email=request.data.get('contact_email', '').strip() or request.user.email,
         note=request.data.get('note', ''),
         discount=discount,
-        payment_method=request.data.get('payment_method', 'cash'),
+        payment_method=payment_method,
         payment_reference=request.data.get('payment_reference', '').strip(),
+        pending_points_used=use_points if payment_method == 'card' else 0,
     )
     for ci in cart.cart_items.all():
         OrderItem.objects.create(
@@ -207,9 +210,32 @@ def api_checkout(request):
             quantity=ci.quantity,
             unit_price=ci.product.price,
         )
-        p = ci.product
-        p.stock = max(0, p.stock - ci.quantity)
-        p.save()
+        if payment_method != 'card':
+            # Carte : stock et points différés jusqu'à confirmation du
+            # paiement par le webhook Stripe (voir stripe_checkout.py).
+            p = ci.product
+            p.stock = max(0, p.stock - ci.quantity)
+            p.save()
+
+    if payment_method == 'card':
+        from django.conf import settings
+        import stripe
+        from .stripe_checkout import create_order_checkout_session
+        if not getattr(settings, 'STRIPE_ENABLED', False):
+            order.delete()
+            return Response({'error': "Le paiement par carte n'est pas disponible pour le moment."}, status=503)
+
+        cart.cart_items.all().delete()
+        from django.urls import reverse
+        success_url = request.build_absolute_uri(
+            reverse('founatekapp:order_confirmation', kwargs={'pk': order.pk})
+        )
+        cancel_url = request.build_absolute_uri(reverse('founatekapp:cart'))
+        try:
+            session = create_order_checkout_session(order, success_url, cancel_url)
+        except stripe.StripeError:
+            return Response({'error': "Impossible de démarrer le paiement par carte, réessayez."}, status=502)
+        return Response({'url': session.url, 'order_id': order.pk}, status=201)
 
     earned = loyalty.add_points(order)
     if discount > 0 and use_points > 0:

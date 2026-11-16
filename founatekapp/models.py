@@ -101,6 +101,7 @@ class Order(models.Model):
         ('cash', 'Paiement manuel / cash'),
         ('orange_money', 'Orange Money'),
         ('mtn_momo', 'MTN MoMo'),
+        ('card', 'Carte bancaire (Stripe)'),
     ]
     PAYMENT_STATUS_CHOICES = [
         ('pending', 'En attente'),
@@ -113,6 +114,12 @@ class Order(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     payment_reference = models.CharField(max_length=100, blank=True)
+    # Paiement carte (Stripe) uniquement : id de la Checkout Session, pour que
+    # le webhook retrouve la commande ; nombre de points fidélité à débiter
+    # UNE FOIS le paiement confirmé (stock et points sont différés pour la
+    # carte, contrairement à cash/Mobile Money où ils sont immédiats).
+    stripe_session_id = models.CharField(max_length=255, blank=True, null=True)
+    pending_points_used = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     shipping_address = models.TextField(blank=True)

@@ -152,6 +152,14 @@ def stripe_webhook(request):
     if session.get("payment_status") != "paid":
         return JsonResponse({"received": True}, status=200)
 
+    # Un seul webhook Stripe pour tout le projet : on route selon
+    # metadata.kind plutôt que de dupliquer un endpoint/secret par app.
+    kind = (session.get("metadata") or {}).get("kind")
+    if kind == "shop_order":
+        from founatekapp.stripe_checkout import handle_shop_order_webhook_event
+        handle_shop_order_webhook_event(session)
+        return JsonResponse({"received": True}, status=200)
+
     session_id = session.get("id")
 
     with transaction.atomic():

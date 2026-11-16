@@ -43,28 +43,36 @@
           <div class="mb-3">
             <label class="form-label fw-semibold">Mode de paiement</label>
             <div class="row g-3">
-              <div class="col-md-4">
+              <div class="col-md-{% if stripe_enabled %}3{% else %}4{% endif %}">
                 <label class="card h-100 p-3 border-warning shadow-sm">
                   <input type="radio" name="payment_method" value="cash" class="form-check-input me-2" checked>
                   <span><i class="bi bi-bank2 me-2"></i>Paiement manuel</span>
                 </label>
               </div>
-              <div class="col-md-4">
+              <div class="col-md-{% if stripe_enabled %}3{% else %}4{% endif %}">
                 <label class="card h-100 p-3 border-secondary">
                   <input type="radio" name="payment_method" value="orange_money" class="form-check-input me-2">
                   <span><i class="bi bi-phone me-2"></i>Orange Money</span>
                 </label>
               </div>
-              <div class="col-md-4">
+              <div class="col-md-{% if stripe_enabled %}3{% else %}4{% endif %}">
                 <label class="card h-100 p-3 border-secondary">
                   <input type="radio" name="payment_method" value="mtn_momo" class="form-check-input me-2">
                   <span><i class="bi bi-phone me-2"></i>MTN MoMo</span>
                 </label>
               </div>
+              {% if stripe_enabled %}
+              <div class="col-md-3">
+                <label class="card h-100 p-3 border-secondary" id="card-method-label">
+                  <input type="radio" name="payment_method" value="card" class="form-check-input me-2" id="card-method-input">
+                  <span><i class="bi bi-credit-card me-2"></i>Carte bancaire</span>
+                </label>
+              </div>
+              {% endif %}
             </div>
-            <div class="form-text">Le paiement reste à confirmer par l’équipe après votre commande.</div>
+            <div class="form-text" id="payment-help-text">Le paiement reste à confirmer par l’équipe après votre commande.</div>
           </div>
-          <div class="mb-3">
+          <div class="mb-3" id="payment-reference-field">
             <label class="form-label fw-semibold">Numéro de paiement</label>
             <input type="text" name="payment_reference" class="form-control" placeholder="+224 6XX XX XX XX">
           </div>
@@ -158,6 +166,20 @@ function updateDiscount(v) {
   // Total final
   document.getElementById('final-total').textContent = newTotal.toLocaleString('fr-FR') + ' GNF';
 }
+</script>
+{% endif %}
+
+{% if stripe_enabled %}
+<script>
+document.querySelectorAll('input[name="payment_method"]').forEach(function (input) {
+  input.addEventListener('change', function () {
+    const isCard = this.value === 'card';
+    document.getElementById('payment-reference-field').style.display = isCard ? 'none' : '';
+    document.getElementById('payment-help-text').textContent = isCard
+      ? 'Vous serez redirigé vers une page de paiement sécurisée Stripe.'
+      : 'Le paiement reste à confirmer par l’équipe après votre commande.';
+  });
+});
 </script>
 {% endif %}
 {% endblock %}

@@ -1,13 +1,17 @@
-﻿from decimal import Decimal
+﻿import logging
+from decimal import Decimal
 from django.views.decorators.cache import never_cache
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
+from django.urls import reverse
 from django.utils import timezone
 from .models import Category, Product, Cart, CartItem, Order, OrderItem, LoyaltyAccount, ExchangeRate, Review, get_display_price
 from .signals import send_order_email, send_admin_order_notification
+
+logger = logging.getLogger(__name__)
 
 
 def _get_currency_context(request):
@@ -148,12 +152,15 @@ def checkout(request):
         payment_reference = request.POST.get('payment_reference', '').strip()
         use_points = int(request.POST.get('use_points', 0))
 
+        from django.conf import settings as _settings
+        stripe_enabled = getattr(_settings, 'STRIPE_ENABLED', False)
+
         if not address:
             messages.error(request, "L'adresse de livraison est obligatoire.")
-            return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty})
+            return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty, 'stripe_enabled': stripe_enabled})
         if not phone:
             messages.error(request, "Le numéro de téléphone est obligatoire.")
-            return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty})
+            return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty, 'stripe_enabled': stripe_enabled})
 
         # Calcul remise fidélité
         use_points = min(use_points, loyalty.points)
@@ -168,9 +175,9 @@ def checkout(request):
             discount=discount,
             payment_method=payment_method,
             payment_reference=payment_reference,
+            pending_points_used=use_points if payment_method == 'card' else 0,
         )
         for cart_item in cart.cart_items.all():
-            # Appliquer remise proportionnellement sur le premier article
             unit_price = cart_item.product.price
             OrderItem.objects.create(
                 order=order,
@@ -178,9 +185,34 @@ def checkout(request):
                 quantity=cart_item.quantity,
                 unit_price=unit_price,
             )
-            p = cart_item.product
-            p.stock = max(0, p.stock - cart_item.quantity)
-            p.save()
+            if payment_method != 'card':
+                # Carte : stock et points différés jusqu'à confirmation du
+                # paiement par le webhook Stripe (voir stripe_checkout.py).
+                p = cart_item.product
+                p.stock = max(0, p.stock - cart_item.quantity)
+                p.save()
+
+        if payment_method == 'card':
+            from django.conf import settings
+            import stripe
+            from .stripe_checkout import create_order_checkout_session
+            if not getattr(settings, 'STRIPE_ENABLED', False):
+                order.delete()
+                messages.error(request, "Le paiement par carte n'est pas disponible pour le moment.")
+                return render(request, 'store/checkout.html', {'cart': cart, 'loyalty': loyalty})
+
+            cart.cart_items.all().delete()
+            success_url = request.build_absolute_uri(
+                reverse('founatekapp:order_confirmation', kwargs={'pk': order.pk})
+            )
+            cancel_url = request.build_absolute_uri(reverse('founatekapp:checkout'))
+            try:
+                session = create_order_checkout_session(order, success_url, cancel_url)
+            except stripe.StripeError:
+                logger.exception("Erreur Stripe lors de la création du Checkout Session (commande #%s)", order.pk)
+                messages.error(request, "Impossible de démarrer le paiement par carte, réessayez.")
+                return redirect('founatekapp:order_detail', pk=order.pk)
+            return redirect(session.url)
 
         # Points de fidélité — appelé après création des items pour que order.total soit correct
         earned = loyalty.add_points(order)
@@ -196,7 +228,8 @@ def checkout(request):
         messages.success(request, f'Commande #{order.pk} passée avec succès !')
         return redirect('founatekapp:order_confirmation', pk=order.pk)
 
-    context = {'cart': cart, 'loyalty': loyalty}
+    from django.conf import settings as _settings
+    context = {'cart': cart, 'loyalty': loyalty, 'stripe_enabled': getattr(_settings, 'STRIPE_ENABLED', False)}
     context.update(_apply_currency_to_request(request))
     return render(request, 'store/checkout.html', context)
 
