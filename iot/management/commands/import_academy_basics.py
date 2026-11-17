@@ -92,7 +92,10 @@ class Command(BaseCommand):
         if parcours is None:
             raise CommandError("Parcours Livre 1 introuvable. Exécutez prepare_academy_book d'abord.")
         if parcours.is_published:
-            raise CommandError("Le parcours est publié : import interrompu pour éviter un changement visible.")
+            self.stdout.write(self.style.WARNING(
+                "Le parcours est publié, mais les nouvelles fiches resteront en brouillon "
+                "(AcademyBookLesson.published=False) et ne seront pas accessibles aux apprenants."
+            ))
         for i, fiche in enumerate(FICHES, start=1):
             if Lecon.objects.filter(parcours=parcours, titre=fiche["title"]).exists():
                 self.stdout.write(f"Déjà présente, ignorée : {fiche['title']}")
