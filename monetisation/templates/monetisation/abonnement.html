@@ -204,9 +204,16 @@ body {
                 {% endif %}
                 <option value="paypal">PayPal / Carte Bancaire</option>
             </select>
+            {% comment "Mobile Money : pas encore intégré, à réactiver plus tard" %}
             <p style="color:#94a3b8; font-size:0.8rem; margin-top:8px;">
                 <i class="fas fa-circle-info"></i> Pour payer par Mobile Money, rechargez d'abord votre wallet
                 (<a href="{% url 'monetisation:monetisation_acheter_credit' %}" style="color:#22d3ee;">Acheter du crédit</a>),
+                puis payez votre abonnement avec le solde.
+            </p>
+            {% endcomment %}
+            <p style="color:#94a3b8; font-size:0.8rem; margin-top:8px;">
+                <i class="fas fa-circle-info"></i> Pour payer par carte bancaire, rechargez d'abord votre wallet
+                (<a href="{% url 'monetisation:wallet_dashboard' %}#recharge-carte" style="color:#22d3ee;">Recharger par carte</a>),
                 puis payez votre abonnement avec le solde.
             </p>
         </div>
