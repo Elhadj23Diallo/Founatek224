@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "author": "Founatek Academy",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-uno",
+      "id": "uno",
+      "top": 20,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -30,
+      "left": 395,
+      "rotate": 90,
+      "attrs": {
+        "value": "2200"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 100,
+      "left": 395,
+      "rotate": 90,
+      "attrs": {
+        "value": "1000"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "uno:5V",
+      "r1:1",
+      "red",
+      []
+    ],
+    [
+      "r1:2",
+      "r2:1",
+      "green",
+      []
+    ],
+    [
+      "r1:2",
+      "uno:A0",
+      "green",
+      []
+    ],
+    [
+      "r2:2",
+      "uno:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}
