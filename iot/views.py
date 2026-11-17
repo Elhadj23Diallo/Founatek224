@@ -289,7 +289,14 @@ class ProgressionViewSet(viewsets.ModelViewSet):
         return Progression.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        if not can_read_lesson(self.request.user, serializer.validated_data["lecon"]):
+            raise PermissionDenied("Accès Academy requis.")
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        if not can_read_lesson(self.request.user, serializer.instance.lecon):
+            raise PermissionDenied("Accès Academy requis.")
+        serializer.save()
 
 
 
