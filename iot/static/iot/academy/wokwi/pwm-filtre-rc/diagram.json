@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "author": "Founatek Academy",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-uno",
+      "id": "uno",
+      "top": 20,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -20,
+      "left": 390,
+      "rotate": 90,
+      "attrs": {
+        "value": "10000"
+      }
+    },
+    {
+      "type": "wokwi-capacitor",
+      "id": "c1",
+      "top": 100,
+      "left": 440,
+      "attrs": {
+        "value": "10uF"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "uno:9",
+      "r1:1",
+      "orange",
+      []
+    ],
+    [
+      "r1:2",
+      "c1:1",
+      "green",
+      []
+    ],
+    [
+      "r1:2",
+      "uno:A0",
+      "green",
+      []
+    ],
+    [
+      "c1:2",
+      "uno:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}
