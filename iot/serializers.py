@@ -68,7 +68,14 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 
 class ParcoursSerializer(serializers.ModelSerializer):
-    lecons = LeconSerializer(many=True, read_only=True)
+    lecons = serializers.SerializerMethodField()
+
+    def get_lecons(self, obj):
+        from .academy_access import filter_readable_lessons
+        request = self.context.get('request')
+        user = request.user if request else None
+        lecons = filter_readable_lessons(obj.lecons.all(), user)
+        return LeconSerializer(lecons, many=True, context=self.context).data
     projects = ProjectSerializer(many=True, read_only=True)
 
     class Meta:
