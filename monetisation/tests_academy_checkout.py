@@ -62,15 +62,22 @@ class AcademyCheckoutTests(TestCase):
         self.assertEqual(self.payment.status, "failed")
         self.assertFalse(AcademyPackAccess.objects.filter(user=self.user).exists())
 
-    @override_settings(STRIPE_ENABLED=True, STRIPE_SECRET_KEY="sk_test_fake")
+    @override_settings(STRIPE_ENABLED=True, STRIPE_SECRET_KEY="sk_test_fake", ACADEMY_BOOK_CHECKOUT_ENABLED=True)
+    @patch("monetisation.academy_checkout.AcademyBookLesson.objects.filter")
     @patch("monetisation.academy_checkout.stripe.checkout.Session.create")
-    def test_checkout_uses_fixed_price(self, create):
+    def test_checkout_uses_fixed_price(self, lesson_filter, create):
+        lesson_filter.return_value.exclude.return_value.exists.return_value = True
         create.return_value = SimpleNamespace(id="cs_test_new", url="https://checkout.stripe.com/test")
         self.client.force_login(self.user)
         response = self.client.post(reverse("monetisation:academy_create_checkout"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(create.call_args.kwargs["line_items"][0]["price_data"]["unit_amount"], 999)
         self.assertTrue(AcademyPackPayment.objects.filter(checkout_id="cs_test_new", status="pending").exists())
+
+    def test_checkout_disabled_by_default(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("monetisation:academy_create_checkout"))
+        self.assertEqual(response.status_code, 503)
 
     def test_anonymous_checkout_requires_login(self):
         response = self.client.post(reverse("monetisation:academy_create_checkout"))
