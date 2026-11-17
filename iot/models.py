@@ -381,3 +381,13 @@ class AcademyPackPayment(models.Model):
     amount_eur = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class AcademyBookLesson(models.Model):
+    """Association explicite : les autres parcours ne sont jamais paywallés."""
+    lecon = models.OneToOneField(Lecon, on_delete=models.CASCADE, related_name="academy_book_entry")
+    chapter_number = models.CharField(max_length=2)
+    published = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Livre 1 / {self.chapter_number} / {self.lecon_id}"
