@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from iot.book_catalog import BOOK_SLUG, PACK_PRICE_EUR
-from iot.models import AcademyPackAccess, AcademyPackPayment
+from iot.models import AcademyPackAccess, AcademyPackPayment, AcademyBookLesson
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 @require_POST
 def create_academy_checkout(request):
     """Le serveur fixe le prix. CSRF Django et session utilisateur requis."""
+    if not getattr(settings, "ACADEMY_BOOK_CHECKOUT_ENABLED", False):
+        return JsonResponse({"error": "Les achats Academy ne sont pas encore ouverts."}, status=503)
+    if not AcademyBookLesson.objects.filter(published=True).exclude(chapter_number="00").exists():
+        return JsonResponse({"error": "Le pack payant n’est pas encore disponible."}, status=503)
     if not getattr(settings, "STRIPE_ENABLED", False):
         return JsonResponse({"error": "Paiement indisponible."}, status=503)
     if AcademyPackAccess.objects.filter(
