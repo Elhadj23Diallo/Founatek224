@@ -67,7 +67,7 @@
       <div class="thumb-item border rounded overflow-hidden flex-shrink-0 {% if forloop.first %}border-warning active-thumb{% endif %}"
            style="cursor:pointer; width:56px; height:56px;"
            data-index="{{ forloop.counter0 }}"
-           onclick="goToSlide({{ forloop.counter0 }})">
+           onclick="goToSlide({{ forloop.counter0 }})" aria-label="Afficher l’image {{ forloop.counter }}">
         <img src="{{ img_url }}" class="w-100 h-100" style="object-fit:cover;" alt="Vue {{ forloop.counter }}">
       </div>
       {% endfor %}
@@ -108,10 +108,10 @@
             {% endfor %}
           </div>
           {% if all_images|length > 1 %}
-          <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+          <button class="carousel-control-prev" type="button" aria-label="Image précédente" data-bs-target="#productCarousel" data-bs-slide="prev">
             <span class="carousel-control-prev-icon"></span>
           </button>
-          <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+          <button class="carousel-control-next" type="button" aria-label="Image suivante" data-bs-target="#productCarousel" data-bs-slide="next">
             <span class="carousel-control-next-icon"></span>
           </button>
           {% endif %}
