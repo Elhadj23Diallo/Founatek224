@@ -369,3 +369,15 @@ class AcademyPackAccess(models.Model):
 
     def __str__(self):
         return f"{self.user_id} - {self.pack_slug} - {'actif' if self.active else 'inactif'}"
+
+
+class AcademyPackPayment(models.Model):
+    """Checkout distinct du wallet; aucun accès n'est accordé avant webhook signé."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="academy_pack_payments")
+    pack_slug = models.SlugField(max_length=120)
+    provider = models.CharField(max_length=20, default="stripe")
+    checkout_id = models.CharField(max_length=255, unique=True)
+    payment_reference = models.CharField(max_length=255, blank=True)
+    amount_eur = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
