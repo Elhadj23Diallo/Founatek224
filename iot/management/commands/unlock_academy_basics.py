@@ -29,7 +29,7 @@ class Command(BaseCommand):
         if len(entries) != len(TITLES) or {e.lecon.titre for e in entries} != set(TITLES):
             raise CommandError("Les deux fiches attendues sont introuvables. Importez-les d'abord ; aucun changement.")
         for entry in entries:
-            if not entry.lecon.blocs.exists() or not entry.lecon.quiz_set.exists():
+            if not entry.lecon.blocs.exists() or not entry.lecon.quizzes.exists():
                 raise CommandError(f"Contenu ou quiz manquant pour {entry.lecon.titre}. Aucun changement.")
         for entry in entries:
             self.stdout.write(f"{entry.lecon.titre} : {'déjà accessible' if entry.published else 'à déverrouiller'}")
