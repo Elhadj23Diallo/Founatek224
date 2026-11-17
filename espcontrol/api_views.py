@@ -1800,14 +1800,11 @@ def mobile_monetisation_admin_review(request, payment_id):
                 # ⚡ Commission au parrain — UNIQUEMENT ici, maintenant que le
                 # paiement est confirmé par un admin (plus jamais avant, voir
                 # l'ancien mobile_money_callback non authentifié, supprimé).
-                if hasattr(payment.user, "referred_by"):
-                    ref = payment.user.referred_by
-                    commission_points = payment.amount * 0.05 * 1000
-                    ReferralTransaction.objects.create(
-                        referral=ref, amount=commission_points,
-                        description=f"Commission sur recharge de {payment.user.username}",
-                        converted=False,
-                    )
+                from monetisation.utils import award_referral_commission
+                award_referral_commission(
+                    payment.user, payment.amount,
+                    f"Commission sur recharge de {payment.user.username}",
+                )
             elif action == "reject":
                 payment.status = "failed"
             else:
@@ -1840,15 +1837,17 @@ def mobile_monetisation_referral(request):
             defaults={"code": str(uuid_lib.uuid4())[:8]},
         )
         referred_users = Referral.objects.filter(referrer=request.user)
-        commissions = ReferralTransaction.objects.filter(referral__referrer=request.user).order_by("-created_at")[:20]
-        total_points = sum(c.amount for c in commissions if not c.converted)
+        all_commissions = ReferralTransaction.objects.filter(referral__referrer=request.user)
+        # Total sur TOUTES les commissions non converties (pas seulement les 20 affichées)
+        total_points = round(sum(c.amount for c in all_commissions if not c.converted), 2)
+        commissions = all_commissions.order_by("-created_at")[:20]
         return Response({
             "code": referral.code,
             "referred_count": referred_users.count(),
             "total_points": total_points,
             "commissions": [{
                 "id": c.id,
-                "amount": c.amount,
+                "amount": round(c.amount, 2),
                 "description": c.description,
                 "converted": c.converted,
                 "created_at": c.created_at.isoformat(),
@@ -1864,24 +1863,14 @@ def mobile_monetisation_referral(request):
 def mobile_monetisation_convert(request):
     """Convertit les points de parrainage en crédits wallet (1000 pts = 1 EUR)"""
     try:
-        from monetisation.models import Referral, ReferralTransaction, Wallet, Transaction
-        from monetisation.utils import round_money
-        commissions = ReferralTransaction.objects.filter(
-            referral__referrer=request.user, converted=False
-        )
-        total = sum(c.amount for c in commissions)
-        if total < 1000:
-            return Response({"error": "Minimum 1000 points requis"}, status=400)
-        euros = round_money(total / 1000)
-        commissions.update(converted=True)
-        wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
-        wallet.balance = round_money(wallet.balance + euros)
-        wallet.save()
-        Transaction.objects.create(
-            user=request.user, type="credit",
-            amount=euros, description=f"Conversion {int(total)} points de parrainage"
-        )
-        return Response({"converted_points": total, "euros_credited": euros, "new_balance": wallet.balance})
+        from monetisation.models import Wallet
+        from monetisation.utils import convert_referral_points
+        try:
+            points, euros = convert_referral_points(request.user)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=400)
+        wallet = Wallet.objects.get(user=request.user)
+        return Response({"converted_points": points, "euros_credited": euros, "new_balance": wallet.balance})
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -2016,13 +2005,11 @@ def mobile_monetisation_paypal_capture_order(request):
                 sub.save()
                 Transaction.objects.create(user=request.user, type="subscription", amount=captured_amount, description=f"Abonnement {plan} via PayPal")
 
-            if hasattr(request.user, "referred_by"):
-                ref = request.user.referred_by
-                commission_points = captured_amount * 0.05 * 1000
-                ReferralTransaction.objects.create(
-                    referral=ref, amount=commission_points,
-                    description=f"Commission sur {payment_type} de {request.user.username}", converted=False,
-                )
+            from monetisation.utils import award_referral_commission
+            award_referral_commission(
+                request.user, captured_amount,
+                f"Commission sur {payment_type} de {request.user.username}",
+            )
 
             payment.status = "success"
             payment.save()

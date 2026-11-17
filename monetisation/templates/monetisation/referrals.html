@@ -103,7 +103,8 @@
         <div class="card-title" style="justify-content: space-between;">
             <span><i class="fas fa-coins"></i> Commissions reçues (en points)</span>
             <span style="font-size:0.9rem; color:#94a3b8;">
-                Total points: <span class="total-amount">{{ total_commissions }}</span>
+                Total points : <span class="total-amount">{{ total_commissions|floatformat:"-2" }}</span>
+                <small>(≈ {{ total_commissions_eur|floatformat:2 }} €)</small>
             </span>
         </div>
 
@@ -116,7 +117,7 @@
                     {% for c in commissions %}
                         <tr>
                             <td>{{ c.description }}</td>
-                            <td style="color:#22c55e; font-weight:bold;">{{ c.amount }}</td>
+                            <td style="color:#22c55e; font-weight:bold;">{{ c.amount|floatformat:"-2" }}</td>
                             <td>{{ c.created_at|date:"d/m/Y H:i" }}</td>
                             <td>
                                 {% if c.converted %}✅ Convertie{% else %}⏳ Non convertie{% endif %}
@@ -133,14 +134,15 @@
         </div>
 
         <!-- Bouton conversion -->
-        {% if total_commissions >= POINTS_PER_EURO %}
+        {% if total_commissions >= MIN_POINTS_TO_CONVERT %}
             <form method="POST" action="{% url 'monetisation:convert_commission_to_wallet' %}" style="margin-top:20px; text-align:center;">
                 {% csrf_token %}
                 <button type="submit" class="btn-convert"><i class="fas fa-exchange-alt"></i> Convertir mes points en crédits Wallet</button>
             </form>
         {% else %}
             <p style="margin-top:10px; color:#94a3b8; font-size:0.9rem; text-align:center;">
-                Vous devez accumuler au moins {{ POINTS_PER_EURO }} points pour convertir.
+                Vous devez accumuler au moins {{ MIN_POINTS_TO_CONVERT }} points (1 €) pour convertir.
+                Vous recevez 5 % de chaque recharge ou paiement de vos filleuls (1 000 points = 1 €).
             </p>
         {% endif %}
     </div>

@@ -24,7 +24,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import PaymentRequest, Wallet, Transaction, ReferralTransaction
-from .utils import round_money
+from .utils import round_money, award_referral_commission
 
 logger = logging.getLogger(__name__)
 
@@ -217,15 +217,10 @@ def stripe_webhook(request):
 
         # ⚡ Commission au parrain — ici seulement, une fois le paiement
         # confirmé par Stripe (jamais à la création de la session).
-        if hasattr(payment.user, "referred_by"):
-            ref = payment.user.referred_by
-            commission_points = payment.amount * 0.05 * 1000
-            ReferralTransaction.objects.create(
-                referral=ref,
-                amount=commission_points,
-                description=f"Commission sur recharge de {payment.user.username}",
-                converted=False,
-            )
+        award_referral_commission(
+            payment.user, payment.amount,
+            f"Commission sur recharge de {payment.user.username}",
+        )
 
         payment.status = "success"
         payment.save()

@@ -46,6 +46,66 @@ def round_money(value):
     return round(float(value), 2)
 
 
+# ---------------- Parrainage ----------------
+REFERRAL_COMMISSION_RATE = 0.05   # le parrain reçoit 5 % des paiements réels du filleul
+POINTS_PER_EURO = 1000            # 1 000 points = 1 €
+MIN_POINTS_TO_CONVERT = 1000      # conversion en crédits wallet à partir de 1 €
+
+
+def award_referral_commission(payer, amount_eur, description):
+    """Crédite au parrain de `payer` 5 % de `amount_eur`, en points.
+
+    À appeler UNIQUEMENT quand de l'argent réel est confirmé (recharge Stripe,
+    PayPal capturé, Mobile Money validé par un admin) — jamais pour un
+    paiement avec le solde du wallet (argent déjà commissionné à la recharge).
+
+    Aucune commission s'il n'y a pas de parrain, ou si le parrain est le
+    payeur lui-même (auto-parrainage). Retourne la ReferralTransaction créée,
+    ou None."""
+    from .models import Referral, ReferralTransaction
+
+    ref = Referral.objects.filter(referred=payer).first()
+    if ref is None or ref.referrer_id is None or ref.referrer_id == payer.id:
+        return None
+    points = round(float(amount_eur) * REFERRAL_COMMISSION_RATE * POINTS_PER_EURO, 2)
+    if points <= 0:
+        return None
+    return ReferralTransaction.objects.create(
+        referral=ref, amount=points, description=description, converted=False,
+    )
+
+
+def convert_referral_points(user):
+    """Convertit tous les points non convertis de `user` en crédits wallet.
+
+    Verrouille les lignes pour qu'un double clic ne crédite pas deux fois.
+    Retourne (points, euros) ou lève ValueError(message) si le minimum n'est
+    pas atteint."""
+    from django.db import transaction as db_transaction
+    from .models import ReferralTransaction, Wallet, Transaction
+
+    with db_transaction.atomic():
+        commissions = list(
+            ReferralTransaction.objects.select_for_update()
+            .filter(referral__referrer=user, converted=False)
+        )
+        points = round(sum(c.amount for c in commissions), 2)
+        if points < MIN_POINTS_TO_CONVERT:
+            raise ValueError(
+                f"Il faut au moins {MIN_POINTS_TO_CONVERT} points (1 €) pour convertir."
+            )
+        euros = round_money(points / POINTS_PER_EURO)
+        ReferralTransaction.objects.filter(pk__in=[c.pk for c in commissions]).update(converted=True)
+        wallet, _ = Wallet.objects.select_for_update().get_or_create(user=user, defaults={"balance": 0})
+        wallet.balance = round_money(wallet.balance + euros)
+        wallet.save()
+        Transaction.objects.create(
+            user=user, type="credit", amount=euros,
+            description=f"Conversion de {points:g} points de parrainage",
+        )
+    return points, euros
+
+
 def validate_paypal_order_params(payment_type, plan, raw_amount):
     """Calcule le montant REEL a facturer pour un ordre PayPal, sans jamais
     faire confiance au montant envoye par le client.

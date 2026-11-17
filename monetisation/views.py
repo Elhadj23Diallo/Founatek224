@@ -14,6 +14,10 @@ from .utils import (
     PLAN_LIMITS,
     PLAN_PRICES,
     round_money,
+    award_referral_commission,
+    convert_referral_points,
+    POINTS_PER_EURO,
+    MIN_POINTS_TO_CONVERT,
     validate_paypal_order_params,
     verify_paypal_capture,
 )
@@ -149,15 +153,10 @@ def capture_paypal_order(request):
 
         # ⚡ Attribution de la commission au parrain (points, pas wallet) —
         # seulement ici, APRÈS confirmation du paiement par PayPal lui-même.
-        if hasattr(request.user, 'referred_by'):
-            ref = request.user.referred_by
-            commission_points = captured_amount * 0.05 * 1000  # 1000 points = 1€
-            ReferralTransaction.objects.create(
-                referral=ref,
-                amount=commission_points,
-                description=f"Commission sur {payment_type} de {request.user.username}",
-                converted=False
-            )
+        award_referral_commission(
+            request.user, captured_amount,
+            f"Commission sur {payment_type} de {request.user.username}",
+        )
 
         payment.status = 'success'
         payment.save()
@@ -423,17 +422,15 @@ def referral_dashboard(request):
     commissions = ReferralTransaction.objects.filter(referral__referrer=user).order_by('-created_at')
 
     # Total uniquement des commissions NON converties
-    total_commissions = sum(c.amount for c in commissions if not c.converted)
-
-    # Conversion ratio (ex: 1000 points = 1€)
-    POINTS_PER_EURO = 0.001  # ⚡ défini ici pour template et calcul
+    total_commissions = round(sum(c.amount for c in commissions if not c.converted), 2)
 
     return render(request, 'monetisation/referrals.html', {
         'referral_code': referral_code,
         'referrals': referrals,
         'commissions': commissions,           # Affichage complet
         'total_commissions': total_commissions,  # Total non converti
-        'POINTS_PER_EURO': POINTS_PER_EURO    # Envoi au template
+        'total_commissions_eur': total_commissions / POINTS_PER_EURO,
+        'MIN_POINTS_TO_CONVERT': MIN_POINTS_TO_CONVERT,
     })
 
 
@@ -483,37 +480,20 @@ def wallet_paypal_checkout(request):
 from django.contrib import messages
 
 
-POINTS_PER_EURO = 1000      # 1000 points = 1€
-MIN_POINTS_REQUIRED = 0.001 # minimum pour convertir
-
 @login_required
 def convert_commission_to_wallet(request):
-    user = request.user
-
-    commissions = ReferralTransaction.objects.filter(
-        referral__referrer=user,
-        converted=False
-    )
-
-    total_points = sum(c.amount for c in commissions)
-
-    if total_points < MIN_POINTS_REQUIRED:
-        messages.error(request, "Vous n'avez pas assez de points pour convertir.")
+    if request.method != 'POST':
         return redirect('monetisation:referral_dashboard')
-
-    wallet_credit = round_money(total_points / POINTS_PER_EURO)
-
-    wallet, _ = Wallet.objects.get_or_create(user=user)
-    wallet.balance = round_money(wallet.balance + wallet_credit)
-    wallet.save()
-
-    commissions.update(amount=0, converted=True)
+    try:
+        points, euros = convert_referral_points(request.user)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect('monetisation:referral_dashboard')
 
     messages.success(
         request,
-        f"Vous avez converti {total_points} points en {wallet_credit:.4f} € dans votre Wallet !"
+        f"Vous avez converti {points:g} points en {euros:.2f} € dans votre Wallet !"
     )
-
     return redirect('monetisation:wallet_dashboard')
 
 @login_required

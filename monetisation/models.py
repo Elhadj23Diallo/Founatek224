@@ -113,6 +113,13 @@ class Referral(models.Model):
     def __str__(self):
         return f"{self.referred.username} <- {self.referrer.username if self.referrer else 'None'}"
 
+    def clean(self):
+        # Bloque l'auto-parrainage dans l'admin (le paiement l'ignore aussi :
+        # voir utils.award_referral_commission).
+        from django.core.exceptions import ValidationError
+        if self.referrer_id and self.referrer_id == self.referred_id:
+            raise ValidationError("Un utilisateur ne peut pas être son propre parrain.")
+
 # ---------------- Commissions ----------------
 class ReferralTransaction(models.Model):
     referral = models.ForeignKey(Referral, on_delete=models.CASCADE)
@@ -122,4 +129,5 @@ class ReferralTransaction(models.Model):
     converted = models.BooleanField(default=False)  # ← Nouveau champ
 
     def __str__(self):
-        return f"{self.referral.referrer.username} gains {self.amount} GNF from {self.referral.referred.username}"
+        referrer = self.referral.referrer.username if self.referral.referrer else "(sans parrain)"
+        return f"{referrer} gagne {self.amount:g} points de {self.referral.referred.username}"
