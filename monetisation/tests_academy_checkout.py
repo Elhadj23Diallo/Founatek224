@@ -65,7 +65,7 @@ class AcademyCheckoutTests(TestCase):
     @override_settings(STRIPE_ENABLED=True, STRIPE_SECRET_KEY="sk_test_fake", ACADEMY_BOOK_CHECKOUT_ENABLED=True)
     @patch("monetisation.academy_checkout.AcademyBookLesson.objects.filter")
     @patch("monetisation.academy_checkout.stripe.checkout.Session.create")
-    def test_checkout_uses_fixed_price(self, lesson_filter, create):
+    def test_checkout_uses_fixed_price(self, create, lesson_filter):
         lesson_filter.return_value.exclude.return_value.exists.return_value = True
         create.return_value = SimpleNamespace(id="cs_test_new", url="https://checkout.stripe.com/test")
         self.client.force_login(self.user)
