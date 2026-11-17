@@ -340,3 +340,32 @@ class PlatformModule(models.Model):
 
 
 
+
+
+class AcademyPackAccess(models.Model):
+    """Droit d'accès à un pack pédagogique, accordé après paiement vérifié.
+
+    La création de cette ligne n'est PAS une preuve de paiement : seuls les
+    handlers Stripe/PayPal vérifiés ou une action admin auditée peuvent l'accorder.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="academy_pack_accesses")
+    pack_slug = models.SlugField(max_length=120)
+    provider = models.CharField(max_length=20, choices=[
+        ("stripe", "Stripe"),
+        ("paypal", "PayPal"),
+        ("admin", "Attribution administrative"),
+    ])
+    payment_reference = models.CharField(max_length=255, blank=True)
+    amount_eur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    active = models.BooleanField(default=False)
+    granted_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "pack_slug"], name="unique_academy_pack_access")
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} - {self.pack_slug} - {'actif' if self.active else 'inactif'}"
