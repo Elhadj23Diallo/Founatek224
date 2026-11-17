@@ -14,3 +14,29 @@ def can_read_book_chapter(user, chapter_number):
     return AcademyPackAccess.objects.filter(
         user=user, pack_slug=BOOK_SLUG, active=True, revoked_at__isnull=True
     ).exists()
+
+
+def can_read_lesson(user, lesson):
+    """Leçons ordinaires inchangées ; fiches Livre 1 privées par défaut."""
+    try:
+        entry = lesson.academy_book_entry
+    except lesson.__class__.academy_book_entry.RelatedObjectDoesNotExist:
+        return True
+    if not entry.published:
+        return False
+    return can_read_book_chapter(user, entry.chapter_number)
+
+
+def filter_readable_lessons(queryset, user):
+    """Filtre ORM appliqué avant sérialisation et accès aux blocs/quiz."""
+    from django.db.models import Q
+    from .book_catalog import FREE_CHAPTER, BOOK_SLUG
+    allowed = Q(academy_book_entry__isnull=True) | Q(
+        academy_book_entry__published=True,
+        academy_book_entry__chapter_number=FREE_CHAPTER,
+    )
+    if user and user.is_authenticated and AcademyPackAccess.objects.filter(
+        user=user, pack_slug=BOOK_SLUG, active=True, revoked_at__isnull=True
+    ).exists():
+        allowed |= Q(academy_book_entry__published=True)
+    return queryset.filter(allowed)
