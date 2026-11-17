@@ -3,7 +3,7 @@
 Aucun accès n'est attribué ici : un paiement doit être vérifié côté serveur.
 """
 from .book_catalog import BOOK_SLUG, chapter_is_free
-from .models import AcademyPackAccess
+from .models import AcademyPackAccess, AcademyBookLesson
 
 
 def can_read_book_chapter(user, chapter_number):
@@ -20,7 +20,7 @@ def can_read_lesson(user, lesson):
     """Leçons ordinaires inchangées ; fiches Livre 1 privées par défaut."""
     try:
         entry = lesson.academy_book_entry
-    except lesson.__class__.academy_book_entry.RelatedObjectDoesNotExist:
+    except AcademyBookLesson.DoesNotExist:
         return True
     if not entry.published:
         return False
