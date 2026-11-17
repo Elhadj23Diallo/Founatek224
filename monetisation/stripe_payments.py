@@ -109,6 +109,10 @@ def stripe_create_checkout(request):
 
     success_url = request.build_absolute_uri("/monetisation/stripe/success/") + "?session_id={CHECKOUT_SESSION_ID}"
     cancel_url = request.build_absolute_uri("/monetisation/wallet/")
+    if data.get("return_to") == "abonnement":
+        # Recharge lancée depuis la page Abonnement : on y revient ensuite.
+        success_url += "&retour=abonnement"
+        cancel_url = request.build_absolute_uri("/monetisation/abonnement/")
 
     try:
         session = create_wallet_topup_checkout(request.user, amount, success_url, cancel_url)
@@ -122,8 +126,20 @@ def stripe_create_checkout(request):
 @login_required
 def stripe_success(request):
     """Retour de Stripe Checkout après paiement. N'écrit RIEN en base : seul
-    le webhook crédite le wallet (il peut arriver avant ou après cette page)."""
-    return render(request, "monetisation/stripe_success.html")
+    le webhook crédite le wallet (il peut arriver avant ou après cette page).
+    La page se recharge toute seule jusqu'à ce que le crédit soit visible."""
+    session_id = request.GET.get("session_id", "")
+    payment = None
+    if session_id:
+        payment = PaymentRequest.objects.filter(
+            transaction_id=session_id, provider="stripe", user=request.user
+        ).first()
+    next_url = "/monetisation/abonnement/" if request.GET.get("retour") == "abonnement" else None
+    return render(request, "monetisation/stripe_success.html", {
+        "payment": payment,
+        "credited": bool(payment and payment.status == "success"),
+        "next_url": next_url,
+    })
 
 
 @csrf_exempt
@@ -143,6 +159,17 @@ def stripe_webhook(request):
         return JsonResponse({"error": "Signature invalide"}, status=400)
 
     event_type = event["type"]
+
+    # Remboursements et litiges (wallet ou boutique) : voir monetisation/refunds.py
+    if event_type in ("charge.refunded", "charge.dispute.created", "charge.dispute.closed"):
+        from .refunds import handle_stripe_charge_refunded, handle_stripe_dispute
+        obj = event["data"]["object"].to_dict()
+        if event_type == "charge.refunded":
+            handle_stripe_charge_refunded(obj)
+        else:
+            handle_stripe_dispute(obj, closed=(event_type == "charge.dispute.closed"))
+        return JsonResponse({"received": True}, status=200)
+
     if event_type not in ("checkout.session.completed", "checkout.session.expired"):
         return JsonResponse({"received": True}, status=200)
 
@@ -184,9 +211,10 @@ def stripe_webhook(request):
             logger.warning("Webhook Stripe pour une session Checkout inconnue: %s", session_id)
             return JsonResponse({"received": True}, status=200)
 
-        if payment.status == "success":
+        if payment.status != "pending":
             # Stripe renvoie parfois le même événement plusieurs fois : on ne
-            # crédite jamais deux fois la même session.
+            # crédite jamais deux fois la même session (ni une session déjà
+            # remboursée ou contestée).
             return JsonResponse({"received": True, "already_processed": True}, status=200)
 
         amount_total = session.get("amount_total")
@@ -220,9 +248,13 @@ def stripe_webhook(request):
         award_referral_commission(
             payment.user, payment.amount,
             f"Commission sur recharge de {payment.user.username}",
+            payment=payment,
         )
 
         payment.status = "success"
+        payment.purpose = "credit"
+        # PaymentIntent : sert à retrouver ce paiement en cas de remboursement/litige
+        payment.external_id = session.get("payment_intent") or ""
         payment.save()
 
     return JsonResponse({"received": True}, status=200)

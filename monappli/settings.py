@@ -26,6 +26,9 @@ PAYPAL_SECRET = os.getenv("PAYPAL_SECRET", "")
 # PAYPAL_MODE=live dans le .env pour les vrais paiements (avec les clés
 # Client ID / Secret de l'application PayPal « Live ») ; sinon mode test.
 PAYPAL_MODE = os.getenv("PAYPAL_MODE", "sandbox").strip().lower()
+# ID du webhook PayPal (remboursements, litiges) : developer.paypal.com > ton
+# application Live > Webhooks. Sans lui, le webhook PayPal est refusé.
+PAYPAL_WEBHOOK_ID = os.getenv("PAYPAL_WEBHOOK_ID", "")
 PAYPAL_API_BASE = (
     "https://api-m.paypal.com" if PAYPAL_MODE == "live"
     else "https://api-m.sandbox.paypal.com"

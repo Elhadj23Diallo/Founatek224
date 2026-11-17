@@ -153,9 +153,31 @@ def stock_problems(lines):
     return problems
 
 
+POINTS_STEP = 10            # les points s'utilisent par tranches de 10...
+GNF_PER_POINTS_STEP = 400   # ... et 10 points = 400 GNF de remise
+
+
+def loyalty_discount(cart_total, requested_points, available_points):
+    """(points utilisés, remise en GNF). Par tranches de 10 points, sans
+    dépasser les points disponibles ni le total du panier : inutile de
+    brûler des points au-delà du prix à payer. La remise est en GNF et
+    s'applique quelle que soit la devise d'affichage."""
+    total = int(cart_total or 0)
+    needed = -(-total // GNF_PER_POINTS_STEP) * POINTS_STEP  # arrondi au-dessus
+    try:
+        requested = max(0, int(requested_points or 0))
+    except (TypeError, ValueError):
+        requested = 0
+    points = min(requested, int(available_points or 0), needed)
+    points = (points // POINTS_STEP) * POINTS_STEP
+    discount = min((points // POINTS_STEP) * GNF_PER_POINTS_STEP, total)
+    return points, discount
+
+
 def _checkout_context(request, cart, loyalty):
     from .stripe_checkout import card_availability, stripe_enabled, CARD_CURRENCIES
-    context = {'cart': cart, 'loyalty': loyalty}
+    points_max, _ = loyalty_discount(cart.total, loyalty.points, loyalty.points)
+    context = {'cart': cart, 'loyalty': loyalty, 'points_max': points_max}
     context.update(_apply_currency_to_request(request))
     card_available, card_message = card_availability(context['currency_code'])
     context.update({
@@ -199,10 +221,6 @@ def checkout(request):
         note = request.POST.get('note', '').strip()
         payment_method = request.POST.get('payment_method', 'cash')
         payment_reference = request.POST.get('payment_reference', '').strip()
-        try:
-            use_points = max(0, int(request.POST.get('use_points', 0) or 0))
-        except ValueError:
-            use_points = 0
 
         def _error(message):
             messages.error(request, message)
@@ -222,9 +240,11 @@ def checkout(request):
                 messages.error(request, problem)
             return redirect('founatekapp:cart')
 
-        # Calcul remise fidélité
-        use_points = min(use_points, loyalty.points)
-        discount = (use_points // 10) * 400
+        # Remise fidélité (en GNF, valable quelle que soit la devise affichée)
+        use_points, discount = loyalty_discount(
+            sum(ci.product.price * ci.quantity for ci in cart_items),
+            request.POST.get('use_points', 0), loyalty.points,
+        )
 
         if payment_method == 'card':
             from .stripe_checkout import card_availability, create_order_checkout_session, CardPaymentError

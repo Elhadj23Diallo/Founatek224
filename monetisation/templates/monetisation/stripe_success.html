@@ -14,29 +14,48 @@
         text-align: center;
     ">
 
+        {% if credited %}
+        <h1 style="color: #22d3ee; margin-bottom: 15px; font-size: 2.2rem;">
+            ✅ Wallet crédité
+        </h1>
+        <p style="font-size: 1.1rem; color: #cbd5e1; margin-bottom: 30px;">
+            {{ payment.amount|floatformat:2 }} € ont été ajoutés à ton wallet.
+            {% if next_url %}Tu vas être redirigé vers la page Abonnement…{% endif %}
+        </p>
+        {% if next_url %}
+        <script>setTimeout(function () { window.location.href = "{{ next_url }}"; }, 2500);</script>
+        {% endif %}
+        {% else %}
         <h1 style="color: #22d3ee; margin-bottom: 15px; font-size: 2.2rem;">
             ✅ Paiement reçu
         </h1>
-
         <p style="font-size: 1.1rem; color: #cbd5e1; margin-bottom: 30px;">
             Ton wallet sera crédité dans quelques secondes, dès la confirmation de Stripe.
+            Cette page se met à jour toute seule.
         </p>
+        <script>
+            (function () {
+                var key = "founatek-stripe-refresh", n = 0;
+                try { n = parseInt(sessionStorage.getItem(key) || "0", 10); } catch (e) {}
+                if (n < 8) {
+                    try { sessionStorage.setItem(key, String(n + 1)); } catch (e) {}
+                    setTimeout(function () { window.location.reload(); }, 3000);
+                }
+            })();
+        </script>
+        {% endif %}
 
+        {% if next_url %}
+        <a href="{{ next_url }}"
+           style="display:inline-block; padding: 14px 28px; background: #22d3ee; color: #0f172a; font-weight: 600; border-radius: 12px; text-decoration: none; margin: 0 6px 10px;">
+            Continuer vers l'abonnement
+        </a>
+        {% endif %}
         <a href="{% url 'monetisation:wallet_dashboard' %}"
-           style="
-                display:inline-block;
-                padding: 14px 28px;
-                background: #22d3ee;
-                color: #0f172a;
-                font-weight: 600;
-                border-radius: 12px;
-                text-decoration: none;
-                transition: all 0.3s ease;
-           "
-           onmouseover="this.style.background='#0ea5e9'; this.style.color='#fff';"
-           onmouseout="this.style.background='#22d3ee'; this.style.color='#0f172a';">
+           style="display:inline-block; padding: 14px 28px; {% if next_url %}background: transparent; color: #22d3ee; border: 1px solid #22d3ee;{% else %}background: #22d3ee; color: #0f172a;{% endif %} font-weight: 600; border-radius: 12px; text-decoration: none; margin: 0 6px 10px;">
             Retour au portefeuille
         </a>
+        {% if credited %}<script>try { sessionStorage.removeItem("founatek-stripe-refresh"); } catch (e) {}</script>{% endif %}
 
     </div>
 

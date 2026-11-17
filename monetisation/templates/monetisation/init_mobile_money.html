@@ -128,6 +128,9 @@
         <h2><i class="fas fa-credit-card"></i> Recharger le compte</h2>
         {# <p style="color: #94a3b8;">Ajoutez des fonds via Mobile Money ou PayPal.</p> #}
         <p style="color: #94a3b8;">Ajoutez des fonds par carte bancaire ou PayPal.</p>
+        {% if return_to == 'abonnement' %}
+        <p style="color: #fde68a; font-size: 0.9rem;"><i class="fas fa-info-circle"></i> Après le paiement, vous reviendrez sur la page Abonnement pour finir.</p>
+        {% endif %}
     </div>
 
     {% if error %}
@@ -157,7 +160,7 @@
 
         <div class="form-group">
             <label class="form-label" id="amount-label"><i class="fas fa-coins"></i> Montant (EUR)</label>
-            <input type="number" id="amount" name="amount" step="0.01" class="form-control-dark" placeholder="Ex: 50.00" required>
+            <input type="number" id="amount" name="amount" step="0.01" class="form-control-dark" placeholder="Ex: 50.00" required{% if prefill_amount %} value="{{ prefill_amount|unlocalize }}"{% endif %}>
             <div id="conversion-preview" style="display:none; color:#4ade80; font-size:0.85rem; margin-top:6px;"></div>
             {% if stripe_enabled %}
             <div id="stripe-hint" style="display:none; color:#94a3b8; font-size:0.85rem; margin-top:6px;">
@@ -201,7 +204,7 @@
     </div>
 
     <div style="text-align: center; margin-top: 25px;">
-        <a href="{% url 'monetisation:wallet_dashboard' %}" style="color: #64748b; text-decoration: none;">
+        <a href="{% if return_to == 'abonnement' %}{% url 'monetisation:monetisation_abonnement' %}{% else %}{% url 'monetisation:wallet_dashboard' %}{% endif %}" style="color: #64748b; text-decoration: none;">
             <i class="fas fa-arrow-left"></i> Annuler
         </a>
     </div>
@@ -225,6 +228,10 @@ const merchantItems = document.querySelectorAll(".merchant-number-item");
 const GNF_TO_EUR_RATE = {{ gnf_to_eur_rate|default:0.0001|unlocalize }};
 const STRIPE_MIN = {{ stripe_min|default:10|unlocalize }};
 const STRIPE_MAX = {{ stripe_max|default:500|unlocalize }};
+const RETURN_TO = "{{ return_to|default:'' }}";
+const AFTER_PAYMENT_URL = RETURN_TO === "abonnement"
+    ? "{% url 'monetisation:monetisation_abonnement' %}"
+    : "{% url 'monetisation:wallet_dashboard' %}";
 const stripeHint = document.getElementById("stripe-hint");
 const stripeFeedback = document.getElementById("stripe-feedback");
 const paymentForm = document.getElementById("payment-form");
@@ -312,7 +319,7 @@ paymentForm.addEventListener("submit", function (e) {
     fetch("{% url 'monetisation:stripe_create_checkout' %}", {
         method: "POST",
         headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
-        body: JSON.stringify({amount: amount})
+        body: JSON.stringify({amount: amount, return_to: RETURN_TO})
     })
     .then(res => res.json())
     .then(data => {
@@ -393,7 +400,7 @@ paypal.Buttons({
                     </div>
                 `;
                 setTimeout(() => {
-                    window.location.href = "{% url 'monetisation:wallet_dashboard' %}";
+                    window.location.href = AFTER_PAYMENT_URL;
                 }, 2000);
             } else {
                 alert("❌ Erreur lors de la validation du paiement.");

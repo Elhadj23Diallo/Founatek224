@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from . import stripe_payments
+from . import stripe_payments, refunds
 
 app_name = 'monetisation'
 urlpatterns = [
@@ -25,4 +25,5 @@ urlpatterns = [
     # Hors de /api/ : APIKeyMiddleware n'exige pas de Token ici — l'authenticité
     # de l'appel est garantie par la signature Stripe-Signature, pas un header.
     path('stripe/webhook/', stripe_payments.stripe_webhook, name='stripe_webhook'),
+    path('paypal/webhook/', refunds.paypal_webhook, name='paypal_webhook'),
 ]

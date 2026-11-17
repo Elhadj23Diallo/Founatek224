@@ -1804,6 +1804,7 @@ def mobile_monetisation_admin_review(request, payment_id):
                 award_referral_commission(
                     payment.user, payment.amount,
                     f"Commission sur recharge de {payment.user.username}",
+                    payment=payment,
                 )
             elif action == "reject":
                 payment.status = "failed"
@@ -1973,7 +1974,7 @@ def mobile_monetisation_paypal_capture_order(request):
             if payment.user_id != request.user.id:
                 return Response({"error": "Cette commande n'appartient pas a cet utilisateur"}, status=403)
 
-            if payment.status == "success":
+            if payment.status != "pending":
                 return Response({"success": True, "already_processed": True})
 
             import requests as _requests
@@ -2005,13 +2006,16 @@ def mobile_monetisation_paypal_capture_order(request):
                 sub.save()
                 Transaction.objects.create(user=request.user, type="subscription", amount=captured_amount, description=f"Abonnement {plan} via PayPal")
 
-            from monetisation.utils import award_referral_commission
+            from monetisation.utils import award_referral_commission, paypal_capture_id
             award_referral_commission(
                 request.user, captured_amount,
                 f"Commission sur {payment_type} de {request.user.username}",
+                payment=payment,
             )
 
             payment.status = "success"
+            payment.purpose = payment_type
+            payment.external_id = paypal_capture_id(result)  # remboursements / litiges
             payment.save()
 
             return Response({"success": True, "new_balance": wallet.balance})

@@ -200,11 +200,22 @@ body {
         <div class="form-group">
             <label class="form-label"><i class="fas fa-wallet"></i> Méthode de paiement</label>
             <select name="provider" class="form-control-dark" id="provider-select">
-                {% if wallet.balance > 0 %}
-                <option value="wallet">Wallet (Solde: {{ wallet.balance }} EUR)</option>
-                {% endif %}
+                <option value="wallet">Wallet (Solde : {{ wallet.balance|floatformat:2 }} EUR)</option>
                 <option value="paypal">PayPal / Carte Bancaire</option>
             </select>
+            <div id="wallet-insufficient" style="display:none; margin-top:12px; padding:14px; border-radius:10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.08); color:#fde68a;">
+                <i class="fas fa-exclamation-triangle"></i>
+                Solde insuffisant : il vous manque <strong id="missing-amount"></strong>.
+                <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a id="topup-link" href="{% url 'monetisation:monetisation_acheter_credit' %}" class="btn-submit" style="display:inline-block; width:auto; padding:10px 18px; text-decoration:none;">
+                        <i class="fas fa-credit-card"></i> Recharger mon wallet
+                    </a>
+                    <button type="button" id="use-paypal-btn" style="background:none; border:1px solid #94a3b8; color:#e2e8f0; border-radius:10px; padding:10px 18px;">
+                        <i class="fab fa-paypal"></i> Payer avec PayPal
+                    </button>
+                </div>
+                <small style="display:block; margin-top:8px; color:#94a3b8;">Après la recharge, vous revenez ici pour finir votre abonnement.</small>
+            </div>
             {% comment "Mobile Money : pas encore intégré, à réactiver plus tard" %}
             <p style="color:#94a3b8; font-size:0.8rem; margin-top:8px;">
                 <i class="fas fa-circle-info"></i> Pour payer par Mobile Money, rechargez d'abord votre wallet
@@ -270,6 +281,31 @@ providerSelect.addEventListener('change', toggleButtonState);
 toggleButtonState();
 
 const paypalSummary = document.getElementById("paypal-summary");
+const WALLET_BALANCE = {{ wallet.balance|unlocalize }};
+const TOPUP_MIN = {% if stripe_enabled %}10{% else %}1{% endif %};  // minimum de recharge (carte : 10 €)
+const insufficientBox = document.getElementById("wallet-insufficient");
+const topupLink = document.getElementById("topup-link");
+const TOPUP_BASE = topupLink.getAttribute("href");
+
+// Wallet choisi mais solde trop faible pour le plan : on affiche ce qui
+// manque et un lien de recharge qui ramène ici après le paiement.
+function updateWalletState() {
+    const sel = getSelectedPlan();
+    const missing = Math.round((sel.price - WALLET_BALANCE) * 100) / 100;
+    const insufficient = providerSelect.value === "wallet" && sel.price > 0 && missing > 0;
+    insufficientBox.style.display = insufficient ? "block" : "none";
+    submitBtn.disabled = insufficient;
+    submitBtn.style.opacity = insufficient ? "0.5" : "";
+    if (insufficient) {
+        document.getElementById("missing-amount").textContent = missing.toFixed(2).replace(".", ",") + " €";
+        const amount = Math.max(missing, TOPUP_MIN).toFixed(2);
+        topupLink.setAttribute("href", TOPUP_BASE + "?montant=" + amount + "&retour=abonnement");
+    }
+}
+document.getElementById("use-paypal-btn").addEventListener("click", function () {
+    providerSelect.value = "paypal";
+    providerSelect.dispatchEvent(new Event("change"));
+});
 let paypalRendered = false;
 
 function paypalNeeded() {
@@ -286,6 +322,7 @@ function updatePaypalSummary() {
 // ne s'applique plus (plan gratuit, wallet).
 function onSelectionChange() {
     updatePaypalSummary();
+    updateWalletState();
     if (paypalContainer.style.display !== "none" && !paypalNeeded()) {
         paypalContainer.style.display = "none";
         submitBtn.style.display = "";
@@ -293,6 +330,7 @@ function onSelectionChange() {
 }
 planRadios.forEach(function (radio) { radio.addEventListener("change", onSelectionChange); });
 providerSelect.addEventListener("change", onSelectionChange);
+updateWalletState();
 
 form.addEventListener("submit", function (e) {
     e.preventDefault();

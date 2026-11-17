@@ -205,6 +205,55 @@ def cancel_card_order_by_customer(order):
     return cancelled
 
 
+def handle_shop_order_refunded(order_id, refunded_cents, total_cents):
+    """Webhook charge.refunded pour une commande de la boutique. Le stock
+    n'est pas remis automatiquement (l'article a peut-être été expédié) :
+    l'admin est prévenu et décide."""
+    from .models import Order
+    from .signals import send_admin_alert
+
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order_id)
+        full = total_cents and refunded_cents >= total_cents
+        label = f"{refunded_cents / 100:.2f} {order.card_currency.upper()}"
+        if full and order.payment_status != "refunded":
+            order.payment_status = "refunded"
+            order.save(update_fields=["payment_status"])
+        elif not full and order.payment_status == "refunded":
+            return
+        transaction.on_commit(lambda: send_admin_alert(
+            f"Commande #{order.pk} remboursée" + ("" if full else " (en partie)"),
+            f"Stripe a remboursé {label} sur la commande #{order.pk} de {order.user.username}.\n"
+            f"Le stock n'a pas été remis automatiquement : fais-le dans l'admin si l'article revient.",
+        ))
+
+
+def handle_shop_order_dispute(order_id, closed, won):
+    """Webhooks charge.dispute.created / closed pour une commande boutique."""
+    from .models import Order
+    from .signals import send_admin_alert
+
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order_id)
+        if not closed:
+            if order.payment_status == "disputed":
+                return
+            order.payment_status = "disputed"
+            subject = f"Litige ouvert sur la commande #{order.pk}"
+            body = (f"{order.user.username} conteste le paiement par carte de la commande #{order.pk} "
+                    f"({order.card_amount_display}). N'expédie pas avant la fin du litige et réponds-y "
+                    f"depuis le tableau de bord Stripe.")
+        else:
+            if order.payment_status != "disputed":
+                return
+            order.payment_status = "paid" if won else "refunded"
+            subject = f"Litige {'gagné' if won else 'perdu'} — commande #{order.pk}"
+            body = (f"Le litige sur la commande #{order.pk} est terminé : "
+                    + ("tu gardes le paiement." if won else "le montant a été rendu au client."))
+        order.save(update_fields=["payment_status"])
+        transaction.on_commit(lambda: send_admin_alert(subject, body))
+
+
 def handle_shop_order_expired(session):
     """Webhook checkout.session.expired : le client n'a jamais payé."""
     from .models import Order
@@ -282,7 +331,8 @@ def handle_shop_order_paid(session):
 
         order.payment_status = "paid"
         order.status = "confirmed"
-        order.save(update_fields=["payment_status", "status"])
+        order.card_payment_id = session.get("payment_intent") or ""
+        order.save(update_fields=["payment_status", "status", "card_payment_id"])
 
         def _notify():
             # Après validation en base : un envoi lent ne retarde pas la

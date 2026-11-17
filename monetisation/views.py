@@ -16,6 +16,7 @@ from .utils import (
     round_money,
     award_referral_commission,
     convert_referral_points,
+    paypal_capture_id,
     POINTS_PER_EURO,
     MIN_POINTS_TO_CONVERT,
     validate_paypal_order_params,
@@ -113,7 +114,7 @@ def capture_paypal_order(request):
         if payment.user_id != request.user.id:
             return JsonResponse({"error": "Cette commande n'appartient pas à cet utilisateur"}, status=403)
 
-        if payment.status == 'success':
+        if payment.status != 'pending':
             # Déjà traité (rejeu/double appel) : ne pas créditer une 2e fois.
             return JsonResponse({"success": True, "already_processed": True})
 
@@ -156,9 +157,13 @@ def capture_paypal_order(request):
         award_referral_commission(
             request.user, captured_amount,
             f"Commission sur {payment_type} de {request.user.username}",
+            payment=payment,
         )
 
         payment.status = 'success'
+        payment.purpose = payment_type
+        # Capture PayPal : sert à retrouver ce paiement en cas de remboursement/litige
+        payment.external_id = paypal_capture_id(result)
         payment.save()
 
     return JsonResponse({"success": True})
@@ -196,6 +201,31 @@ def transactions(request):
 # ---------------- Gestion Abonnement ----------------
 # PLAN_PRICES importé depuis .utils (source unique, partagée avec espcontrol/api_views.py)
 
+def _plans_info():
+    return [
+        {
+            'name': plan_name,
+            'calls': IOT_LIMITS[plan_name],
+            'devices': limits['devices'],
+            'history_days': limits['history_days'],
+            'alerts': limits['alerts'],
+            'pdf_reports': limits['pdf_reports'],
+            'price': PLAN_PRICES[plan_name],
+        }
+        for plan_name, limits in PLAN_LIMITS.items()
+    ]
+
+
+def _render_subscription(request, sub, wallet, error=None):
+    return render(request, 'monetisation/abonnement.html', {
+        'subscription': sub,
+        'plans': _plans_info(),
+        'wallet': wallet,
+        'stripe_enabled': settings.STRIPE_ENABLED,
+        'error': error,
+    })
+
+
 @login_required
 @never_cache
 def subscription_view(request):
@@ -205,7 +235,9 @@ def subscription_view(request):
     if request.method == 'POST':
         new_plan = request.POST.get('plan')
         provider = request.POST.get('provider')
-        amount = PLAN_PRICES.get(new_plan, 0)
+        if new_plan not in PLAN_PRICES:
+            return _render_subscription(request, sub, wallet, "Plan d'abonnement invalide.")
+        amount = PLAN_PRICES[new_plan]
 
         # --- Plan gratuit ---
         if amount == 0:
@@ -222,44 +254,37 @@ def subscription_view(request):
 
         # --- Paiement via Wallet ---
         if provider == 'wallet':
-            # Vérifier le solde
-            if wallet.balance < amount:
-                plans_info = [
-                    {'name': k, **v, 'price': PLAN_PRICES[k], 'calls': IOT_LIMITS[k]}
-                    for k, v in PLAN_LIMITS.items()
-                ]
-                return render(request, 'monetisation/abonnement.html', {
-                    'subscription': sub,
-                    'plans': plans_info,
-                    'wallet': wallet,
-                    'error': f"Solde insuffisant dans le wallet ({wallet.balance} EUR)"
-                })
+            # Lignes verrouillées : un double clic ne débite pas deux fois.
+            with transaction.atomic():
+                wallet = Wallet.objects.select_for_update().get(user=request.user)
+                sub = Subscription.objects.select_for_update().get(user=request.user)
+                if wallet.balance < amount:
+                    missing = round_money(amount - wallet.balance)
+                    return _render_subscription(
+                        request, sub, wallet,
+                        f"Solde insuffisant : il vous manque {missing:.2f} €. Rechargez votre wallet ou payez avec PayPal."
+                    )
 
-            # Débiter le wallet
-            wallet.balance = round_money(wallet.balance - amount)
-            wallet.save()
+                wallet.balance = round_money(wallet.balance - amount)
+                wallet.save()
 
-            # Mettre à jour l'abonnement
-            sub.plan = new_plan
-            sub.end_date = timezone.now().date() + timedelta(days=30)
-            sub.save()
+                sub.plan = new_plan
+                sub.end_date = timezone.now().date() + timedelta(days=30)
+                sub.save()
 
-            # ⚡ Créer la transaction
-            Transaction.objects.create(
-                user=request.user,
-                type='debit',
-                amount=amount,
-                description=f"Abonnement {new_plan} payé avec Wallet"
-            )
-
-            # ⚡ Créer le PaymentRequest avec status='success'
-            PaymentRequest.objects.create(
-                user=request.user,
-                provider='wallet',
-                amount=amount,
-                status='success',
-                transaction_id=str(uuid.uuid4())
-            )
+                Transaction.objects.create(
+                    user=request.user,
+                    type='debit',
+                    amount=amount,
+                    description=f"Abonnement {new_plan} payé avec Wallet"
+                )
+                PaymentRequest.objects.create(
+                    user=request.user,
+                    provider='wallet',
+                    amount=amount,
+                    status='success',
+                    transaction_id=str(uuid.uuid4())
+                )
 
             # ⚡ Pas de commission ici : payer un abonnement avec le solde du
             # wallet, c'est dépenser de l'argent déjà commissionné à la
@@ -270,35 +295,12 @@ def subscription_view(request):
             return redirect('monetisation:payment_success')
 
         # --- Provider non supporté pour l'abonnement (seuls wallet et paypal le sont) ---
-        plans_info = [
-            {'name': k, **v, 'price': PLAN_PRICES[k]}
-            for k, v in PLAN_LIMITS.items()
-        ]
-        return render(request, 'monetisation/abonnement.html', {
-            'subscription': sub,
-            'plans': plans_info,
-            'wallet': wallet,
-            'error': "Ce moyen de paiement n'est pas disponible pour l'abonnement. Rechargez votre wallet puis payez avec le solde."
-        })
+        return _render_subscription(
+            request, sub, wallet,
+            "Ce moyen de paiement n'est pas disponible pour l'abonnement. Rechargez votre wallet puis payez avec le solde."
+        )
 
-    # --- Préparer les informations des plans pour le template ---
-    plans_info = []
-    for plan_name, limits in PLAN_LIMITS.items():
-        plans_info.append({
-            'name': plan_name,
-            'calls': IOT_LIMITS[plan_name],
-            'devices': limits['devices'],
-            'history_days': limits['history_days'],
-            'alerts': limits['alerts'],
-            'pdf_reports': limits['pdf_reports'],
-            'price': PLAN_PRICES[plan_name],
-        })
-
-    return render(request, 'monetisation/abonnement.html', {
-        'subscription': sub,
-        'plans': plans_info,
-        'wallet': wallet
-    })
+    return _render_subscription(request, sub, wallet)
 # ---------------- Dashboard Wallet ----------------
 @login_required
 @never_cache
@@ -328,13 +330,29 @@ def init_mobile_money(request):
         'stripe_min': STRIPE_TOPUP_MIN_EUR,
         'stripe_max': STRIPE_TOPUP_MAX_EUR,
     }
+    # Venu de la page Abonnement (solde insuffisant) : montant pré-rempli et
+    # retour vers l'abonnement après le paiement.
+    return_to = request.GET.get('retour') if request.GET.get('retour') == 'abonnement' else ''
+    try:
+        prefill_amount = round_money(request.GET.get('montant')) if request.GET.get('montant') else None
+    except (TypeError, ValueError):
+        prefill_amount = None
+    if prefill_amount is not None and not (0 < prefill_amount <= STRIPE_TOPUP_MAX_EUR):
+        prefill_amount = None
+    card_ctx.update({'return_to': return_to, 'prefill_amount': prefill_amount})
 
     if request.method == 'POST':
-        provider = request.POST.get('provider')
+        provider = request.POST.get('provider') or ''
         phone_number = request.POST.get('phone_number', '')
-        amount = float(request.POST.get('amount', 0))
+        try:
+            amount = float(request.POST.get('amount', 0))
+        except (TypeError, ValueError):
+            amount = 0
 
-        # Vérification basique
+        # Vérification basique (la carte Stripe passe par stripe_create_checkout,
+        # jamais par ce formulaire)
+        if provider.lower() not in ('paypal', 'mtn', 'orange', 'moov', 'wave'):
+            amount = 0
         if amount <= 0:
             return render(request, 'monetisation/init_mobile_money.html', {
                 'wallet': wallet,

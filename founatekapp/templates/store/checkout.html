@@ -2,6 +2,7 @@
 {% extends 'store/base.html' %}
 {% block title %}Commander — FOUNATEK SHOP{% endblock %}
 {% load shop_extras %}
+{% load l10n %}
 {% block content %}
 
 <h2 class="mb-4"><i class="bi bi-credit-card me-2"></i>Finaliser la commande</h2>
@@ -102,7 +103,7 @@
             <label class="form-label fw-semibold">Numéro de paiement</label>
             <input type="text" name="payment_reference" class="form-control" placeholder="+224 6XX XX XX XX">
           </div>
-          {% if loyalty and loyalty.points >= 10 %}
+          {% if loyalty and points_max >= 10 %}
           <div class="mb-3 p-3 rounded-3 border border-warning bg-warning bg-opacity-10">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <span class="fw-bold"><i class="bi bi-trophy-fill text-warning me-1"></i>Utiliser mes points</span>
@@ -110,11 +111,14 @@
             </div>
             <div class="d-flex align-items-center gap-2">
               <input type="range" name="use_points" id="use_points"
-                     min="0" max="{{ loyalty.points }}" step="10" value="0"
+                     min="0" max="{{ points_max }}" step="10" value="0"
                      class="form-range flex-grow-1"
                      oninput="updateDiscount(this.value)">
-              <span id="points_label" class="fw-bold text-warning" style="min-width:100px;">0 pt = 0 GNF</span>
+              <span id="points_label" class="fw-bold text-warning" style="min-width:100px;">0 pt</span>
             </div>
+            {% if points_max < loyalty.points %}
+            <small class="text-muted d-block mt-1">{{ points_max }} points suffisent à couvrir cette commande.</small>
+            {% endif %}
           </div>
           {% endif %}
 
@@ -146,7 +150,7 @@
         </div>
         {% endfor %}
         <hr>
-        {% if loyalty and loyalty.points >= 10 %}
+        {% if loyalty and points_max >= 10 %}
         <div class="d-flex justify-content-between text-muted small mb-1">
           <span>Sous-total</span>
           <span>{% if currency_code != 'GNF' and exchange_rate %}{{ cart.total|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}{{ cart.total }} GNF{% endif %}</span>
@@ -180,10 +184,12 @@
   </div>
 </div>
 
-{% if loyalty and loyalty.points >= 10 %}
+{% if loyalty and points_max >= 10 %}
     <script>
-        const cartTotal = parseFloat("{{ cart.total }}".replace(',', '.'));
-        const rate = {% if currency_code != 'GNF' and exchange_rate %}{{ exchange_rate.rate_from_gnf }}{% else %}1{% endif %};
+        // unlocalize : en français, « 0,000115 » cassait ce script (erreur de
+        // syntaxe) → les points ne s'appliquaient pas dans les autres devises.
+        const cartTotal = {{ cart.total|unlocalize }};
+        const rate = {% if currency_code != 'GNF' and exchange_rate %}{{ exchange_rate.rate_from_gnf|unlocalize }}{% else %}1{% endif %};
         const currency = "{% if currency_code != 'GNF' and exchange_rate %}{{ currency_code }}{% else %}GNF{% endif %}";
 
         function fmt(gnfAmount) {
@@ -193,7 +199,7 @@
 
         function updateDiscount(v) {
           const pts = Math.floor(v / 10) * 10;
-          const gnf = (pts / 10) * 400;
+          const gnf = Math.min((pts / 10) * 400, cartTotal);  // remise plafonnée au total
           const newTotal = Math.max(0, cartTotal - gnf);
           document.getElementById('points_label').textContent = pts + ' pts = -' + fmt(gnf);
           const discountLine = document.getElementById('discount-line');
@@ -205,6 +211,7 @@
           }
           document.getElementById('final-total').textContent = fmt(newTotal);
         }
+        updateDiscount(0);
     </script>
 {% endif %}
 

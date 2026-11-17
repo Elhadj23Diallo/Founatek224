@@ -107,6 +107,8 @@ class Order(models.Model):
         ('pending', 'En attente'),
         ('paid', 'Payée'),
         ('failed', 'Échouée'),
+        ('refunded', 'Remboursée'),
+        ('disputed', 'Contestée'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
@@ -124,6 +126,8 @@ class Order(models.Model):
     stripe_session_id = models.CharField(max_length=255, blank=True, null=True)
     pending_points_used = models.PositiveIntegerField(default=0)
     card_currency = models.CharField(max_length=3, blank=True, default='')
+    # PaymentIntent Stripe du paiement confirmé (remboursements, litiges)
+    card_payment_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
     card_amount_cents = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

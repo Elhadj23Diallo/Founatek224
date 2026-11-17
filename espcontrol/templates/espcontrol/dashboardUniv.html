@@ -1,4 +1,5 @@
 {% extends "espcontrol/base.html" %}
+{% load l10n %}
 {% load static %}
 
 {% block title %}Air Intelligence - Multi-Devices{% endblock %}
@@ -343,8 +344,8 @@ function showDevice(){
 
     {% for item in devices_data %}
     if(selected === "device-{{ item.device.id }}"){
-        const lat = {{ item.latest_reading.payload.latitude|default:0 }};
-        const lng = {{ item.latest_reading.payload.longitude|default:0 }};
+        const lat = {{ item.latest_reading.payload.latitude|default:0|unlocalize }};
+        const lng = {{ item.latest_reading.payload.longitude|default:0|unlocalize }};
 
         if(!maps["{{ item.device.id }}"]){
             const map = L.map("map-{{ item.device.id }}").setView([lat,lng],13);

@@ -175,7 +175,7 @@ def api_order_detail(request, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def api_checkout(request):
-    from .views import stock_problems, ALLOWED_PAYMENT_METHODS
+    from .views import stock_problems, loyalty_discount, ALLOWED_PAYMENT_METHODS
 
     cart = get_object_or_404(Cart, user=request.user)
     if not cart.cart_items.exists():
@@ -198,12 +198,10 @@ def api_checkout(request):
         return Response({'error': ' '.join(problems), 'details': problems}, status=400)
 
     loyalty, _ = LoyaltyAccount.objects.get_or_create(user=request.user)
-    try:
-        requested_points = max(0, int(request.data.get('use_points', 0) or 0))
-    except (TypeError, ValueError):
-        requested_points = 0
-    use_points = min(requested_points, loyalty.points)
-    discount = (use_points // 10) * 400
+    use_points, discount = loyalty_discount(
+        sum(ci.product.price * ci.quantity for ci in cart_items),
+        request.data.get('use_points', 0), loyalty.points,
+    )
 
     if payment_method == 'card':
         import stripe

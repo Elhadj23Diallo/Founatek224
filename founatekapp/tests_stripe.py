@@ -373,3 +373,85 @@ class ShopStripeWebhookTest(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 0)
         self.assertTrue(any("Stock insuffisant" in m.subject for m in mail.outbox))
+
+
+class LoyaltyDiscountTest(TestCase):
+    def test_points_are_capped_to_what_the_cart_needs(self):
+        from .views import loyalty_discount
+        self.assertEqual(loyalty_discount(50000, 2000, 2000), (1250, 50000))
+        self.assertEqual(loyalty_discount(50000, 25, 100), (20, 800))
+        self.assertEqual(loyalty_discount(1000, 100, 100), (30, 1000))
+        self.assertEqual(loyalty_discount(50000, "abc", 100), (0, 0))
+        self.assertEqual(loyalty_discount(50000, 500, 40), (40, 1600))
+
+
+@override_settings(**STRIPE_SETTINGS)
+class LoyaltyPointsInOtherCurrenciesTest(TestCase):
+    def setUp(self):
+        _rates()
+        self.user = User.objects.create_user(username="points-user", password="pass")
+        self.client.force_login(self.user)
+        category = Category.objects.create(name="Capteurs", slug="capteurs-points")
+        product = Product.objects.create(name="Capteur Points", slug="capteur-points", category=category, price=25000, stock=5)
+        cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=cart, product=product, quantity=2)  # 50 000 GNF
+        loyalty = LoyaltyAccount.objects.get(user=self.user)
+        loyalty.points = 1621
+        loyalty.save()
+
+    def test_points_script_is_valid_in_usd(self):
+        session = self.client.session
+        session["currency_code"] = "USD"
+        session.save()
+        resp = self.client.get("/shop/commander/")
+        html = resp.content.decode()
+        self.assertIn("const rate = 0.000115;", html)
+        self.assertIn('max="1250"', html)  # 1 250 points couvrent les 50 000 GNF
+        self.assertNotIn("0 pt = 0 GNF", html)
+
+    @patch(SESSION_CREATE)
+    def test_points_discount_applies_to_card_amount_in_usd(self, mock_create):
+        session = self.client.session
+        session["currency_code"] = "USD"
+        session.save()
+        mock_create.return_value = Mock(id="cs_pts", url="https://checkout.stripe.com/pay/cs_pts")
+        self.client.post("/shop/commander/", {"address": "Conakry", "phone": "+224600000000",
+                                              "payment_method": "card", "use_points": 500})
+        order = Order.objects.get(user=self.user)
+        self.assertEqual(order.discount, 20000)  # 500 points = 20 000 GNF
+        self.assertEqual(order.card_amount_cents, 345)  # 30 000 GNF x 0.000115 = 3,45 USD
+        self.assertEqual(LoyaltyAccount.objects.get(user=self.user).points, 1121)
+
+
+@override_settings(**STRIPE_SETTINGS)
+class ShopRefundAndDisputeTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="shop-refund", password="pass")
+        self.order = Order.objects.create(
+            user=self.user, payment_method="card", payment_status="paid", status="confirmed",
+            stripe_session_id="cs_r", card_currency="eur", card_amount_cents=500, card_payment_id="pi_shop_1",
+        )
+
+    def _send(self, event_type, obj):
+        event = stripe.Event.construct_from({"id": "evt", "object": "event", "type": event_type,
+                                             "data": {"object": obj}}, "sk_test_dummy")
+        with patch(CONSTRUCT_EVENT, return_value=event), self.captureOnCommitCallbacks(execute=True):
+            return self.client.post("/monetisation/stripe/webhook/", data="{}",
+                                    content_type="application/json", HTTP_STRIPE_SIGNATURE="sig")
+
+    def test_full_refund_marks_order_refunded_and_alerts(self):
+        self._send("charge.refunded", {"id": "ch", "object": "charge", "payment_intent": "pi_shop_1",
+                                       "amount": 500, "amount_refunded": 500, "currency": "eur"})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_status, "refunded")
+        self.assertTrue(any("remboursée" in m.subject for m in mail.outbox))
+
+    def test_dispute_then_won(self):
+        dispute = {"id": "dp", "object": "dispute", "payment_intent": "pi_shop_1", "amount": 500,
+                   "currency": "eur", "status": "needs_response"}
+        self._send("charge.dispute.created", dispute)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_status, "disputed")
+        self._send("charge.dispute.closed", dict(dispute, status="won"))
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_status, "paid")

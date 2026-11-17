@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
 from django.utils import timezone
 from .models import Subscription, UsageLog
 from datetime import timedelta
@@ -40,19 +42,39 @@ CREDIT_TOPUP_MIN_EUR = 1
 CREDIT_TOPUP_MAX_EUR = 500
 
 
+CENT = Decimal("0.01")
+
+
 def round_money(value):
-    """Arrondit un montant en euros a 2 decimales (toujours utiliser cette
-    fonction plutot qu'un round() a la main, pour rester coherent partout)."""
-    return round(float(value), 2)
+    """Montant en euros -> Decimal à 2 décimales, arrondi au plus proche
+    (toujours utiliser cette fonction plutôt qu'un round() à la main).
+    Lève ValueError si la valeur n'est pas un nombre fini."""
+    if isinstance(value, bool) or value is None:
+        raise ValueError("Montant invalide.")
+    try:
+        # str() : un float comme 0.1 devient exactement "0.1", sans les
+        # artefacts binaires (0.1000000000000000055...).
+        number = value if isinstance(value, Decimal) else Decimal(str(value).strip().replace(",", "."))
+    except (InvalidOperation, AttributeError):
+        raise ValueError("Montant invalide.")
+    if not number.is_finite():
+        raise ValueError("Montant invalide.")
+    return number.quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def format_points(points):
+    """1250.00 -> « 1250 », 506.31 -> « 506.31 »."""
+    text = f"{Decimal(points).quantize(CENT):f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
 
 
 # ---------------- Parrainage ----------------
-REFERRAL_COMMISSION_RATE = 0.05   # le parrain reçoit 5 % des paiements réels du filleul
+REFERRAL_COMMISSION_RATE = Decimal("0.05")  # le parrain reçoit 5 % des paiements réels du filleul
 POINTS_PER_EURO = 1000            # 1 000 points = 1 €
 MIN_POINTS_TO_CONVERT = 1000      # conversion en crédits wallet à partir de 1 €
 
 
-def award_referral_commission(payer, amount_eur, description):
+def award_referral_commission(payer, amount_eur, description, payment=None):
     """Crédite au parrain de `payer` 5 % de `amount_eur`, en points.
 
     À appeler UNIQUEMENT quand de l'argent réel est confirmé (recharge Stripe,
@@ -67,11 +89,11 @@ def award_referral_commission(payer, amount_eur, description):
     ref = Referral.objects.filter(referred=payer).first()
     if ref is None or ref.referrer_id is None or ref.referrer_id == payer.id:
         return None
-    points = round(float(amount_eur) * REFERRAL_COMMISSION_RATE * POINTS_PER_EURO, 2)
+    points = round_money(round_money(amount_eur) * REFERRAL_COMMISSION_RATE * POINTS_PER_EURO)
     if points <= 0:
         return None
     return ReferralTransaction.objects.create(
-        referral=ref, amount=points, description=description, converted=False,
+        referral=ref, amount=points, description=description, converted=False, payment=payment,
     )
 
 
@@ -89,7 +111,7 @@ def convert_referral_points(user):
             ReferralTransaction.objects.select_for_update()
             .filter(referral__referrer=user, converted=False)
         )
-        points = round(sum(c.amount for c in commissions), 2)
+        points = round_money(sum((c.amount for c in commissions), Decimal("0")))
         if points < MIN_POINTS_TO_CONVERT:
             raise ValueError(
                 f"Il faut au moins {MIN_POINTS_TO_CONVERT} points (1 €) pour convertir."
@@ -101,9 +123,17 @@ def convert_referral_points(user):
         wallet.save()
         Transaction.objects.create(
             user=user, type="credit", amount=euros,
-            description=f"Conversion de {points:g} points de parrainage",
+            description=f"Conversion de {format_points(points)} points de parrainage",
         )
     return points, euros
+
+
+def paypal_capture_id(result):
+    """Identifiant de la capture dans la réponse PayPal (ou "")."""
+    try:
+        return result["purchase_units"][0]["payments"]["captures"][0]["id"] or ""
+    except (KeyError, IndexError, TypeError):
+        return ""
 
 
 def validate_paypal_order_params(payment_type, plan, raw_amount):

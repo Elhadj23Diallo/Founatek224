@@ -5,9 +5,15 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import User
 
+# Montants en euros : DecimalField à 2 décimales (plus de 9900.709999999997).
+# Toujours passer par utils.round_money() pour les calculs.
+MONEY = dict(max_digits=12, decimal_places=2)
+
+
 class Wallet(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    balance = models.FloatField(default=0)
+    # Peut devenir négatif si un paiement déjà dépensé est remboursé ou contesté.
+    balance = models.DecimalField(default=0, **MONEY)
 
     def __str__(self):
         return f"Wallet de {self.user.username} : {self.balance} crédits"
@@ -21,7 +27,7 @@ class Transaction(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    amount = models.FloatField()
+    amount = models.DecimalField(**MONEY)
     timestamp = models.DateTimeField(default=timezone.now)
     description = models.CharField(max_length=255)
 
@@ -49,11 +55,21 @@ class PaymentRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     provider = models.CharField(max_length=50)  # MTN, Orange, Moov, Wave
     phone_number = models.CharField(max_length=20)
-    amount = models.FloatField()  # Montant credite au wallet, en EUR (devise interne du wallet)
-    amount_local = models.FloatField(null=True, blank=True)  # Montant reellement envoye par l'utilisateur (ex: en GNF)
+    amount = models.DecimalField(**MONEY)  # Montant credite au wallet, en EUR (devise interne du wallet)
+    amount_local = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)  # Montant reellement envoye par l'utilisateur (ex: en GNF)
     currency_local = models.CharField(max_length=3, default='GNF')  # Devise du montant envoye
-    status = models.CharField(max_length=20, default='pending')  # pending, success, failed
+    # pending, success, failed, refunded (remboursé en totalité), disputed (litige en cours)
+    status = models.CharField(max_length=20, default='pending')
     transaction_id = models.CharField(max_length=100, null=True, blank=True)
+    # Identifiant du paiement chez le prestataire, pour retrouver la demande
+    # lors d'un remboursement ou d'un litige : PaymentIntent Stripe (pi_...)
+    # ou capture PayPal.
+    external_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
+    # 'credit' (recharge du wallet) ou 'subscription' (abonnement PayPal direct)
+    purpose = models.CharField(max_length=20, blank=True, default='credit')
+    refunded_amount = models.DecimalField(default=0, **MONEY)
+    # Montant bloqué pendant un litige (rendu si le litige est gagné)
+    disputed_amount = models.DecimalField(default=0, **MONEY)
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='payment_requests_reviewed')
     reviewed_at = models.DateTimeField(null=True, blank=True)
@@ -123,7 +139,10 @@ class Referral(models.Model):
 # ---------------- Commissions ----------------
 class ReferralTransaction(models.Model):
     referral = models.ForeignKey(Referral, on_delete=models.CASCADE)
-    amount = models.FloatField()  # Crédit ou commission
+    amount = models.DecimalField(**MONEY)  # Commission, en points (1 000 points = 1 €)
+    # Paiement qui a donné cette commission : si le filleul est remboursé,
+    # la commission non convertie est annulée.
+    payment = models.ForeignKey('PaymentRequest', null=True, blank=True, on_delete=models.SET_NULL, related_name='commissions')
     description = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     converted = models.BooleanField(default=False)  # ← Nouveau champ
