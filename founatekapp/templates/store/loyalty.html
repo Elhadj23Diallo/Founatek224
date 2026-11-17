@@ -134,7 +134,7 @@
             <li>Un curseur apparaît si vous avez <strong>10 pts ou plus</strong> — glissez-le pour choisir combien de points utiliser</li>
             <li>La réduction est déduite automatiquement du total avant paiement</li>
           </ol>
-          <p class="mt-2 mb-0 small"><strong>Exemple :</strong> vous avez 30 pts → vous pouvez déduire jusqu'Ã  <strong>{% if currency_code != 'GNF' and exchange_rate %}{{ 1200|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}1 200 GNF{% endif %}</strong> sur votre commande.</p>
+          <p class="mt-2 mb-0 small"><strong>Exemple :</strong> vous avez 30 pts → vous pouvez déduire jusqu’à <strong>{% if currency_code != 'GNF' and exchange_rate %}{{ 1200|mul:exchange_rate.rate_from_gnf|floatformat:2 }} {{ currency_code }}{% else %}1 200 GNF{% endif %}</strong> sur votre commande.</p>
         </div>
       </div>
     </div>
