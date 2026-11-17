@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 
 from .academy_access import can_read_lesson, filter_readable_lessons
 from .book_catalog import BOOK_SLUG
@@ -39,12 +40,12 @@ class AcademyLessonVisibilityTests(TestCase):
 
     def test_nested_parcours_api_hides_paid_content(self):
         self.client.force_login(self.user)
-        response = self.client.get("/iot/api/parcours/%s/" % self.parcours.pk)
+        response = self.client.get(reverse("iot:parcours-detail", args=[self.parcours.pk]))
         self.assertEqual(response.status_code, 200)
         titles = {item["titre"] for item in response.json()["lecons"]}
         self.assertEqual(titles, {"Gratuit", "Hors livre"})
 
     def test_paid_lesson_api_denies_without_purchase(self):
         self.client.force_login(self.user)
-        response = self.client.get("/iot/api/lecons/%s/" % self.paid.pk)
+        response = self.client.get(reverse("iot:lecons-detail", args=[self.paid.pk]))
         self.assertIn(response.status_code, (403, 404))
