@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 app_name = 'iot'
+from .academy_pages import academy_book_home
 from .views import (
     ParcoursViewSet, LeconViewSet, BlocPedagogiqueViewSet,
     QuizViewSet, ProgressionViewSet, ProjectViewSet,
@@ -30,6 +31,7 @@ router.register(r'progression', ProgressionViewSet, basename='progression')
 router.register(r'projects', ProjectViewSet, basename='projects')
 
 urlpatterns = [
+    path('academy/livre-1/', academy_book_home, name='academy_book_home'),
     # ✅ API
     path('api/', include(router.urls)),
     path("profil/", profil, name="profil"),
