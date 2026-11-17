@@ -347,20 +347,20 @@ window.MathJax = {options: {skipHtmlTags: ['script','noscript','style','textarea
       {% if lecon.titre|slice:":3" == "0.1" %}
       <section class="academy-formula" aria-label="Formules de la loi d'Ohm">
         <div class="academy-formula-title">Formules essentielles — Loi d'Ohm</div>
-        \\[ U=R\\times I \\qquad I=\\frac{U}{R} \\qquad P=U\\times I \\]
-        \\[ I=\\frac{5\\,\\mathrm{V}}{1000\\,\\Omega}=0{,}005\\,\\mathrm{A}=5\\,\\mathrm{mA} \\]
+        \[ U=R\times I \qquad I=\frac{U}{R} \qquad P=U\times I \]
+        \[ I=\frac{5\,\mathrm{V}}{1000\,\Omega}=0{,}005\,\mathrm{A}=5\,\mathrm{mA} \]
         <div class="academy-formula-title">Pont diviseur de tension</div>
-        \\[ U_2=U_{\\mathrm{alim}}\\frac{R_2}{R_1+R_2}=5\\times\\frac{1000}{2200+1000}\\approx1{,}56\\,\\mathrm{V} \\]
+        \[ U_2=U_{\mathrm{alim}}\frac{R_2}{R_1+R_2}=5\times\frac{1000}{2200+1000}\approx1{,}56\,\mathrm{V} \]
         <img class="academy-schematic" src="{% static 'iot/academy/voltage_divider.svg' %}" alt="Schéma du pont diviseur 5 volts : R1 2,2 kilo-ohms et R2 1 kilo-ohm, point milieu A0" loading="lazy">
         
       </section>
       {% elif lecon.titre|slice:":3" == "0.2" %}
       <section class="academy-formula" aria-label="Formules courant alternatif et PWM">
         <div class="academy-formula-title">Période et tension efficace</div>
-        \\[ T=\\frac{1}{f}=\\frac{1}{50\\,\\mathrm{Hz}}=20\\,\\mathrm{ms} \\]
-        \\[ U_{\\max}=\\sqrt{2}\\,U_{\\mathrm{eff}}\\approx325\\,\\mathrm{V} \\]
+        \[ T=\frac{1}{f}=\frac{1}{50\,\mathrm{Hz}}=20\,\mathrm{ms} \]
+        \[ U_{\max}=\sqrt{2}\,U_{\mathrm{eff}}\approx325\,\mathrm{V} \]
         <div class="academy-formula-title">Tension moyenne d'un signal PWM</div>
-        \\[ U_{\\mathrm{moy}}\\approx D\\times U_{\\mathrm{alim}} \\]
+        \[ U_{\mathrm{moy}}\approx D\times U_{\mathrm{alim}} \]
         <img class="academy-schematic" src="{% static 'iot/academy/pwm_signal.svg' %}" alt="Schéma comparatif de signaux PWM de rapports cycliques 25 et 50 pour cent" loading="lazy">
         
       </section>
