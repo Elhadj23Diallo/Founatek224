@@ -23,7 +23,13 @@ load_dotenv(BASE_DIR / '.env')
 
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
 PAYPAL_SECRET = os.getenv("PAYPAL_SECRET", "")
-PAYPAL_API_BASE = "https://api-m.sandbox.paypal.com"  # Mode test
+# PAYPAL_MODE=live dans le .env pour les vrais paiements (avec les clés
+# Client ID / Secret de l'application PayPal « Live ») ; sinon mode test.
+PAYPAL_MODE = os.getenv("PAYPAL_MODE", "sandbox").strip().lower()
+PAYPAL_API_BASE = (
+    "https://api-m.paypal.com" if PAYPAL_MODE == "live"
+    else "https://api-m.sandbox.paypal.com"
+)
 
 # Stripe (recharge du wallet par carte) — jamais de clé en dur dans le code :
 # si absentes des variables d'environnement, le bouton "Payer par carte" est
