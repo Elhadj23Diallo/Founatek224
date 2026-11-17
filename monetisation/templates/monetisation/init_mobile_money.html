@@ -143,7 +143,7 @@
         {% csrf_token %}
         
         <div class="form-group">
-            <label class="form-label"><i class="fas fa-hand-holding-usd"></i> Moyen de paiement</label>
+            <label class="form-label" for="provider-select"><i class="fas fa-hand-holding-usd"></i> Moyen de paiement</label>
             <select name="provider" id="provider-select" class="form-control-dark">
                 {% if stripe_enabled %}
                 <option value="stripe">Carte bancaire (Stripe)</option>
@@ -159,8 +159,8 @@
         </div>
 
         <div class="form-group">
-            <label class="form-label" id="amount-label"><i class="fas fa-coins"></i> Montant (EUR)</label>
-            <input type="number" id="amount" name="amount" step="0.01" class="form-control-dark" placeholder="Ex: 50.00" required{% if prefill_amount %} value="{{ prefill_amount|unlocalize }}"{% endif %}>
+            <label class="form-label" id="amount-label" for="amount"><i class="fas fa-coins"></i> Montant (EUR)</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="{{ stripe_min|default:10|unlocalize }}" max="{{ stripe_max|default:500|unlocalize }}" class="form-control-dark" placeholder="Ex: 50.00" required{% if prefill_amount %} value="{{ prefill_amount|unlocalize }}"{% endif %}>
             <div id="conversion-preview" style="display:none; color:#4ade80; font-size:0.85rem; margin-top:6px;"></div>
             {% if stripe_enabled %}
             <div id="stripe-hint" style="display:none; color:#94a3b8; font-size:0.85rem; margin-top:6px;">
@@ -264,6 +264,8 @@ function togglePaymentFields() {
         submitBtn.innerHTML = SUBMIT_CARD_HTML;
         amountLabel.innerHTML = '<i class="fas fa-coins"></i> Montant (EUR)';
         amountInput.placeholder = "Ex: 20.00";
+        amountInput.min = STRIPE_MIN;
+        amountInput.max = STRIPE_MAX;
         merchantBox.style.display = "none";
     } else if (providerSelect.value === "paypal") {
         phoneGroup.style.display = "none";
@@ -272,6 +274,8 @@ function togglePaymentFields() {
         submitBtn.style.display = "none";
         amountLabel.innerHTML = '<i class="fas fa-coins"></i> Montant (EUR)';
         amountInput.placeholder = "Ex: 50.00";
+        amountInput.removeAttribute("min");
+        amountInput.removeAttribute("max");
         merchantBox.style.display = "none";
     } else {
         phoneGroup.style.display = "block";
@@ -281,6 +285,8 @@ function togglePaymentFields() {
         submitBtn.innerHTML = SUBMIT_DEFAULT_HTML;
         amountLabel.innerHTML = '<i class="fas fa-coins"></i> Montant (GNF)';
         amountInput.placeholder = "Ex: 50000";
+        amountInput.removeAttribute("min");
+        amountInput.removeAttribute("max");
         merchantBox.style.display = merchantItems.length ? "block" : "none";
         merchantItems.forEach(function (el) {
             el.style.display = (el.dataset.provider === providerSelect.value.toUpperCase()) ? "block" : "none";
