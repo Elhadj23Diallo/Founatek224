@@ -352,7 +352,7 @@ window.MathJax = {tex: {inlineMath: [['\\\\(', '\\\\)']], displayMath: [['\\\\['
         <div class="academy-formula-title">Pont diviseur de tension</div>
         \\[ U_2=U_{\\mathrm{alim}}\\frac{R_2}{R_1+R_2}=5\\times\\frac{1000}{2200+1000}\\approx1{,}56\\,\\mathrm{V} \\]
         <img class="academy-schematic" src="{% static 'iot/academy/voltage_divider.svg' %}" alt="Schéma du pont diviseur 5 volts : R1 2,2 kilo-ohms et R2 1 kilo-ohm, point milieu A0" loading="lazy">
-        <p><strong>Montage Wokwi éditable :</strong> <a href="https://github.com/Elhadj23Diallo/Founatek224/blob/main/iot/static/iot/academy/wokwi/pont-diviseur/diagram.json" target="_blank" rel="noopener noreferrer">diagram.json</a> · <a href="https://github.com/Elhadj23Diallo/Founatek224/blob/main/iot/static/iot/academy/wokwi/pont-diviseur/sketch.ino" target="_blank" rel="noopener noreferrer">sketch.ino</a>. Ouvrir ces fichiers dans un projet Wokwi Arduino Uno. Le schéma est une simulation à vérifier avant câblage réel.</p>
+        
       </section>
       {% elif lecon.titre|slice:":3" == "0.2" %}
       <section class="academy-formula" aria-label="Formules courant alternatif et PWM">
@@ -362,7 +362,7 @@ window.MathJax = {tex: {inlineMath: [['\\\\(', '\\\\)']], displayMath: [['\\\\['
         <div class="academy-formula-title">Tension moyenne d'un signal PWM</div>
         \\[ U_{\\mathrm{moy}}\\approx D\\times U_{\\mathrm{alim}} \\]
         <img class="academy-schematic" src="{% static 'iot/academy/pwm_signal.svg' %}" alt="Schéma comparatif de signaux PWM de rapports cycliques 25 et 50 pour cent" loading="lazy">
-        <p><strong>Montage Wokwi éditable :</strong> <a href="https://github.com/Elhadj23Diallo/Founatek224/blob/main/iot/static/iot/academy/wokwi/pwm-filtre-rc/diagram.json" target="_blank" rel="noopener noreferrer">diagram.json</a> · <a href="https://github.com/Elhadj23Diallo/Founatek224/blob/main/iot/static/iot/academy/wokwi/pwm-filtre-rc/sketch.ino" target="_blank" rel="noopener noreferrer">sketch.ino</a>. Filtre RC : 10 kΩ et 10 µF. Le schéma est une simulation à vérifier avant câblage réel.</p>
+        
       </section>
       {% endif %}
     {% endif %}
