@@ -185,7 +185,10 @@ def stripe_webhook(request):
 
     if event_type == "checkout.session.expired":
         # Session jamais payée (abandon) : on clôt ce qui l'attendait.
-        if kind == "shop_order":
+        if kind == "academy_book_pack":
+            from .academy_checkout import handle_academy_stripe_event
+            handle_academy_stripe_event(event_type, session)
+        elif kind == "shop_order":
             from founatekapp.stripe_checkout import handle_shop_order_expired
             handle_shop_order_expired(session)
         else:
@@ -195,6 +198,11 @@ def stripe_webhook(request):
         return JsonResponse({"received": True}, status=200)
 
     if session.get("payment_status") != "paid":
+        return JsonResponse({"received": True}, status=200)
+
+    if kind == "academy_book_pack":
+        from .academy_checkout import handle_academy_stripe_event
+        handle_academy_stripe_event(event_type, session)
         return JsonResponse({"received": True}, status=200)
 
     if kind == "shop_order":
