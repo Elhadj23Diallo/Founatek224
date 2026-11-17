@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta
 from .models import Wallet, Transaction, Subscription, PaymentRequest, Referral, ReferralTransaction
+import logging
 import uuid
 import json
 from .utils import (
@@ -22,6 +23,8 @@ from .quota import IOT_LIMITS
 # monetisation/views.py
 import requests
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def create_paypal_order(request):
@@ -60,8 +63,17 @@ def create_paypal_order(request):
         ]
     }
 
-    response = requests.post(url, json=payload, auth=auth)
+    try:
+        response = requests.post(url, json=payload, auth=auth, timeout=20)
+    except requests.RequestException:
+        logger.exception("PayPal injoignable (création de commande, %s)", settings.PAYPAL_API_BASE)
+        return JsonResponse({"error": "PayPal est injoignable, réessayez dans un instant."}, status=502)
     if response.status_code != 201:
+        # La réponse de PayPal dit pourquoi (clés refusées, compte restreint...).
+        logger.error(
+            "PayPal a refusé la création de commande (%s, %s) : %s",
+            response.status_code, settings.PAYPAL_API_BASE, response.text[:500],
+        )
         return JsonResponse({"error": "Impossible de créer la commande PayPal"}, status=400)
 
     order = response.json()
