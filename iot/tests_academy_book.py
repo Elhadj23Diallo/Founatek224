@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -13,7 +14,7 @@ class AcademyBookAccessTests(TestCase):
     def test_catalog_has_twelve_chapters_in_order(self):
         chapters = ordered_chapters()
         self.assertEqual([c["number"] for c in chapters], [f"{n:02d}" for n in range(12)])
-        self.assertEqual(PACK_PRICE_EUR, 9.99)
+        self.assertEqual(PACK_PRICE_EUR, Decimal("9.99"))
 
     def test_basics_are_free(self):
         self.assertTrue(can_read_book_chapter(self.user, "00"))
