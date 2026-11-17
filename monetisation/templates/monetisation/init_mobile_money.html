@@ -1,5 +1,6 @@
 {% extends 'espcontrol/base.html' %}
 {% load static %}
+{% load l10n %}
 {% block content %}
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -213,7 +214,9 @@ const amountLabel = document.getElementById("amount-label");
 const conversionPreview = document.getElementById("conversion-preview");
 const merchantBox = document.getElementById("merchant-numbers-box");
 const merchantItems = document.querySelectorAll(".merchant-number-item");
-const GNF_TO_EUR_RATE = {{ gnf_to_eur_rate|default:0.0001 }};
+// unlocalize : en français Django écrirait 0,0001 → erreur de syntaxe JS
+// qui bloquait tout le script (bouton PayPal jamais affiché).
+const GNF_TO_EUR_RATE = {{ gnf_to_eur_rate|default:0.0001|unlocalize }};
 
 function updateConversionPreview() {
     if (providerSelect.value === "paypal") {

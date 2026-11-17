@@ -1,5 +1,6 @@
 {% extends 'espcontrol/base.html' %}
 {% load math_filters %}
+{% load l10n %}
 {% block content %}
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -165,7 +166,7 @@ body {
         <div class="plans-grid">
             {% for plan in plans %}
             <label class="plan-card {% if plan.name == 'pro' %}is-featured{% endif %}" data-plan-card>
-                <input type="radio" name="plan" value="{{ plan.name }}" data-price="{{ plan.price }}"
+                <input type="radio" name="plan" value="{{ plan.name }}" data-price="{{ plan.price|unlocalize }}"
                     {% if subscription.plan == plan.name %}checked{% elif not subscription.plan and plan.name == 'free' %}checked{% endif %}>
 
                 {% if subscription.plan == plan.name %}
@@ -224,6 +225,7 @@ body {
     </form>
 
     <div id="paypal-button-container" style="display: none;">
+        <p id="paypal-summary" style="text-align: center; color: #f1f5f9; font-weight: 700; margin-bottom: 6px;"></p>
         <p style="text-align: center; color: #94a3b8; margin-bottom: 15px; font-size: 0.9rem;">
             <i class="fab fa-paypal"></i> Paiement sécurisé via PayPal
         </p>
@@ -267,44 +269,86 @@ function toggleButtonState() {
 providerSelect.addEventListener('change', toggleButtonState);
 toggleButtonState();
 
-form.addEventListener("submit", function(e) {
-    e.preventDefault();
-    const provider = providerSelect.value;
-    const selected = getSelectedPlan();
-    const plan = selected.name;
-    const planPrice = selected.price;
+const paypalSummary = document.getElementById("paypal-summary");
+let paypalRendered = false;
 
-    if (provider === "paypal" && planPrice > 0) {
-        submitBtn.style.display = "none";
-        paypalContainer.style.display = "block";
-        paypalContainer.innerHTML = '<p style="text-align: center; color: #94a3b8; margin-bottom: 15px; font-size: 0.9rem;"><i class="fab fa-paypal"></i> Paiement sécurisé via PayPal</p>';
+function paypalNeeded() {
+    return providerSelect.value === "paypal" && getSelectedPlan().price > 0;
+}
 
-        paypal.Buttons({
-            style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' },
-            createOrder: function(data, actions) {
-                return fetch("{% url 'monetisation:create_paypal_order' %}", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
-                    body: JSON.stringify({amount: planPrice, type: "subscription", plan: plan})
-                }).then(res => res.json()).then(data => data.id);
-            },
-            onApprove: function(data) {
-                return fetch("{% url 'monetisation:capture_paypal_order' %}", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
-                    body: JSON.stringify({orderID: data.orderID, plan: plan})
-                }).then(res => res.json()).then(result => {
-                    if (result.success) {
-                        alert("✅ Abonnement mis à jour avec succès !");
-                        window.location.href = "{% url 'monetisation:monetisation_dashboard' %}";
-                    }
-                });
-            }
-        }).render("#paypal-button-container");
-    } else {
-        // Wallet ou Mobile Money
-        form.submit();
+function updatePaypalSummary() {
+    const sel = getSelectedPlan();
+    paypalSummary.textContent = "Plan " + sel.name.toUpperCase() + " : " + sel.price + " € / mois";
+}
+
+// Si le client change de plan ou de moyen de paiement après avoir affiché
+// PayPal : le montant affiché suit, et on revient au bouton normal si PayPal
+// ne s'applique plus (plan gratuit, wallet).
+function onSelectionChange() {
+    updatePaypalSummary();
+    if (paypalContainer.style.display !== "none" && !paypalNeeded()) {
+        paypalContainer.style.display = "none";
+        submitBtn.style.display = "";
     }
+}
+planRadios.forEach(function (radio) { radio.addEventListener("change", onSelectionChange); });
+providerSelect.addEventListener("change", onSelectionChange);
+
+form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!paypalNeeded()) {
+        // Wallet, ou plan gratuit
+        form.submit();
+        return;
+    }
+    submitBtn.style.display = "none";
+    paypalContainer.style.display = "block";
+    updatePaypalSummary();
+    if (paypalRendered) return;
+    paypalRendered = true;
+
+    paypal.Buttons({
+        style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' },
+        onClick: function (data, actions) {
+            return paypalNeeded() ? actions.resolve() : actions.reject();
+        },
+        createOrder: function () {
+            // Plan lu AU MOMENT du clic sur PayPal (avant : figé au premier clic,
+            // d'où 3 € proposés même après avoir choisi le plan Pro).
+            // Le prix réel est fixé par le serveur à partir du plan.
+            const sel = getSelectedPlan();
+            return fetch("{% url 'monetisation:create_paypal_order' %}", {
+                method: "POST",
+                headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+                body: JSON.stringify({type: "subscription", plan: sel.name})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                return data.id;
+            });
+        },
+        onApprove: function (data) {
+            return fetch("{% url 'monetisation:capture_paypal_order' %}", {
+                method: "POST",
+                headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+                body: JSON.stringify({orderID: data.orderID})
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    alert("✅ Abonnement mis à jour avec succès !");
+                    window.location.href = "{% url 'monetisation:monetisation_dashboard' %}";
+                } else {
+                    alert("❌ " + (result.error || "Le paiement n'a pas pu être validé."));
+                }
+            });
+        },
+        onError: function (err) {
+            console.error("PayPal Error:", err);
+            alert("Une erreur est survenue avec PayPal" + (err && err.message ? " : " + err.message : "."));
+        }
+    }).render("#paypal-button-container");
 });
 </script>
 

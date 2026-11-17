@@ -1,6 +1,7 @@
 {% extends 'espcontrol/base.html' %}
 {% load static %}
 {% load math_filters %}
+{% load l10n %}
 
 {% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -265,7 +266,7 @@
                     {% if api_percent >= 100 %}danger
                     {% elif api_percent >= 70 %}warning
                     {% endif %}"
-                    style="width: {{ api_percent }}%">
+                    style="width: {{ api_percent|unlocalize }}%">
                 </div>
             </div>
             {% if usage.iot_calls >= limits.iot_calls %}
@@ -285,7 +286,7 @@
                     {% if device_percent >= 100 %}danger
                     {% elif device_percent >= 70 %}warning
                     {% endif %}"
-                    style="width: {{ device_percent }}%">
+                    style="width: {{ device_percent|unlocalize }}%">
                 </div>
             </div>
             {% if usage.device_count >= limits.devices %}
