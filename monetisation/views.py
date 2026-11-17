@@ -320,7 +320,15 @@ def wallet_dashboard(request):
 def init_mobile_money(request):
     from .utils import gnf_to_eur, get_gnf_to_eur_rate
     from .models import MobileMoneyAccount
+    from .stripe_payments import STRIPE_TOPUP_MIN_EUR, STRIPE_TOPUP_MAX_EUR
     wallet = Wallet.objects.get(user=request.user)
+    # Option « Carte bancaire (Stripe) » : le paiement part en JavaScript vers
+    # stripe_create_checkout, le formulaire n'est pas envoyé au serveur.
+    card_ctx = {
+        'stripe_enabled': settings.STRIPE_ENABLED,
+        'stripe_min': STRIPE_TOPUP_MIN_EUR,
+        'stripe_max': STRIPE_TOPUP_MAX_EUR,
+    }
 
     if request.method == 'POST':
         provider = request.POST.get('provider')
@@ -334,6 +342,8 @@ def init_mobile_money(request):
                 'error': "Veuillez saisir un montant valide.",
                 'merchant_accounts': MobileMoneyAccount.objects.filter(is_active=True),
                 'gnf_to_eur_rate': get_gnf_to_eur_rate(),
+
+                **card_ctx,
             })
 
         # PayPal facture directement en EUR. Le Mobile Money guineen se paie en GNF :
@@ -372,6 +382,7 @@ def init_mobile_money(request):
         'currency': 'EUR',
         'merchant_accounts': MobileMoneyAccount.objects.filter(is_active=True),
         'gnf_to_eur_rate': get_gnf_to_eur_rate(),
+        **card_ctx,
     })
 
 

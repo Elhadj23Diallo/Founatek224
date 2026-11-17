@@ -127,11 +127,7 @@
     <div class="header-section">
         <h2><i class="fas fa-credit-card"></i> Recharger le compte</h2>
         {# <p style="color: #94a3b8;">Ajoutez des fonds via Mobile Money ou PayPal.</p> #}
-        <p style="color: #94a3b8;">Ajoutez des fonds via PayPal.</p>
-        <p style="color: #94a3b8; font-size: 0.9rem;">
-            <i class="fas fa-credit-card"></i> Par carte bancaire :
-            <a href="{% url 'monetisation:wallet_dashboard' %}#recharge-carte" style="color:#22d3ee;">Recharger par carte (Stripe)</a>
-        </p>
+        <p style="color: #94a3b8;">Ajoutez des fonds par carte bancaire ou PayPal.</p>
     </div>
 
     {% if error %}
@@ -146,7 +142,10 @@
         <div class="form-group">
             <label class="form-label"><i class="fas fa-hand-holding-usd"></i> Moyen de paiement</label>
             <select name="provider" id="provider-select" class="form-control-dark">
-                <option value="paypal">PayPal / Carte Bancaire</option>
+                {% if stripe_enabled %}
+                <option value="stripe">Carte bancaire (Stripe)</option>
+                {% endif %}
+                <option value="paypal">PayPal{% if not stripe_enabled %} / Carte Bancaire{% endif %}</option>
                 {% comment "Mobile Money : pas encore intégré, à réactiver plus tard" %}
                 <option value="MTN">MTN Mobile Money</option>
                 <option value="Orange">Orange Money</option>
@@ -160,6 +159,11 @@
             <label class="form-label" id="amount-label"><i class="fas fa-coins"></i> Montant (EUR)</label>
             <input type="number" id="amount" name="amount" step="0.01" class="form-control-dark" placeholder="Ex: 50.00" required>
             <div id="conversion-preview" style="display:none; color:#4ade80; font-size:0.85rem; margin-top:6px;"></div>
+            {% if stripe_enabled %}
+            <div id="stripe-hint" style="display:none; color:#94a3b8; font-size:0.85rem; margin-top:6px;">
+                <i class="fas fa-lock"></i> Paiement sécurisé par Stripe, entre {{ stripe_min }} € et {{ stripe_max }} €. Votre wallet est crédité automatiquement.
+            </div>
+            {% endif %}
         </div>
 
         <div class="form-group" id="phone-group">
@@ -182,6 +186,8 @@
                 Votre demande sera confirmée manuellement après vérification du paiement.
             </p>
         </div>
+
+        <div id="stripe-feedback" class="alert-box" style="display:none;"></div>
 
         <button type="submit" class="btn-submit" id="submit-btn">
             <i class="fas fa-check-circle"></i> Valider le paiement
@@ -217,9 +223,16 @@ const merchantItems = document.querySelectorAll(".merchant-number-item");
 // unlocalize : en français Django écrirait 0,0001 → erreur de syntaxe JS
 // qui bloquait tout le script (bouton PayPal jamais affiché).
 const GNF_TO_EUR_RATE = {{ gnf_to_eur_rate|default:0.0001|unlocalize }};
+const STRIPE_MIN = {{ stripe_min|default:10|unlocalize }};
+const STRIPE_MAX = {{ stripe_max|default:500|unlocalize }};
+const stripeHint = document.getElementById("stripe-hint");
+const stripeFeedback = document.getElementById("stripe-feedback");
+const paymentForm = document.getElementById("payment-form");
+const SUBMIT_DEFAULT_HTML = '<i class="fas fa-check-circle"></i> Valider le paiement';
+const SUBMIT_CARD_HTML = '<i class="fas fa-credit-card"></i> Payer par carte';
 
 function updateConversionPreview() {
-    if (providerSelect.value === "paypal") {
+    if (providerSelect.value === "paypal" || providerSelect.value === "stripe") {
         conversionPreview.style.display = "none";
         return;
     }
@@ -234,7 +247,18 @@ function updateConversionPreview() {
 }
 
 function togglePaymentFields() {
-    if (providerSelect.value === "paypal") {
+    if (stripeHint) stripeHint.style.display = (providerSelect.value === "stripe") ? "block" : "none";
+    stripeFeedback.style.display = "none";
+    if (providerSelect.value === "stripe") {
+        // Carte (Stripe) : montant en EUR, redirection vers la page Stripe
+        phoneGroup.style.display = "none";
+        paypalContainer.style.display = "none";
+        submitBtn.style.display = "block";
+        submitBtn.innerHTML = SUBMIT_CARD_HTML;
+        amountLabel.innerHTML = '<i class="fas fa-coins"></i> Montant (EUR)';
+        amountInput.placeholder = "Ex: 20.00";
+        merchantBox.style.display = "none";
+    } else if (providerSelect.value === "paypal") {
         phoneGroup.style.display = "none";
         // Pour PayPal, on affiche le conteneur mais on cache le bouton submit classique
         paypalContainer.style.display = "block";
@@ -247,6 +271,7 @@ function togglePaymentFields() {
         // Pour Mobile Money, on cache PayPal et on affiche le bouton submit classique
         paypalContainer.style.display = "none";
         submitBtn.style.display = "block";
+        submitBtn.innerHTML = SUBMIT_DEFAULT_HTML;
         amountLabel.innerHTML = '<i class="fas fa-coins"></i> Montant (GNF)';
         amountInput.placeholder = "Ex: 50000";
         merchantBox.style.display = merchantItems.length ? "block" : "none";
@@ -264,6 +289,47 @@ togglePaymentFields();
 
 // Écouteur sur le changement de fournisseur
 providerSelect.addEventListener("change", togglePaymentFields);
+
+// Carte (Stripe) : on crée la session de paiement puis on redirige vers Stripe.
+// Le wallet est crédité par le webhook Stripe une fois le paiement confirmé.
+function showStripeError(message) {
+    stripeFeedback.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + message;
+    stripeFeedback.style.display = "block";
+}
+
+paymentForm.addEventListener("submit", function (e) {
+    if (providerSelect.value !== "stripe") return;  // Mobile Money : envoi normal
+    e.preventDefault();
+    stripeFeedback.style.display = "none";
+    const amount = parseFloat(amountInput.value);
+    if (!amount || amount < STRIPE_MIN || amount > STRIPE_MAX) {
+        showStripeError("Par carte, le montant doit être entre " + STRIPE_MIN + " € et " + STRIPE_MAX + " €.");
+        amountInput.focus();
+        return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirection vers Stripe…';
+    fetch("{% url 'monetisation:stripe_create_checkout' %}", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}"},
+        body: JSON.stringify({amount: amount})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.url) {
+            window.location.href = data.url;
+            return;
+        }
+        showStripeError(data.error || "Impossible de démarrer le paiement par carte.");
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = SUBMIT_CARD_HTML;
+    })
+    .catch(() => {
+        showStripeError("Erreur réseau, réessayez.");
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = SUBMIT_CARD_HTML;
+    });
+});
 
 // Configuration des boutons PayPal
 paypal.Buttons({
