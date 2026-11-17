@@ -1,0 +1,74 @@
+{% extends "iot/base.html" %}
+{% block content %}
+<style>
+.academy-shell{max-width:1100px;margin:25px auto;padding:22px;color:#e9f6ff;font-family:system-ui,sans-serif}
+.academy-hero{border:1px solid #22627a;border-radius:24px;background:linear-gradient(135deg,#071a30,#0c3045);padding:clamp(22px,5vw,54px)}
+.academy-eyebrow{color:#60dffa;letter-spacing:.12em;font-weight:700;text-transform:uppercase;font-size:.82rem}
+.academy-hero h1{font-size:clamp(1.8rem,5vw,3rem);line-height:1.2;margin:14px 0}
+.academy-sub{color:#bbd3e3;line-height:1.65;max-width:760px}
+.academy-price{font-size:2rem;font-weight:800;color:#fff}
+.academy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:16px;margin:26px 0}
+.academy-card{border:1px solid #26475b;background:#0d2134;border-radius:16px;padding:20px}
+.academy-card h2{font-size:1.07rem;margin:10px 0;color:#fff}
+.academy-card p{font-size:.9rem;color:#abc5d6}
+.academy-tag{display:inline-block;border:1px solid #4c8097;border-radius:99px;padding:5px 10px;font-size:.75rem;color:#8ceaff}
+.academy-action{display:inline-block;border:0;border-radius:10px;padding:13px 20px;background:#00c8e8;color:#032032;font-weight:800;cursor:pointer}
+.academy-action:disabled{opacity:.55;cursor:not-allowed}
+.academy-notice{color:#c4d6df;font-size:.92rem;margin-top:14px}
+@media(max-width:600px){.academy-shell{padding:12px}.academy-hero{padding:22px}}
+</style>
+<main class="academy-shell">
+<section class="academy-hero">
+  <div class="academy-eyebrow">Founatek Academy · Livre 1</div>
+  <h1>Le catalogue de l'électronique embarquée</h1>
+  <p class="academy-sub">Découvrez les composants, capteurs et outils de l'électronique embarquée. Les bases sont gratuites. Le pack complet est prévu en achat unique, avec accès durable aux chapitres publiés.</p>
+  <p class="academy-price">{{ price }} € <small style="font-size:.9rem;font-weight:400;color:#bad2e1">· achat unique, sans abonnement</small></p>
+  {% if checkout_enabled %}
+    {% if request.user.is_authenticated %}
+    <form id="academy-buy-form" method="post" action="{% url 'monetisation:academy_create_checkout' %}">
+      {% csrf_token %}
+      <button type="submit" class="academy-action">Acheter le pack avec Stripe</button>
+    </form>
+    <p id="academy-buy-feedback" role="status" class="academy-notice"></p>
+    {% else %}
+    <a class="academy-action" href="{% url 'login' %}?next={{ request.path|urlencode }}">Se connecter pour acheter</a>
+    {% endif %}
+  {% else %}
+    <p class="academy-notice">Les achats sont temporairement désactivés pendant la préparation et la vérification des cours.</p>
+  {% endif %}
+</section>
+<section aria-label="Chapitres du livre" class="academy-grid">
+{% for chapter in chapters %}
+<article class="academy-card">
+  <span class="academy-tag">Chapitre {{ chapter.number }} · {% if chapter.free %}Gratuit{% else %}Pack complet{% endif %}</span>
+  <h2>{{ chapter.title }}</h2>
+  {% if chapter.available %}
+  <p>{{ chapter.lessons_count }} leçon{{ chapter.lessons_count|pluralize }} publiée{{ chapter.lessons_count|pluralize }} · {% if chapter.unlocked %}Accès autorisé{% else %}Accès réservé aux acheteurs{% endif %}</p>
+  {% else %}
+  <p>Contenu en préparation · aucune leçon publiée pour le moment.</p>
+  {% endif %}
+</article>
+{% endfor %}
+</section>
+</main>
+{% if checkout_enabled and request.user.is_authenticated %}
+<script>
+(function(){
+ const form=document.getElementById("academy-buy-form");
+ if(!form)return;
+ form.addEventListener("submit",async function(e){
+  e.preventDefault();
+  const button=form.querySelector("button");
+  const feedback=document.getElementById("academy-buy-feedback");
+  button.disabled=true;feedback.textContent="Préparation du paiement sécurisé…";
+  try{
+   const response=await fetch(form.action,{method:"POST",headers:{"X-CSRFToken":form.querySelector("[name=csrfmiddlewaretoken]").value,"Accept":"application/json"},credentials:"same-origin"});
+   const data=await response.json();
+   if(!response.ok||!data.url)throw new Error(data.error||"Paiement indisponible.");
+   window.location.assign(data.url);
+  }catch(error){feedback.textContent=error.message;button.disabled=false;}
+ });
+})();
+</script>
+{% endif %}
+{% endblock %}
