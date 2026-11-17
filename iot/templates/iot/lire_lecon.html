@@ -5,7 +5,7 @@
 {% block content %}
 {% if lecon.academy_book_entry.chapter_number == "00" %}
 <script>
-window.MathJax = {tex: {inlineMath: [['\\\\(', '\\\\)']], displayMath: [['\\\\[', '\\\\]']]}, options: {skipHtmlTags: ['script','noscript','style','textarea','pre','code']}};
+window.MathJax = {options: {skipHtmlTags: ['script','noscript','style','textarea','pre','code']}};
 </script>
 <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 <style>.academy-formula{margin:18px 0;padding:16px;border:1px solid rgba(0,210,255,.3);border-radius:12px;background:#101b33;overflow-x:auto}.academy-formula-title{color:#63d7ff;font-weight:700;margin-bottom:12px}.academy-schematic{max-width:100%;height:auto;border-radius:12px;background:#fff;padding:12px}</style>
