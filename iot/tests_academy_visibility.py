@@ -12,7 +12,7 @@ class AcademyLessonVisibilityTests(TestCase):
         self.user = get_user_model().objects.create_user("academy_visibility", password="testpass")
         self.organisation = Organisation.objects.create(nom="Academy test", type="Université")
         self.parcours = Parcours.objects.create(
-            organisation=self.organisation, titre="Livre test",
+            organisation=self.organisation, created_by=self.user, titre="Livre test",
             description="Tests de visibilité", niveau="Débutant", is_published=True
         )
         self.free = Lecon.objects.create(parcours=self.parcours, titre="Gratuit", ordre=1)
