@@ -1,9 +1,11 @@
 from django.urls import path
 from . import views
-from . import stripe_payments, refunds
+from . import stripe_payments, refunds, academy_checkout
 
 app_name = 'monetisation'
 urlpatterns = [
+    path('academy/create-checkout/', academy_checkout.create_academy_checkout, name='academy_create_checkout'),
+    path('academy/status/', academy_checkout.academy_checkout_status, name='academy_checkout_status'),
     path('', views.dashboard, name='monetisation_dashboard'),
     path('acheter-credit/', views.init_mobile_money, name='monetisation_acheter_credit'),
     path('transactions/', views.transactions, name='monetisation_transactions'),
