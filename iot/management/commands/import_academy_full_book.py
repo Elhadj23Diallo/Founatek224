@@ -15,7 +15,7 @@ from iot.book_catalog import BOOK_SLUG
 from iot.models import AcademyBookLesson, BlocPedagogique, Lecon, Parcours
 
 
-SOURCE = Path(__file__).resolve().parents[3] / "academy_source"
+SOURCE = Path(__file__).resolve().parents[2] / "academy_source"
 
 
 class Command(BaseCommand):
