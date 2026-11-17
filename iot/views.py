@@ -49,6 +49,7 @@ from .serializers import (
     ProgressionSerializer, ProjectSerializer
 )
 
+from .academy_access import can_read_lesson, filter_readable_lessons
 from .utils.pedagogy import lecon_est_debloquee, valider_lecon
 from .utils.certification import parcours_est_certifiable, calculer_score_parcours
 from .utils.pdf import generer_certificat_pdf
@@ -197,12 +198,15 @@ class LeconViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Lecon.objects.filter(
+        return filter_readable_lessons(Lecon.objects.filter(
             parcours__is_published=True
-        ).select_related("parcours")
+        ), self.request.user).select_related("parcours")
 
     def retrieve(self, request, *args, **kwargs):
         lecon = self.get_object()
+
+        if not can_read_lesson(request.user, lecon):
+            raise PermissionDenied("Cette leçon nécessite un accès Academy actif.")
 
         if not lecon_est_debloquee(request.user, lecon):
             raise PermissionDenied(
@@ -238,9 +242,8 @@ class BlocPedagogiqueViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         # 🟢 Étudiant → uniquement parcours publiés
-        return queryset.filter(
-            lecon__parcours__is_published=True
-        )
+        allowed_ids = filter_readable_lessons(Lecon.objects.all(), user).values("pk")
+        return queryset.filter(lecon__parcours__is_published=True, lecon_id__in=allowed_ids)
 
 
 
@@ -536,7 +539,7 @@ def liste_lecons(request, parcours_id):
         progression = progressions.get(lecon.id)
         lecons_data.append({
             "lecon": lecon,
-            "debloquee": lecon_est_debloquee(request.user, lecon),
+            "debloquee": can_read_lesson(request.user, lecon) and lecon_est_debloquee(request.user, lecon),
             "completed": progression.completed if progression else False,
             "score": progression.score if progression else None,
         })
@@ -554,6 +557,9 @@ def liste_lecons(request, parcours_id):
 def lire_lecon(request, lecon_id):
 
     lecon = get_object_or_404(Lecon, id=lecon_id)
+
+    if not can_read_lesson(request.user, lecon):
+        raise PermissionDenied("Cette leçon nécessite un accès Academy actif.")
 
     if not lecon_est_debloquee(request.user, lecon):
         raise PermissionDenied("Vous devez valider la leçon précédente.")
