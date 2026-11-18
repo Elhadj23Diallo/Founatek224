@@ -2114,6 +2114,78 @@ def mobile_monetisation_stripe_status(request):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# MODULE ACADEMY (Livre 1) — catalogue + achat du pack, cote mobile
+# ══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_academy_catalog(request):
+    """Catalogue du Livre 1 Founatek Academy. Chapitre 00 toujours accessible ;
+    01-11 necessitent AcademyPackAccess (verifie par can_read_book_chapter,
+    jamais par le client)."""
+    from django.conf import settings as _settings
+    from iot.book_catalog import CHAPTERS, PACK_PRICE_EUR, BOOK_SLUG
+    from iot.academy_access import can_read_book_chapter
+    from iot.models import AcademyBookLesson, AcademyPackAccess
+
+    lessons_by_chapter = {}
+    for entry in AcademyBookLesson.objects.filter(published=True).select_related("lecon"):
+        lessons_by_chapter.setdefault(entry.chapter_number, []).append({
+            "lecon_id": entry.lecon_id,
+            "parcours_id": entry.lecon.parcours_id,
+            "titre": entry.lecon.titre,
+            "ordre": entry.lecon.ordre,
+        })
+
+    chapters = []
+    for number, title, free in CHAPTERS:
+        lessons = sorted(lessons_by_chapter.get(number, []), key=lambda x: x["ordre"])
+        chapters.append({
+            "number": number,
+            "title": title,
+            "free": free,
+            "available": bool(lessons),
+            "lessons_count": len(lessons),
+            "unlocked": can_read_book_chapter(request.user, number),
+            "lessons": lessons,
+        })
+
+    access_active = AcademyPackAccess.objects.filter(
+        user=request.user, pack_slug=BOOK_SLUG, active=True, revoked_at__isnull=True
+    ).exists()
+
+    return Response({
+        "book_slug": BOOK_SLUG,
+        "price": str(PACK_PRICE_EUR),
+        "checkout_enabled": bool(getattr(_settings, "ACADEMY_BOOK_CHECKOUT_ENABLED", False))
+            and bool(getattr(_settings, "STRIPE_ENABLED", False)),
+        "access_active": access_active,
+        "chapters": chapters,
+    })
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_academy_checkout(request):
+    """Lance l'achat du pack Livre 1 par carte (Stripe) -> {"url", "session_id"}.
+    Memes verifications que le site (create_academy_checkout_session)."""
+    import stripe as _stripe
+    from django.urls import reverse
+    from monetisation.academy_checkout import create_academy_checkout_session, AcademyCheckoutError
+
+    status_url = request.build_absolute_uri(reverse("monetisation:academy_checkout_status"))
+    try:
+        session = create_academy_checkout_session(request.user, status_url, status_url)
+    except AcademyCheckoutError as exc:
+        return Response({"error": str(exc)}, status=exc.status)
+    except _stripe.StripeError:
+        return Response({"error": "Impossible de créer le paiement."}, status=502)
+    return Response({"url": session.url, "session_id": session.id})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MODULE TRANSPARENCE PRODUIT
 # ══════════════════════════════════════════════════════════════════════════════
 

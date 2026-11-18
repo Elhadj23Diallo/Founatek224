@@ -15,46 +15,65 @@ from iot.models import AcademyPackAccess, AcademyPackPayment, AcademyBookLesson
 logger = logging.getLogger(__name__)
 
 
+class AcademyCheckoutError(Exception):
+    """Message à renvoyer tel quel au client, avec le status HTTP associé."""
+
+    def __init__(self, message, status):
+        super().__init__(message)
+        self.status = status
+
+
+def create_academy_checkout_session(user, success_url, cancel_url):
+    """Cœur partagé web + mobile : mêmes vérifications, même session Stripe.
+    Lève AcademyCheckoutError (message + status à renvoyer tel quel) ou
+    stripe.StripeError. Retourne la Session Stripe créée."""
+    if not getattr(settings, "ACADEMY_BOOK_CHECKOUT_ENABLED", False):
+        raise AcademyCheckoutError("Les achats Academy ne sont pas encore ouverts.", 503)
+    if not AcademyBookLesson.objects.filter(published=True).exclude(chapter_number="00").exists():
+        raise AcademyCheckoutError("Le pack payant n’est pas encore disponible.", 503)
+    if not getattr(settings, "STRIPE_ENABLED", False):
+        raise AcademyCheckoutError("Paiement indisponible.", 503)
+    if AcademyPackAccess.objects.filter(
+        user=user, pack_slug=BOOK_SLUG, active=True, revoked_at__isnull=True
+    ).exists():
+        raise AcademyCheckoutError("Pack déjà acquis.", 409)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    session = stripe.checkout.Session.create(
+        mode="payment",
+        line_items=[{
+            "price_data": {
+                "currency": "eur",
+                "unit_amount": 999,
+                "product_data": {"name": "Founatek Academy — Livre 1 (chapitres 01 à 11)"},
+            },
+            "quantity": 1,
+        }],
+        client_reference_id=str(user.pk),
+        metadata={"kind": "academy_book_pack", "pack_slug": BOOK_SLUG, "user_id": str(user.pk)},
+        success_url=success_url,
+        cancel_url=cancel_url,
+    )
+
+    AcademyPackPayment.objects.create(
+        user=user, pack_slug=BOOK_SLUG, provider="stripe",
+        checkout_id=session.id, amount_eur=PACK_PRICE_EUR,
+    )
+    return session
+
+
 @login_required
 @require_POST
 def create_academy_checkout(request):
     """Le serveur fixe le prix. CSRF Django et session utilisateur requis."""
-    if not getattr(settings, "ACADEMY_BOOK_CHECKOUT_ENABLED", False):
-        return JsonResponse({"error": "Les achats Academy ne sont pas encore ouverts."}, status=503)
-    if not AcademyBookLesson.objects.filter(published=True).exclude(chapter_number="00").exists():
-        return JsonResponse({"error": "Le pack payant n’est pas encore disponible."}, status=503)
-    if not getattr(settings, "STRIPE_ENABLED", False):
-        return JsonResponse({"error": "Paiement indisponible."}, status=503)
-    if AcademyPackAccess.objects.filter(
-        user=request.user, pack_slug=BOOK_SLUG, active=True, revoked_at__isnull=True
-    ).exists():
-        return JsonResponse({"error": "Pack déjà acquis."}, status=409)
-
-    stripe.api_key = settings.STRIPE_SECRET_KEY
+    status_url = request.build_absolute_uri(reverse("monetisation:academy_checkout_status"))
     try:
-        session = stripe.checkout.Session.create(
-            mode="payment",
-            line_items=[{
-                "price_data": {
-                    "currency": "eur",
-                    "unit_amount": 999,
-                    "product_data": {"name": "Founatek Academy — Livre 1 (chapitres 01 à 11)"},
-                },
-                "quantity": 1,
-            }],
-            client_reference_id=str(request.user.pk),
-            metadata={"kind": "academy_book_pack", "pack_slug": BOOK_SLUG, "user_id": str(request.user.pk)},
-            success_url=request.build_absolute_uri(reverse("monetisation:academy_checkout_status")),
-            cancel_url=request.build_absolute_uri(reverse("monetisation:academy_checkout_status")),
-        )
+        session = create_academy_checkout_session(request.user, status_url, status_url)
+    except AcademyCheckoutError as exc:
+        return JsonResponse({"error": str(exc)}, status=exc.status)
     except stripe.StripeError:
         logger.exception("Erreur de création Checkout Academy")
         return JsonResponse({"error": "Impossible de créer le paiement."}, status=502)
-
-    AcademyPackPayment.objects.create(
-        user=request.user, pack_slug=BOOK_SLUG, provider="stripe",
-        checkout_id=session.id, amount_eur=PACK_PRICE_EUR,
-    )
     return JsonResponse({"url": session.url})
 
 
