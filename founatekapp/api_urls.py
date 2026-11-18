@@ -25,6 +25,8 @@ urlpatterns = [
     path('orders/<int:pk>/', api_views.api_order_detail, name='api_order_detail'),
     path('orders/checkout/', api_views.api_checkout, name='api_checkout'),
     path('orders/<int:pk>/receipt/', api_views.api_order_receipt_pdf, name='api_order_receipt_pdf'),
+    path('orders/<int:pk>/pay-card/', api_views.api_order_pay_card, name='api_order_pay_card'),
+    path('orders/<int:pk>/cancel/', api_views.api_order_cancel_card, name='api_order_cancel_card'),
 
     # Avis & fidélité
     path('products/<int:product_id>/review/', api_views.api_submit_review, name='api_submit_review'),

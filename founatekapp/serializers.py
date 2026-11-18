@@ -111,6 +111,17 @@ class OrderSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
+    # Paiement carte : montant réellement demandé (ex. 12.5 + "EUR") et
+    # « en attente de paiement » pour afficher Payer / Annuler dans l'appli.
+    card_amount = serializers.SerializerMethodField()
+    card_currency = serializers.SerializerMethodField()
+    awaiting_card_payment = serializers.BooleanField(read_only=True)
+
+    def get_card_amount(self, obj):
+        return obj.card_amount_cents / 100 if obj.card_amount_cents is not None else None
+
+    def get_card_currency(self, obj):
+        return obj.card_currency.upper() or None
 
     class Meta:
         model = Order
@@ -118,6 +129,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'status', 'status_display', 'shipping_address', 'phone', 'contact_email', 'note',
             'payment_method', 'payment_method_display', 'payment_status', 'payment_status_display',
             'payment_reference', 'discount', 'subtotal', 'total', 'total_items', 'items',
+            'card_amount', 'card_currency', 'awaiting_card_payment',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['status', 'payment_status', 'discount', 'created_at', 'updated_at']

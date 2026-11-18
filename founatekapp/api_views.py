@@ -294,6 +294,49 @@ def api_checkout(request):
     return Response(data, status=201)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_order_pay_card(request, pk):
+    """Relance le paiement carte d'une commande non payée -> {"url"}."""
+    import stripe
+    from django.urls import reverse
+    from .stripe_checkout import create_order_checkout_session, CardPaymentError
+
+    order = get_object_or_404(Order, pk=pk, user=request.user)
+    if not order.awaiting_card_payment:
+        return Response({'error': "Cette commande n'attend pas de paiement par carte."}, status=400)
+    success_url = request.build_absolute_uri(reverse('founatekapp:order_confirmation', kwargs={'pk': order.pk}))
+    cancel_url = request.build_absolute_uri(reverse('founatekapp:order_detail', kwargs={'pk': order.pk})) + '?paiement=annule'
+    try:
+        session = create_order_checkout_session(order, order.card_currency.upper(), success_url, cancel_url)
+    except CardPaymentError as exc:
+        return Response({'error': str(exc), 'code': 'card_unavailable'}, status=400)
+    except stripe.StripeError:
+        return Response({'error': "Impossible de démarrer le paiement par carte, réessayez."}, status=502)
+    return Response({'url': session.url, 'order_id': order.pk,
+                     'currency': order.card_currency.upper(), 'amount': order.card_amount_cents / 100})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_order_cancel_card(request, pk):
+    """Annule une commande carte non payée : points rendus, articles remis
+    dans le panier -> {"cancelled": true}."""
+    import stripe
+    from .stripe_checkout import cancel_card_order_by_customer, CardPaymentError
+
+    order = get_object_or_404(Order, pk=pk, user=request.user)
+    try:
+        cancelled = cancel_card_order_by_customer(order)
+    except CardPaymentError as exc:
+        return Response({'error': str(exc), 'code': 'already_paid'}, status=409)
+    except stripe.StripeError:
+        return Response({'error': "Impossible d'annuler pour le moment, réessayez."}, status=502)
+    if not cancelled:
+        return Response({'error': "Cette commande ne peut plus être annulée."}, status=400)
+    return Response({'cancelled': True, 'order_id': order.pk})
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def api_order_receipt_pdf(request, pk):

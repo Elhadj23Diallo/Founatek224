@@ -193,6 +193,7 @@ urlpatterns = [
     path('api/mobile/monetisation/paypal/create-order/', api_views.mobile_monetisation_paypal_create_order, name='mobile_monetisation_paypal_create_order'),
     path('api/mobile/monetisation/paypal/capture-order/', api_views.mobile_monetisation_paypal_capture_order, name='mobile_monetisation_paypal_capture_order'),
     path('api/mobile/monetisation/stripe/create-checkout/', api_views.mobile_monetisation_stripe_create_checkout, name='mobile_monetisation_stripe_create_checkout'),
+    path('api/mobile/monetisation/stripe/status/', api_views.mobile_monetisation_stripe_status, name='mobile_monetisation_stripe_status'),
     path('api/mobile/monetisation/merchant-numbers/', api_views.mobile_monetisation_merchant_numbers, name='mobile_monetisation_merchant_numbers'),
     path('api/mobile/monetisation/exchange-rate/', api_views.mobile_monetisation_exchange_rate, name='mobile_monetisation_exchange_rate'),
     path('api/mobile/monetisation/admin/pending/', api_views.mobile_monetisation_admin_pending, name='mobile_monetisation_admin_pending'),

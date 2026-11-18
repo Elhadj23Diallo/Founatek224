@@ -1622,8 +1622,17 @@ def mobile_monetisation_dashboard(request):
         _, _, iot_calls_used, max_iot_calls = check_iot_quota(request.user)
         _, device_count, max_devices = check_device_quota(request.user)
 
+        from django.conf import settings as _settings
+        from monetisation.stripe_payments import STRIPE_TOPUP_MIN_EUR, STRIPE_TOPUP_MAX_EUR
+        from monetisation.utils import CREDIT_TOPUP_MIN_EUR, CREDIT_TOPUP_MAX_EUR
         return Response({
             "balance": wallet.balance if wallet else 0,
+            # Moyens de recharge disponibles (Mobile Money masqué : pas encore intégré)
+            "topup": {
+                "card": {"enabled": bool(_settings.STRIPE_ENABLED), "min": STRIPE_TOPUP_MIN_EUR, "max": STRIPE_TOPUP_MAX_EUR},
+                "paypal": {"enabled": bool(_settings.PAYPAL_CLIENT_ID), "min": CREDIT_TOPUP_MIN_EUR, "max": CREDIT_TOPUP_MAX_EUR},
+                "mobile_money": {"enabled": False},
+            },
             "subscription": {
                 "plan": plan,
                 "start_date": sub.start_date.isoformat() if sub else None,
@@ -1665,33 +1674,54 @@ def mobile_monetisation_dashboard(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def mobile_monetisation_upgrade(request):
-    """Body: { "plan": "basic" | "pro" | "free" }"""
+    """Body: { "plan": "basic" | "pro" | "free" } — paiement avec le solde du wallet.
+    Solde insuffisant : 402 {"error", "code": "insufficient_balance",
+    "missing", "balance", "price"} pour que l'appli propose une recharge."""
     try:
-        from monetisation.models import Wallet, Subscription, Transaction
+        from django.db import transaction as db_transaction
+        from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
         from monetisation.utils import PLAN_PRICES, round_money
         from django.utils import timezone
         from datetime import timedelta
+        import uuid as uuid_lib
         plan = request.data.get("plan", "free")
         if plan not in PLAN_PRICES:
             return Response({"error": "Plan invalide"}, status=400)
         price = PLAN_PRICES[plan]
-        if price > 0:
-            wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
-            if wallet.balance < price:
-                return Response({"error": "Solde insuffisant"}, status=402)
-            wallet.balance = round_money(wallet.balance - price)
-            wallet.save()
-            Transaction.objects.create(
-                user=request.user, type="debit",
-                amount=price, description=f"Abonnement {plan.upper()}"
-            )
-            # Pas de commission ici : argent déjà commissionné à la recharge du wallet.
-        sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
-        sub.plan = plan
-        sub.start_date = timezone.now().date()
-        sub.end_date = (timezone.now() + timedelta(days=30)).date() if plan != "free" else None
-        sub.save()
-        return Response({"plan": sub.plan, "end_date": sub.end_date.isoformat() if sub.end_date else None})
+        with db_transaction.atomic():
+            # Lignes verrouillées : un double appel ne débite pas deux fois.
+            Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
+            wallet = Wallet.objects.select_for_update().get(user=request.user)
+            sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
+            sub = Subscription.objects.select_for_update().get(pk=sub.pk)
+            if price > 0:
+                if wallet.balance < price:
+                    missing = round_money(price - wallet.balance)
+                    return Response({
+                        "error": f"Solde insuffisant : il vous manque {missing:.2f} €.",
+                        "code": "insufficient_balance",
+                        "missing": missing, "balance": wallet.balance, "price": price,
+                    }, status=402)
+                wallet.balance = round_money(wallet.balance - price)
+                wallet.save()
+                Transaction.objects.create(
+                    user=request.user, type="debit",
+                    amount=price, description=f"Abonnement {plan.upper()}"
+                )
+                PaymentRequest.objects.create(
+                    user=request.user, provider="wallet", amount=price, status="success",
+                    transaction_id=str(uuid_lib.uuid4()), purpose="subscription",
+                )
+                # Pas de commission ici : argent déjà commissionné à la recharge du wallet.
+            sub.plan = plan
+            sub.start_date = timezone.now().date()
+            sub.end_date = (timezone.now() + timedelta(days=30)).date() if plan != "free" else None
+            sub.save()
+        return Response({
+            "plan": sub.plan,
+            "end_date": sub.end_date.isoformat() if sub.end_date else None,
+            "balance": wallet.balance,
+        })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -1842,10 +1872,15 @@ def mobile_monetisation_referral(request):
         # Total sur TOUTES les commissions non converties (pas seulement les 20 affichées)
         total_points = round(sum(c.amount for c in all_commissions if not c.converted), 2)
         commissions = all_commissions.order_by("-created_at")[:20]
+        from monetisation.utils import POINTS_PER_EURO, MIN_POINTS_TO_CONVERT
         return Response({
             "code": referral.code,
             "referred_count": referred_users.count(),
             "total_points": total_points,
+            "total_eur": round(total_points / POINTS_PER_EURO, 2),
+            "points_per_euro": POINTS_PER_EURO,
+            "min_points_to_convert": MIN_POINTS_TO_CONVERT,
+            "can_convert": total_points >= MIN_POINTS_TO_CONVERT,
             "commissions": [{
                 "id": c.id,
                 "amount": round(c.amount, 2),
@@ -2051,7 +2086,31 @@ def mobile_monetisation_stripe_create_checkout(request):
     except _stripe.StripeError:
         return Response({"error": "Impossible de créer la session de paiement."}, status=502)
 
-    return Response({"url": session.url})
+    # session_id : l'appli interroge stripe/status/ au retour du navigateur
+    # pour savoir quand le wallet est crédité (par le webhook).
+    return Response({"url": session.url, "session_id": session.id})
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_stripe_status(request):
+    """GET ?session_id=cs_... -> {"status": pending|success|failed|refunded|disputed,
+    "credited": bool, "amount", "balance"}. Lecture seule."""
+    from monetisation.models import PaymentRequest, Wallet
+    session_id = request.query_params.get("session_id", "")
+    payment = PaymentRequest.objects.filter(
+        user=request.user, provider="stripe", transaction_id=session_id
+    ).first() if session_id else None
+    if payment is None:
+        return Response({"error": "Paiement introuvable."}, status=404)
+    wallet = Wallet.objects.filter(user=request.user).first()
+    return Response({
+        "status": payment.status,
+        "credited": payment.status == "success",
+        "amount": payment.amount,
+        "balance": wallet.balance if wallet else 0,
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════════════
