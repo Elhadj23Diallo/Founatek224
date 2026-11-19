@@ -15,12 +15,20 @@ def create_wallet(sender, instance, created, **kwargs):
 
 ADMIN_NOTIFICATION_EMAILS = ['jallohelhadjabdul@gmail.com', 'dialloelhadjabdourahmane510@gmail.com']
 
+# Fournisseurs confirmes automatiquement (wallet interne, ou webhook Stripe/PayPal) :
+# jamais besoin d'une confirmation manuelle, donc jamais de mail admin pour eux.
+AUTO_CONFIRMED_PROVIDERS = {'wallet', 'stripe', 'paypal'}
+
 
 @receiver(post_save, sender=PaymentRequest)
 def notify_admin_new_payment_request(sender, instance, created, **kwargs):
-    """Notifie les admins par email des qu'une demande de paiement Mobile Money arrive,
-    pour confirmation manuelle (pas d'API automatisee sans entreprise enregistree)."""
+    """Notifie les admins par email des qu'une VRAIE demande Mobile Money arrive
+    en attente, pour confirmation manuelle (pas d'API automatisee sans entreprise
+    enregistree). N'alerte jamais pour un reglement wallet (deja soldé) ni pour
+    Stripe/PayPal (confirmes automatiquement par webhook)."""
     if not created:
+        return
+    if instance.status != 'pending' or instance.provider.lower() in AUTO_CONFIRMED_PROVIDERS:
         return
     try:
         subject = f"FOUNATEK — Nouvelle demande {instance.provider} de {instance.amount} EUR"
