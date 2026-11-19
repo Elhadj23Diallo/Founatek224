@@ -163,3 +163,47 @@ class ImportV2Tests(TestCase):
         self.client.force_login(self.learner)
         resp = self.client.get(f"/lecon/{lecon.id}/")
         self.assertRedirects(resp, "/academy/livre-1/", fetch_redirect_response=False)
+
+
+class AdminFullAccessTests(TestCase):
+    """L'administrateur (createsuperuser) lit tout ; les autres comptes restent limités."""
+    write = ImportV2Tests.write
+    run_import = ImportV2Tests.run_import
+
+    def setUp(self):
+        ImportV2Tests.setUp(self)
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(username="admin", password="p", email="a@example.com")
+        self.write(lesson(id="0.9"), lesson(id="0.10", titre="Deuxième leçon"))
+        self.run_import("--apply")
+        # Une partie payante publiée (07), sans achat
+        self.paid = Lecon.objects.get(titre__contains="Deuxième leçon")
+        AcademyBookLesson.objects.filter(lecon=self.paid).update(published=True, chapter_number="07")
+
+    def test_admin_reads_paid_and_draft_lessons(self):
+        from .academy_access import can_read_book_chapter, filter_readable_lessons
+        draft = Lecon.objects.exclude(pk=self.paid.pk).get()
+        for lecon in (draft, self.paid):
+            self.assertTrue(can_read_lesson(self.admin, lecon))
+        self.assertTrue(can_read_book_chapter(self.admin, "07"))
+        self.assertEqual(filter_readable_lessons(Lecon.objects.all(), self.admin).count(), Lecon.objects.count())
+        self.client.force_login(self.admin)
+        for lecon in (draft, self.paid):
+            self.assertEqual(self.client.get(f"/lecon/{lecon.id}/").status_code, 200)
+
+    def test_learner_still_needs_the_pack(self):
+        from .academy_access import can_read_book_chapter
+        self.assertFalse(can_read_lesson(self.learner, self.paid))
+        self.assertFalse(can_read_book_chapter(self.learner, "07"))
+        self.client.force_login(self.learner)
+        resp = self.client.get(f"/lecon/{self.paid.id}/")
+        self.assertRedirects(resp, "/academy/livre-1/", fetch_redirect_response=False)
+
+    def test_admin_sees_unpublished_parcours_and_book_link(self):
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get("/parcours/"), "Non publié")
+        resp = self.client.get("/academy/livre-1/")
+        self.assertContains(resp, "Vue administrateur")
+        self.assertContains(resp, f"/parcours/{self.parcours.id}/")
+        self.client.force_login(self.learner)
+        self.assertNotContains(self.client.get("/academy/livre-1/"), "Vue administrateur")

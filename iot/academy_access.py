@@ -1,13 +1,23 @@
 """Contrôle des droits d'accès au pack Livre 1.
 
 Aucun accès n'est attribué ici : un paiement doit être vérifié côté serveur.
+Seule exception : les administrateurs (superuser ou staff) voient tout.
 """
 from .book_catalog import BOOK_SLUG, chapter_is_free
 from .models import AcademyPackAccess, AcademyBookLesson
 
 
+def has_full_access(user):
+    """Administrateur (créé avec createsuperuser, ou membre staff) : accès à tous
+    les cours, payants ou en brouillon, sans achat ni validation préalable.
+    Le site n'accorde jamais is_staff automatiquement (voir views.register)."""
+    return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff))
+
+
 def can_read_book_chapter(user, chapter_number):
     if chapter_is_free(chapter_number):
+        return True
+    if has_full_access(user):
         return True
     if not user or not user.is_authenticated:
         return False
@@ -18,6 +28,8 @@ def can_read_book_chapter(user, chapter_number):
 
 def can_read_lesson(user, lesson):
     """Leçons ordinaires inchangées ; fiches Livre 1 privées par défaut."""
+    if has_full_access(user):
+        return True
     try:
         entry = lesson.academy_book_entry
     except AcademyBookLesson.DoesNotExist:
@@ -32,6 +44,8 @@ def filter_readable_lessons(queryset, user):
     """Filtre ORM appliqué avant sérialisation et accès aux blocs/quiz."""
     from django.db.models import Q
     from .book_catalog import FREE_CHAPTER, BOOK_SLUG
+    if has_full_access(user):
+        return queryset
     allowed = Q(academy_book_entry__isnull=True) | Q(
         academy_book_entry__published=True,
         academy_book_entry__chapter_number=FREE_CHAPTER,

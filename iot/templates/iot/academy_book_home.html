@@ -36,6 +36,12 @@
   {% else %}
     <p class="academy-notice">Les achats sont temporairement désactivés pendant la préparation et la vérification des cours.</p>
   {% endif %}
+  {% if is_admin and admin_parcours %}
+  <p class="academy-notice" style="margin-top:18px">
+    <a class="academy-action" href="{% url 'iot:liste_lecons' admin_parcours.id %}">Vue administrateur : ouvrir toutes les leçons</a><br>
+    <span style="display:inline-block;margin-top:8px">Accès complet, brouillons compris. Les élèves ne voient que les chapitres publiés.</span>
+  </p>
+  {% endif %}
 </section>
 <section aria-label="Chapitres du livre" class="academy-grid">
 {% for chapter in chapters %}
@@ -46,6 +52,9 @@
   <p>{{ chapter.lessons_count }} leçon{{ chapter.lessons_count|pluralize }} publiée{{ chapter.lessons_count|pluralize }} · {% if chapter.unlocked %}Accès autorisé{% else %}Accès réservé aux acheteurs{% endif %}</p>
   {% else %}
   <p>Contenu en préparation · aucune leçon publiée pour le moment.</p>
+  {% endif %}
+  {% if is_admin and chapter.drafts_count %}
+  <p style="color:#fbbf24">Admin : {{ chapter.drafts_count }} leçon{{ chapter.drafts_count|pluralize }} en brouillon</p>
   {% endif %}
 </article>
 {% endfor %}
