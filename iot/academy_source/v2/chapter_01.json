@@ -1,0 +1,1125 @@
+[
+ {
+  "id": "1.1",
+  "titre": "La résistance",
+  "resume": "Le composant n° 1 de tous les circuits : il limite le courant et partage les tensions. Tu apprends à lire sa valeur, à associer des résistances en série et en parallèle et à construire un diviseur de tension.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "1.1-photo.jpg",
+   "legende": "Des résistances classiques ¼ W : les anneaux de couleur donnent leur valeur en ohms (Ω).",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "Un assortiment de résistances : 220 Ω, 330 Ω, 1 kΩ (× 2), 4,7 kΩ, 10 kΩ (× 2), 22 kΩ",
+   "1 × LED rouge 5 mm",
+   "1 × multimètre numérique",
+   "5 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Lire le code couleur de quatre résistances, puis vérifier chaque valeur à l'ohmmètre.\n2. Deux résistances en série puis en parallèle, mesurées au multimètre : la valeur monte, puis baisse.\n3. Le diviseur de tension sur la breadboard, lu par A0 et comparé au calcul.\n4. Le choix de la résistance d'une LED pour l'Uno (5 V) et pour l'ESP32 (3,3 V).",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLa résistance est partout : devant chaque LED, sur chaque bouton, dans chaque capteur. Elle ne fait qu'une chose, **freiner le courant**, mais cela suffit à protéger, à mesurer et à adapter des tensions.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire la valeur d'une résistance avec son code couleur ;\n- vérifier qu'elle supporte la puissance qu'elle va dissiper ;\n- calculer une association en série ou en parallèle ;\n- construire et calculer un **diviseur de tension** ;\n- choisir la résistance d'une LED sur Uno et sur ESP32."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. À quoi sert une résistance ?\n\n- **Limiter le courant** : protéger une LED ou une broche de l'Arduino.\n- **Diviser une tension** : abaisser 5 V vers 3,3 V, lire un capteur résistif (LDR, thermistance).\n- **Fixer un niveau logique** : résistance de pull-up ou de pull-down sur un bouton.\n- **Commander un transistor** : la résistance de base limite le courant de commande (leçon 1.4).\n\nSon comportement suit la **loi d'Ohm** (leçon 0.1) : plus R est grande, plus le courant est faible pour une même tension.\n\n$$U = R \\times I \\qquad\\qquad I = \\frac{U}{R}$$\n\nL'énergie freinée devient de la **chaleur**. La puissance dissipée vaut :\n\n$$P = U \\times I = R \\times I^{2} = \\frac{U^{2}}{R}$$\n\n| Puissance nominale | Taille typique | Usage |\n|---|---|---|\n| ¼ W (250 mW) | 6 mm de long | presque tous les montages Arduino |\n| ½ W (500 mW) | 9 mm | petits moteurs, LED de puissance |\n| 1 W à 5 W | gros boîtier, parfois céramique | alimentations, charges de test |\n\n> 💡 Règle de sécurité : choisis une résistance qui supporte au moins **deux fois** la puissance calculée. Exemple : 100 Ω sous 5 V dissipe \\( 5^2 / 100 = 0{,}25\\ \\text{W} \\) : une ¼ W serait à sa limite, prends une ½ W."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.1-code-couleur.svg",
+    "legende": "Le code couleur à 4 anneaux : deux chiffres, puis le nombre de zéros, puis la tolérance (or = ± 5 %). En bas, la correspondance entre couleurs et chiffres."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Lire la valeur\n\n1. Place l'anneau **or** (ou argent) à **droite**.\n2. Lis les deux premiers anneaux : ce sont deux **chiffres**.\n3. Le troisième anneau donne le **nombre de zéros** à ajouter (le multiplicateur).\n4. Le dernier anneau donne la **tolérance**.\n\n| Anneau de tolérance | Précision | Exemple pour 1 kΩ |\n|---|---|---|\n| or | ± 5 % | entre 950 Ω et 1 050 Ω |\n| argent | ± 10 % | entre 900 Ω et 1 100 Ω |\n| marron | ± 1 % | entre 990 Ω et 1 010 Ω |\n\nLes résistances de **précision à 5 anneaux** utilisent **3 chiffres**, puis le multiplicateur et la tolérance (souvent marron, ± 1 %). Exemple : marron, noir, noir, marron, marron = 100 suivi de 1 zéro = 1 000 Ω à ± 1 %.\n\n### Les valeurs normalisées (série E12)\n\nOn ne trouve pas toutes les valeurs dans le commerce, seulement celles d'une série : **10, 12, 15, 18, 22, 27, 33, 39, 47, 56, 68, 82**, puis leurs multiples (100, 120… 1 k, 1,2 k… 10 k…). Quand un calcul donne 200 Ω, on prend la valeur **juste au-dessus** pour protéger : 220 Ω.\n\n> ⚠️ Attention aux confusions : rouge-rouge-**marron** = 220 Ω, mais rouge-rouge-**rouge** = 2 200 Ω = 2,2 kΩ. En cas de doute, mesure à l'ohmmètre (leçon 0.6), hors circuit."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.1-associations.svg",
+    "legende": "Trois façons d'associer deux résistances : en série (elles s'additionnent), en parallèle (la résistance totale baisse) et en diviseur de tension (on prélève une fraction de la tension au point milieu)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Associer des résistances\n\n### En série : bout à bout\n\nLe même courant traverse les deux résistances. Les valeurs **s'additionnent** :\n\n$$R = R_1 + R_2$$\n\nExemple : \\( 220 + 330 = 550\\ \\Omega \\). La résistance totale **augmente**.\n\n### En parallèle : côte à côte\n\nLes deux résistances ont la même tension, le courant se partage. Ce sont les **inverses** qui s'additionnent :\n\n$$\\frac{1}{R} = \\frac{1}{R_1} + \\frac{1}{R_2} \\qquad\\text{soit, pour deux résistances :}\\qquad R = \\frac{R_1 \\times R_2}{R_1 + R_2}$$\n\n| R1 | R2 | Résultat en parallèle |\n|---|---|---|\n| 1 kΩ | 1 kΩ | 500 Ω (la moitié) |\n| 1 kΩ | 2,2 kΩ | ≈ 688 Ω |\n| 10 kΩ | 100 Ω | ≈ 99 Ω (presque la plus petite) |\n\nLa résistance totale est toujours **plus petite que la plus petite** des deux.\n\n### Le diviseur de tension\n\nDeux résistances en série entre une tension \\( V_{in} \\) et la masse : au point milieu, on récupère une fraction de \\( V_{in} \\).\n\n$$V_{out} = V_{in} \\times \\frac{R_2}{R_1 + R_2}$$\n\n| R1 | R2 | Vout (Vin = 5 V) |\n|---|---|---|\n| 10 kΩ | 10 kΩ | 2,50 V |\n| 10 kΩ | 4,7 kΩ | ≈ 1,60 V |\n| 10 kΩ | 22 kΩ | ≈ 3,44 V |\n| 1,8 kΩ | 3,3 kΩ | ≈ 3,24 V (5 V → 3,3 V pour un ESP32) |\n\n> 💡 Un capteur résistif (LDR, thermistance) remplace R1 ou R2 : sa résistance change, donc \\( V_{out} \\) change, et l'Arduino le mesure avec `analogRead()`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Choisir la résistance d'une LED\n\n$$R = \\frac{U_{alim} - U_{LED}}{I_{LED}}$$\n\n- **Arduino Uno** (5 V), LED rouge (≈ 2 V), 15 mA : \\( R = (5 - 2) / 0{,}015 = 200\\ \\Omega \\) → **220 Ω**.\n- **ESP32** (3,3 V), même LED : \\( R = (3{,}3 - 2) / 0{,}015 \\approx 87\\ \\Omega \\) → **100 Ω**.\n- Vérification de la puissance avec 220 Ω : \\( P = R \\times I^2 = 220 \\times 0{,}0136^2 \\approx 41\\ \\text{mW} \\), bien en dessous de 250 mW.\n\nLe montage D13 → 220 Ω → LED → GND a été câblé dans les leçons 0.1 et 0.4. Ici, on passe au montage qui sert le plus avec les capteurs : le diviseur de tension."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Expérience : un diviseur de tension lu par l'Arduino\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. Place **R1 = 10 kΩ** et **R2 = 10 kΩ** en série sur la breadboard (une patte de chaque dans une colonne commune : c'est le point milieu).\n3. Relie l'extrémité libre de R1 au **5V**, l'extrémité libre de R2 au **GND**.\n4. Relie le **point milieu** à **A0**.\n5. Téléverse le programme, ouvre le moniteur série, puis remplace R2 par d'autres valeurs (4,7 kΩ, 22 kΩ…) en modifiant la constante `R2` dans le code."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.1-schema-diviseur-a0.svg",
+    "legende": "Diviseur de tension : R1 et R2 de 10 kΩ en série entre 5V et GND. A0 lit la tension du point milieu, environ 2,5 V."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 1.1 — un diviseur de tension mesuré et comparé au calcul\nconst float VIN = 5.0;\nconst float R1 = 10000.0;   // ohms : la résistance du haut (vers 5V)\nconst float R2 = 10000.0;   // ohms : la résistance du bas (vers GND) ; change cette valeur\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  float mesure = analogRead(A0) * 5.0 / 1023.0;   // tension réelle du point milieu\n  float calcul = VIN * R2 / (R1 + R2);             // formule du diviseur\n  float ecart = (mesure - calcul) / calcul * 100.0; // écart en %\n\n  Serial.print(\"Mesure : \");  Serial.print(mesure, 2);\n  Serial.print(\" V  Calcul : \"); Serial.print(calcul, 2);\n  Serial.print(\" V  Ecart : \"); Serial.print(ecart, 1);\n  Serial.println(\" %\");\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| R1 | R2 | Vout calculée | Ta mesure A0 | Ta mesure au multimètre |\n|---|---|---|---|---|\n| 10 kΩ | 10 kΩ | 2,50 V | … | … |\n| 10 kΩ | 4,7 kΩ | 1,60 V | … | … |\n| 10 kΩ | 22 kΩ | 3,44 V | … | … |\n| 10 kΩ | 2 × 10 kΩ en série | 3,33 V | … | … |\n\nUn écart de quelques pourcents est normal : chaque résistance a une tolérance de ± 5 % et le 5 V de l'USB n'est pas exactement 5,00 V.\n\n### Bonus au multimètre\n\nHors tension, mesure deux résistances de 1 kΩ **en série** (≈ 2 kΩ), puis **en parallèle** (≈ 500 Ω). Tu vérifies ainsi les deux formules d'association.\n\n> 📌 **Et avec un ESP32 ?** Alimente le diviseur en **3,3 V** (jamais 5 V), point milieu sur **GPIO 34** (ADC1). Dans le code : `VIN = 3.3` et `analogRead(34) * 3.3 / 4095.0`. Pour une LED, utilise 100 Ω au lieu de 220 Ω et la GPIO 2."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **LED sans résistance** : la LED ou la broche grille.\n- **Confondre 220 Ω et 2,2 kΩ** : rouge-rouge-marron et rouge-rouge-rouge se ressemblent.\n- **Lire le code couleur à l'envers** : l'anneau or ou argent se place à droite.\n- **Dépasser ¼ W** : la résistance chauffe, noircit, puis se coupe.\n- **Mesurer une résistance soudée dans le circuit** : l'ohmmètre mesure aussi tout ce qui est en parallèle.\n- **Diviseur avec des valeurs trop faibles** (100 Ω + 100 Ω sur 5 V) : 25 mA gaspillés en chaleur. Pour un capteur, 10 kΩ suffisent.\n\n## 📌 À retenir\n\n- \\( U = R \\times I \\) et \\( P = U \\times I \\) : vérifie toujours la puissance (¼ W en général).\n- Code couleur : 2 chiffres, nombre de zéros, tolérance. Rouge-rouge-marron = 220 Ω.\n- Série : \\( R = R_1 + R_2 \\). Parallèle : \\( R = R_1 \\times R_2 / (R_1 + R_2) \\), plus petit que la plus petite.\n- Diviseur : \\( V_{out} = V_{in} \\times R_2 / (R_1 + R_2) \\).\n- Une LED = toujours une résistance en série : 220 Ω sur Uno, 100 Ω sur ESP32.\n\n## 🏆 Mini-défi\n\nAvec seulement des résistances de **10 kΩ**, fabrique un diviseur qui donne environ **3,3 V** à partir de 5 V. Combien en faut-il, et comment les placer ?\n\n> ✅ Solution : une résistance de 10 kΩ en haut (R1) et **deux 10 kΩ en série** en bas (R2 = 20 kΩ) : \\( V_{out} = 5 \\times 20 / (10 + 20) \\approx 3{,}33\\ \\text{V} \\). Trois résistances suffisent."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle est la valeur d'une résistance marron, noir, rouge, or ?",
+    "choix": [
+     "100 Ω",
+     "1 kΩ",
+     "10 kΩ",
+     "102 Ω"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Marron = 1, noir = 0, rouge = 2 zéros : 1 000 Ω = 1 kΩ, à ± 5 % (or)."
+   },
+   {
+    "question": "Quelle est la valeur d'une résistance jaune, violet, rouge ?",
+    "choix": [
+     "47 Ω",
+     "470 Ω",
+     "4,7 kΩ",
+     "47 kΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Jaune = 4, violet = 7, rouge = 2 zéros : 4 700 Ω = 4,7 kΩ."
+   },
+   {
+    "question": "Que signifie un anneau de tolérance or ?",
+    "choix": [
+     "± 1 %",
+     "± 5 %",
+     "± 10 %",
+     "La résistance supporte 1 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Or = ± 5 %, argent = ± 10 %, marron = ± 1 %."
+   },
+   {
+    "question": "On place 220 Ω et 330 Ω en série. Quelle est la résistance totale ?",
+    "choix": [
+     "110 Ω",
+     "132 Ω",
+     "550 Ω",
+     "72 600 Ω"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "En série, les résistances s'additionnent : 220 + 330 = 550 Ω."
+   },
+   {
+    "question": "Deux résistances de 1 kΩ en parallèle font :",
+    "choix": [
+     "2 kΩ",
+     "1 kΩ",
+     "500 Ω",
+     "0 Ω"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "R = (1 000 × 1 000) / (1 000 + 1 000) = 500 Ω : deux résistances égales en parallèle donnent la moitié."
+   },
+   {
+    "question": "Que dire de la résistance totale de deux résistances en parallèle ?",
+    "choix": [
+     "Elle est plus grande que la plus grande",
+     "Elle est égale à la somme",
+     "Elle est plus petite que la plus petite des deux",
+     "Elle est toujours de 1 kΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "En parallèle, on ajoute un chemin au courant : la résistance totale baisse sous la plus petite des deux."
+   },
+   {
+    "question": "Diviseur R1 = 10 kΩ (en haut), R2 = 10 kΩ (en bas), alimenté en 5 V. Quelle tension au point milieu ?",
+    "choix": [
+     "0 V",
+     "2,5 V",
+     "5 V",
+     "10 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Vout = 5 × 10 / (10 + 10) = 2,5 V : deux résistances égales partagent la tension en deux."
+   },
+   {
+    "question": "Diviseur R1 = 10 kΩ, R2 = 22 kΩ, sous 5 V. Quelle tension de sortie ?",
+    "choix": [
+     "≈ 1,56 V",
+     "≈ 2,5 V",
+     "≈ 3,44 V",
+     "≈ 4,5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Vout = 5 × 22 / (10 + 22) = 5 × 0,6875 ≈ 3,44 V."
+   },
+   {
+    "question": "Quelle puissance dissipe une résistance de 100 Ω sous 5 V ?",
+    "choix": [
+     "0,05 W",
+     "0,25 W",
+     "0,5 W",
+     "5 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "P = U² / R = 25 / 100 = 0,25 W : c'est la limite d'une ¼ W, mieux vaut une ½ W."
+   },
+   {
+    "question": "Quelle résistance choisir pour une LED rouge (≈ 2 V, 15 mA) sur un ESP32 (3,3 V) ?",
+    "choix": [
+     "10 Ω",
+     "100 Ω",
+     "1 kΩ",
+     "10 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "R = (3,3 − 2) / 0,015 ≈ 87 Ω : on prend la valeur normalisée juste au-dessus, 100 Ω."
+   },
+   {
+    "question": "À quoi peut servir une résistance ?",
+    "choix": [
+     "Limiter le courant d'une LED",
+     "Diviser une tension",
+     "Fixer un niveau logique (pull-up)",
+     "Stocker de l'énergie pour plus tard"
+    ],
+    "bonnes": [
+     "A",
+     "B",
+     "C"
+    ],
+    "explication": "Limiter, diviser, fixer un niveau : oui. Stocker de l'énergie, c'est le rôle du condensateur ou de la bobine."
+   },
+   {
+    "question": "Une résistance rouge, rouge, rouge vaut :",
+    "choix": [
+     "222 Ω",
+     "220 Ω",
+     "2,2 kΩ",
+     "22 kΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "22 suivi de 2 zéros = 2 200 Ω = 2,2 kΩ. Ne la confonds pas avec rouge-rouge-marron (220 Ω)."
+   }
+  ]
+ },
+ {
+  "id": "1.2",
+  "titre": "Le potentiomètre",
+  "resume": "Une résistance réglable : on tourne le bouton, la tension de sortie change. Tu apprends son fonctionnement en diviseur de tension, les modèles linéaires et logarithmiques, et tu règles une LED avec.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "1.2-photo.jpg",
+   "legende": "Des potentiomètres rotatifs soudés sur une carte : trois broches, et un axe qu'on tourne pour déplacer le curseur.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × potentiomètre 10 kΩ linéaire (marqué B10K)",
+   "1 × LED 5 mm et 1 × résistance 220 Ω",
+   "1 × condensateur céramique 100 nF (code 104), pour stabiliser la lecture",
+   "1 × multimètre numérique",
+   "6 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. L'intérieur d'un potentiomètre : la piste résistive et le curseur qui glisse dessus.\n2. Au multimètre : la résistance entre les extrémités ne bouge pas, celle du curseur change.\n3. Le montage sur l'Arduino : la valeur de A0 et la luminosité de la LED qui suivent le bouton.\n4. Linéaire contre logarithmique : la même rotation, deux comportements différents.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe potentiomètre est l'interface la plus simple entre ta main et ton programme : un bouton de volume, un réglage de luminosité, un seuil d'alarme, un axe de joystick.\n\nÀ la fin de cette leçon, tu sauras :\n\n- identifier les trois broches d'un potentiomètre et leur rôle ;\n- calculer la tension du curseur selon sa position ;\n- choisir entre un modèle linéaire (B) et logarithmique (A) ;\n- lire un potentiomètre avec `analogRead()` et l'utiliser pour régler une LED en PWM."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Trois broches, une piste, un curseur\n\n- **Broches 1 et 3** : les deux extrémités d'une **piste résistive** fixe, par exemple 10 kΩ.\n- **Broche 2** (au milieu) : le **curseur**, qui glisse sur la piste quand on tourne l'axe.\n\nLe curseur coupe la piste en deux morceaux : \\( R_{haut} \\) (vers la broche 1) et \\( R_{bas} \\) (vers la broche 3). Leur somme ne change jamais :\n\n$$R_{haut} + R_{bas} = R_{tot} = 10\\ \\text{k}\\Omega$$\n\nAlimenté entre 5 V et GND, le potentiomètre devient un **diviseur de tension réglable** (leçon 1.1) :\n\n$$V_c = V_{in} \\times \\frac{R_{bas}}{R_{tot}}$$\n\n### Exemple\n\nCurseur au quart de la course, côté GND : \\( R_{bas} = 2{,}5\\ \\text{k}\\Omega \\).\n\n$$V_c = 5 \\times \\frac{2{,}5}{10} = 1{,}25\\ \\text{V}$$"
+   },
+   {
+    "type": "schema",
+    "fichier": "1.2-schema-curseur.svg",
+    "legende": "Ce qui se passe à l'intérieur : le curseur partage la piste en R haut et R bas. La tension du curseur Vc va de 0 V (curseur côté broche 3) à 5 V (côté broche 1)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les différents modèles\n\n| Modèle | Description | Usage |\n|---|---|---|\n| Rotatif | un bouton à tourner, environ 270° | volume, réglages, consignes |\n| À glissière | le curseur se déplace en ligne droite | tables de mixage, consoles |\n| Ajustable | minuscule, réglé au tournevis une fois pour toutes | calibrage, contraste d'un écran LCD |\n| Multitour | 10 tours ou plus pour un réglage très fin | alimentations, instruments de mesure |\n| Joystick | deux potentiomètres croisés (axes X et Y) + un bouton | manettes, robots |\n\nSur un schéma, il est repéré **P1** ou **RV1**, et la **flèche** représente le curseur."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Linéaire (B) ou logarithmique (A) ?\n\nLe marquage indique la valeur et la loi de variation. Sur la plupart des modèles du commerce :\n\n- **B10K** = 10 kΩ **linéaire** : la tension varie proportionnellement à l'angle. C'est le bon choix pour l'Arduino.\n- **A10K** = 10 kΩ **logarithmique** : la tension monte lentement au début, puis vite à la fin. Adapté à l'oreille humaine, pour régler un volume audio.\n\n> ⚠️ Avec un potentiomètre logarithmique sur A0, presque toute la course donne une petite valeur, puis tout se joue sur le dernier quart : ton réglage paraîtra « bizarre »."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.2-courbes-lin-log.svg",
+    "legende": "Tension du curseur en fonction de l'angle : droite pour un modèle linéaire (B), courbe pour un modèle logarithmique (A)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : régler une LED avec le potentiomètre\n\nLe potentiomètre donne une consigne sur A0 ; le programme la transforme en luminosité sur D9 (PWM, leçon 0.2).\n\n$$\\text{tension} = N \\times \\frac{5}{1023} \\qquad\\qquad \\text{luminosité} = \\frac{N}{4} \\quad (0 \\text{ à } 255)$$\n\nOn divise par 4 car `analogRead()` donne 0 à 1023 (10 bits) et `analogWrite()` attend 0 à 255 (8 bits) : \\( 1024 / 256 = 4 \\).\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. Potentiomètre : broche 1 → **5V**, curseur (broche 2) → **A0**, broche 3 → **GND**.\n3. **D9** → résistance **220 Ω** → anode de la **LED** ; cathode → **GND**.\n4. Téléverse le programme, ouvre le moniteur série et tourne le bouton."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.2-schema-pot-led.svg",
+    "legende": "Le potentiomètre P1 entre 5V et GND, curseur sur A0 ; la LED et sa résistance de 220 Ω sur la sortie PWM D9."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 1.2 — régler la luminosité d'une LED avec un potentiomètre\nconst int POT = A0;   // curseur du potentiomètre\nconst int LED = 9;    // LED + 220 Ω sur D9 (sortie PWM ~)\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int valeur = analogRead(POT);          // 0 à 1023\n  analogWrite(LED, valeur / 4);          // 0 à 255\n  Serial.print(valeur);\n  Serial.print(\" -> \");\n  Serial.print(valeur * 5.0 / 1023, 2);  // en volts\n  Serial.println(\" V\");\n  delay(100);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Position | analogRead | Tension | analogWrite | LED |\n|---|---|---|---|---|\n| butée côté GND | 0 | 0,00 V | 0 | éteinte |\n| au quart | ≈ 256 | ≈ 1,25 V | 64 | faible |\n| au milieu | ≈ 512 | ≈ 2,50 V | 128 | moyenne |\n| butée côté 5V | 1023 | 5,00 V | 255 | pleine puissance |\n\n> 💡 La fonction `map()` fait la mise à l'échelle pour toi : `analogWrite(LED, map(valeur, 0, 1023, 0, 255));`. Elle sert aussi à inverser le sens : `map(valeur, 0, 1023, 255, 0)`.\n\n## 5. Bon à savoir\n\n### Quelle valeur choisir ?\n\n10 kΩ est le standard pour l'Arduino. Il consomme très peu :\n\n$$I = \\frac{U}{R_{tot}} = \\frac{5}{10\\,000} = 0{,}5\\ \\text{mA} \\qquad P = U \\times I = 2{,}5\\ \\text{mW}$$\n\nPlus faible (1 kΩ), il gaspille 5 mA ; beaucoup plus fort (1 MΩ), la lecture devient sensible aux parasites.\n\n### En résistance variable (rhéostat)\n\nEn n'utilisant que le curseur et une extrémité, on obtient une résistance réglable de 0 à 10 kΩ. Garde **toujours une résistance fixe en série** : en butée, le potentiomètre vaut 0 Ω. Avec 220 Ω fixe en série avec une LED sous 5 V, le courant varie d'environ 13,6 mA (curseur à 0 Ω) à \\( 3 / 10\\,220 \\approx 0{,}3\\ \\text{mA} \\) (curseur à 10 kΩ).\n\n### Une lecture qui tremble ?\n\nFais la moyenne de plusieurs `analogRead()` (comme le mini-voltmètre de la leçon 0.6), ou ajoute un condensateur de **100 nF** entre le curseur et GND : il absorbe les petites variations.\n\n> 📌 **Et avec un ESP32 ?** Broche 1 → **3,3 V** (jamais 5 V), curseur → **GPIO 34**, LED → **GPIO 2** via 100 Ω. Dans le code : remplace 1023 par 4095, 5.0 par 3.3, et `valeur / 4` par `valeur / 16` (4096 / 256 = 16)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **A0 relié à une extrémité au lieu du curseur** : la lecture reste bloquée à 0 ou à 1023.\n- **Curseur relié au 5V** : en butée, c'est un court-circuit entre 5V et GND.\n- **5 V sur une broche d'ESP32** : 3,3 V maximum.\n- **Alimenter un moteur à travers le potentiomètre** : il chauffe et brûle. Il donne une **consigne**, il n'alimente pas.\n- **Valeur qui « saute »** : fil mal enfoncé dans la breadboard ou piste usée.\n\n## 📌 À retenir\n\n- 3 broches : 2 extrémités (alimentation) et 1 curseur (signal).\n- C'est un diviseur de tension réglable : \\( V_c = V_{in} \\times R_{bas} / R_{tot} \\).\n- Uno : `analogRead()` donne 0 à 1023 ; ESP32 : 0 à 4095, 3,3 V maximum.\n- B = linéaire (Arduino), A = logarithmique (audio).\n- `analogWrite(LED, valeur / 4)` ou `map()` pour passer de 0–1023 à 0–255.\n\n## 🏆 Mini-défi\n\nReprends le programme Blink et remplace `delay(1000)` par `delay(analogRead(A0))` : le potentiomètre règle maintenant la **vitesse** de clignotement. Entre quelles valeurs varie-t-elle ?"
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : le potentiomètre règle la vitesse de clignotement\nconst int LED = 13;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int attente = analogRead(A0);   // de 0 à 1023 ms\n  digitalWrite(LED, HIGH);\n  delay(attente);\n  digitalWrite(LED, LOW);\n  delay(attente);\n}\n// Période de 0 à environ 2 s (2 × 1023 ms) : très rapide d'un côté, lent de l'autre."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien de broches a un potentiomètre classique ?",
+    "choix": [
+     "2",
+     "3",
+     "4",
+     "5"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Deux extrémités de la piste résistive et le curseur au milieu."
+   },
+   {
+    "question": "Quelle broche du potentiomètre faut-il relier à A0 ?",
+    "choix": [
+     "Une extrémité",
+     "Le curseur (broche du milieu)",
+     "N'importe laquelle",
+     "Aucune, il se branche sur D9"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le curseur porte la tension réglable ; les extrémités vont au 5V et au GND."
+   },
+   {
+    "question": "Un potentiomètre de 10 kΩ, curseur au milieu : que vaut R haut + R bas ?",
+    "choix": [
+     "5 kΩ",
+     "10 kΩ",
+     "20 kΩ",
+     "Ça dépend de la position"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La somme vaut toujours la valeur totale de la piste, 10 kΩ, quelle que soit la position."
+   },
+   {
+    "question": "Alimenté en 5 V, curseur au quart de la course côté GND (R bas = 2,5 kΩ sur 10 kΩ). Quelle tension ?",
+    "choix": [
+     "0,5 V",
+     "1,25 V",
+     "2,5 V",
+     "3,75 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Vc = 5 × 2,5 / 10 = 1,25 V."
+   },
+   {
+    "question": "Que signifie le marquage « B10K » ?",
+    "choix": [
+     "10 kΩ logarithmique",
+     "10 kΩ linéaire",
+     "10 bits",
+     "10 broches"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sur la plupart des modèles, B = linéaire et A = logarithmique. B10K est le choix habituel pour l'Arduino."
+   },
+   {
+    "question": "Pour régler le volume d'un amplificateur audio, quel type est le plus adapté ?",
+    "choix": [
+     "Linéaire (B)",
+     "Logarithmique (A)",
+     "Ajustable",
+     "Multitour"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'oreille perçoit le volume de façon logarithmique : un potentiomètre A donne une sensation de réglage régulière."
+   },
+   {
+    "question": "Pourquoi divise-t-on la valeur lue par 4 avant analogWrite ?",
+    "choix": [
+     "Pour économiser de l'énergie",
+     "Parce qu'analogRead donne 0–1023 et analogWrite attend 0–255",
+     "Parce que la LED a 4 pattes",
+     "Pour aller plus vite"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "1 024 valeurs (10 bits) ramenées à 256 valeurs (8 bits) : 1 024 / 256 = 4."
+   },
+   {
+    "question": "Quel courant consomme un potentiomètre de 10 kΩ branché entre 5 V et GND ?",
+    "choix": [
+     "0,05 mA",
+     "0,5 mA",
+     "5 mA",
+     "50 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = U / R = 5 / 10 000 = 0,000 5 A = 0,5 mA."
+   },
+   {
+    "question": "Que se passe-t-il si on relie le curseur au 5V au lieu de A0 ?",
+    "choix": [
+     "Rien",
+     "La lecture est inversée",
+     "En butée côté GND, c'est un court-circuit entre 5V et GND",
+     "La LED clignote"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Quand le curseur arrive contre l'extrémité reliée à GND, la résistance entre 5V et GND tombe à presque 0 Ω."
+   },
+   {
+    "question": "Sur un ESP32, comment brancher un potentiomètre ?",
+    "choix": [
+     "Entre 5 V et GND, curseur sur GPIO 34",
+     "Entre 3,3 V et GND, curseur sur GPIO 34",
+     "Entre 3,3 V et 5 V",
+     "Directement sur le Wi-Fi"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les entrées de l'ESP32 supportent 3,3 V au maximum ; GPIO 34 fait partie de l'ADC1, utilisable avec le Wi-Fi."
+   },
+   {
+    "question": "Comment rendre plus stable une lecture qui tremble ?",
+    "choix": [
+     "Faire la moyenne de plusieurs lectures",
+     "Ajouter un condensateur de 100 nF entre le curseur et GND",
+     "Remplacer le potentiomètre par un fil",
+     "Augmenter delay() à 10 secondes"
+    ],
+    "bonnes": [
+     "A",
+     "B"
+    ],
+    "explication": "La moyenne logicielle et le condensateur de filtrage réduisent tous les deux les petites variations."
+   }
+  ]
+ },
+ {
+  "id": "1.3",
+  "titre": "Le condensateur",
+  "resume": "Un petit réservoir d'énergie : il stocke des charges et les restitue très vite. Tu apprends Q = C × U, la constante de temps τ = R × C, et tu traces la courbe de charge d'un condensateur.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "1.3-photo.jpg",
+   "legende": "Des condensateurs électrolytiques : la bande claire sur le boîtier repère la patte négative (−).",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × condensateur électrolytique 100 µF, 16 V ou plus",
+   "Facultatif : 1 × condensateur électrolytique 470 µF (pour le mini-défi)",
+   "1 × résistance 10 kΩ (marron-noir-orange)",
+   "2 × condensateurs céramiques 100 nF (code 104)",
+   "4 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Les différents condensateurs (céramique, électrolytique, film, supercondensateur) et comment lire leur valeur.\n2. Le sens d'un électrolytique : la bande « − » et la patte courte.\n3. La charge et la décharge en direct dans le traceur série de l'Arduino IDE.\n4. Le découplage : le 100 nF à côté de chaque circuit intégré, et pourquoi l'ESP32 redémarre sans lui.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe condensateur stocke de l'énergie pendant un instant et la rend aussitôt. C'est lui qui lisse les alimentations, filtre les parasites, supprime les rebonds d'un bouton et crée des temporisations.\n\nÀ la fin de cette leçon, tu sauras :\n\n- utiliser la relation \\( Q = C \\times U \\) et les unités µF, nF, pF ;\n- reconnaître les types de condensateurs et lire leur valeur ;\n- calculer la constante de temps \\( \\tau = R \\times C \\) d'un circuit RC ;\n- tracer la courbe de charge et de décharge avec l'Arduino ;\n- placer un condensateur de découplage."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Un réservoir de charges\n\nUn condensateur, ce sont **deux plaques conductrices** séparées par un **isolant** (le diélectrique). Sous tension, des charges s'accumulent sur les plaques : il se **charge**. Débranché de la source, il peut rendre ces charges : il se **décharge**.\n\nLa quantité de charges stockées est proportionnelle à la tension :\n\n$$Q = C \\times U$$\n\navec \\( Q \\) en coulombs (C), \\( C \\) la **capacité** en farads (F) et \\( U \\) en volts. L'énergie stockée vaut :\n\n$$E = \\frac{1}{2} \\times C \\times U^{2}$$\n\n| Unité | Valeur | Exemple |\n|---|---|---|\n| microfarad (µF) | \\( 10^{-6} \\) F | électrolytique de 100 µF |\n| nanofarad (nF) | \\( 10^{-9} \\) F | céramique de 100 nF (code 104) |\n| picofarad (pF) | \\( 10^{-12} \\) F | condensateurs d'un quartz, 22 pF |\n\nRappel : 1 µF = 1 000 nF = 1 000 000 pF.\n\n### Exemple\n\nUn condensateur de 100 µF chargé sous 5 V stocke :\n\n$$Q = 100 \\times 10^{-6} \\times 5 = 0{,}0005\\ \\text{C} \\qquad E = \\frac{1}{2} \\times 100 \\times 10^{-6} \\times 5^{2} = 1{,}25\\ \\text{mJ}$$\n\nC'est très peu d'énergie (une pile AA en stocke environ dix millions de fois plus), mais il peut la rendre **en une fraction de seconde**.\n\n> 💡 Une fois chargé, le condensateur **bloque le courant continu**, mais il laisse passer les **variations rapides**. C'est ce qui lui permet de filtrer les parasites."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les différents types\n\n| Type | Polarisé ? | Valeurs | Usage |\n|---|---|---|---|\n| Céramique | non | du pF à quelques µF | découplage (100 nF), filtrage, quartz |\n| Électrolytique | **oui** | de 1 µF à plusieurs milliers de µF | lissage d'alimentation, réserve d'énergie |\n| Film | non | du nF à quelques µF | filtres audio, temporisations précises, secteur |\n| Supercondensateur | **oui** | plusieurs farads ! | sauvegarde d'horloge, réserve d'énergie (2,7 V max) |\n\n### Lire la valeur\n\n- **Électrolytique** : valeur et tension maximale écrites en clair, par exemple « 470 µF 16 V ». La **bande « − »** indique la patte négative, qui est aussi la plus **courte**.\n- **Céramique** : code à 3 chiffres en picofarads (leçon 0.4). 104 = 10 suivi de 4 zéros = 100 000 pF = **100 nF** ; 103 = 10 nF ; 102 = 1 nF ; 22 = 22 pF.\n\n> ⚠️ Choisis une **tension maximale** avec de la marge : 16 V ou 25 V pour un circuit en 5 V. Un électrolytique utilisé au-delà de sa tension, ou monté à l'envers, chauffe, gonfle et peut éclater."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Charge et décharge : la constante de temps\n\nUn condensateur ne se charge pas instantanément à travers une résistance. La vitesse dépend du produit \\( R \\times C \\), appelé **constante de temps** \\( \\tau \\) (« tau ») :\n\n$$\\tau = R \\times C$$\n\navec \\( R \\) en ohms, \\( C \\) en farads et \\( \\tau \\) en secondes. Pendant la charge sous une tension \\( E \\) :\n\n$$u(t) = E \\times \\left(1 - e^{-t/\\tau}\\right)$$\n\net pendant la décharge, en partant de \\( E \\) :\n\n$$u(t) = E \\times e^{-t/\\tau}$$\n\n| Temps écoulé | Charge atteinte | Il reste pendant la décharge |\n|---|---|---|\n| τ | 63 % | 37 % |\n| 2τ | 86 % | 14 % |\n| 3τ | 95 % | 5 % |\n| 5τ | 99 % : considéré comme chargé | 1 % : considéré comme déchargé |\n\n### Exemple\n\nAvec \\( R = 10\\ \\text{k}\\Omega \\) et \\( C = 100\\ \\mu\\text{F} \\) :\n\n$$\\tau = 10\\,000 \\times 100 \\times 10^{-6} = 1\\ \\text{s}$$\n\nSous 5 V : environ **3,2 V** après 1 s, et le condensateur est chargé après **5 s**. En décharge, il reste environ **1,8 V** une seconde après la coupure."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.3-charge-decharge.svg",
+    "legende": "La courbe que tu vas tracer : 5 s de charge (D7 à l'état haut), puis 5 s de décharge. Après τ = 1 s, la tension atteint 63 % de 5 V en charge, et retombe à 37 % en décharge."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : tracer la courbe de charge\n\nLa broche D7 joue le rôle d'interrupteur : à l'état haut, elle charge le condensateur à travers la résistance ; à l'état bas, elle le décharge. A0 mesure la tension du condensateur 20 fois par seconde.\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. **D7** → résistance **10 kΩ** → patte **+** (longue) du condensateur de **100 µF**.\n3. Patte **−** (côté bande) → **GND**.\n4. Relie le point commun résistance / condensateur à **A0**.\n5. Téléverse le programme, puis ouvre **Outils → Traceur série** (9600 bauds)."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.3-schema-rc.svg",
+    "legende": "Circuit RC : D7 charge et décharge le condensateur de 100 µF à travers 10 kΩ ; A0 mesure sa tension."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 1.3 — tracer la charge et la décharge d'un condensateur (τ = 1 s)\nconst int CHARGE = 7;   // alimente le circuit RC\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(CHARGE, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(CHARGE, HIGH);   // charge pendant 5 s (5 τ)\n  mesurer();\n  digitalWrite(CHARGE, LOW);    // décharge pendant 5 s\n  mesurer();\n}\n\nvoid mesurer() {\n  for (int i = 0; i < 100; i++) {           // 100 mesures × 50 ms = 5 s\n    Serial.println(analogRead(A0) * 5.0 / 1023);\n    delay(50);\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\nDans le traceur série, une courbe qui monte vite puis s'aplatit vers 5 V, puis redescend de la même façon. Relève quelques points (une mesure toutes les 50 ms : la 20e mesure correspond à 1 s) :\n\n| Moment | Tension attendue | Ta mesure |\n|---|---|---|\n| 1 s après le début de la charge (τ) | ≈ 3,16 V | … |\n| 2 s (2τ) | ≈ 4,32 V | … |\n| 5 s (5τ) | ≈ 4,97 V | … |\n| 1 s après le début de la décharge | ≈ 1,83 V | … |\n\nLes condensateurs électrolytiques ont une tolérance large (souvent ± 20 %) : ta courbe peut être un peu plus rapide ou plus lente.\n\n> 📌 **Et avec un ESP32 ?** Charge sur **GPIO 25** (évite les GPIO 6 à 11, réservées à la mémoire flash), mesure sur **GPIO 34** (ADC1). Dans le code, remplace `5.0 / 1023` par `3.3 / 4095`. La courbe monte vers 3,3 V, avec la même constante de temps."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Les usages à connaître\n\n- **Découplage** : un condensateur céramique de **100 nF** entre l'alimentation et la masse, **au plus près** de chaque circuit intégré. Il fournit les pointes de courant instantanées et absorbe les parasites. Sans lui : redémarrages aléatoires.\n- **Lissage** : un électrolytique de 100 à 1 000 µF près d'un moteur ou d'un module radio comble les creux de tension.\n- **Anti-rebond** : un 100 nF en parallèle sur un bouton absorbe les rebonds mécaniques du contact.\n- **Temporisation** : avec une résistance, il fixe une durée (circuit RC, minuterie NE555).\n\n### Associer des condensateurs\n\nC'est **l'inverse des résistances** : en parallèle, les capacités s'additionnent ; en série, la capacité totale diminue.\n\n$$\\text{parallèle : } C = C_1 + C_2 \\qquad\\qquad \\text{série : } \\frac{1}{C} = \\frac{1}{C_1} + \\frac{1}{C_2}$$\n\nExemple : deux 100 µF en parallèle font 200 µF ; en série, 50 µF.\n\n> 💡 **Découplage de l'ESP32** : un 100 nF **et** un 10 à 100 µF entre 3,3 V et GND évitent les redémarrages (*brownout*) au moment où le Wi-Fi démarre et réclame une pointe de courant.\n\n> 🔒 Un gros condensateur **garde sa charge** après la coupure. Dans les alimentations secteur, il peut rester chargé à plus de 300 V : ne touche jamais l'intérieur d'un appareil, même débranché."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Électrolytique monté à l'envers** : il chauffe, gonfle et peut éclater.\n- **Tension maximale trop juste** : prends de la marge (16 V ou 25 V pour un circuit en 5 V).\n- **Confondre µF, nF et pF** : 104 = 100 nF, pas 104 µF.\n- **Oublier le 100 nF de découplage** : redémarrages aléatoires, mesures instables.\n- **Mesurer trop tôt** : un circuit RC n'est stabilisé qu'après environ 5τ.\n\n## 📌 À retenir\n\n- \\( Q = C \\times U \\) et \\( E = \\frac{1}{2} C U^2 \\). 1 µF = 1 000 nF = 1 000 000 pF.\n- \\( \\tau = R \\times C \\) : 63 % après τ, 99 % après 5τ.\n- Électrolytique = polarisé : bande « − » vers la masse, tension max avec de la marge.\n- 104 = 100 nF : un condensateur de découplage près de chaque circuit intégré.\n- En parallèle les capacités s'additionnent, en série elles diminuent.\n\n## 🏆 Mini-défi\n\nRemplace le condensateur de 100 µF par un **470 µF**. Quelle est la nouvelle constante de temps ? Combien de mesures de 50 ms faut-il pour atteindre 5τ ? Modifie le programme en conséquence.\n\n> ✅ Solution : \\( \\tau = 10\\,000 \\times 470 \\times 10^{-6} = 4{,}7\\ \\text{s} \\), donc \\( 5\\tau = 23{,}5\\ \\text{s} \\). Il faut \\( 23{,}5 / 0{,}05 = 470 \\) mesures : remplace `i < 100` par `i < 470`."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "En quelle unité s'exprime la capacité d'un condensateur ?",
+    "choix": [
+     "Le henry (H)",
+     "Le farad (F)",
+     "Le coulomb (C)",
+     "L'ohm (Ω)"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La capacité se mesure en farads ; en pratique en µF, nF et pF."
+   },
+   {
+    "question": "Combien vaut 1 µF en nanofarads ?",
+    "choix": [
+     "10 nF",
+     "100 nF",
+     "1 000 nF",
+     "1 000 000 nF"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "1 µF = 1 000 nF = 1 000 000 pF."
+   },
+   {
+    "question": "Un condensateur céramique porte le code « 104 ». Quelle est sa capacité ?",
+    "choix": [
+     "104 pF",
+     "10 nF",
+     "100 nF",
+     "104 µF"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "10 suivi de 4 zéros = 100 000 pF = 100 nF."
+   },
+   {
+    "question": "Quelle charge stocke un condensateur de 100 µF sous 5 V ?",
+    "choix": [
+     "0,000 5 C",
+     "0,005 C",
+     "0,5 C",
+     "500 C"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Q = C × U = 0,000 1 × 5 = 0,000 5 C."
+   },
+   {
+    "question": "Quelle est la constante de temps d'un circuit avec R = 10 kΩ et C = 100 µF ?",
+    "choix": [
+     "0,01 s",
+     "0,1 s",
+     "1 s",
+     "10 s"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "τ = R × C = 10 000 × 0,000 1 = 1 s."
+   },
+   {
+    "question": "Après une durée τ, à quel pourcentage de la tension d'alimentation est chargé le condensateur ?",
+    "choix": [
+     "37 %",
+     "50 %",
+     "63 %",
+     "99 %"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "u(τ) = E × (1 − e⁻¹) ≈ 0,63 × E."
+   },
+   {
+    "question": "Au bout de combien de temps considère-t-on un condensateur comme chargé ?",
+    "choix": [
+     "τ",
+     "2τ",
+     "5τ",
+     "100τ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Après 5τ, il a atteint environ 99 % de la tension finale."
+   },
+   {
+    "question": "Que risque un condensateur électrolytique monté à l'envers ?",
+    "choix": [
+     "Rien",
+     "Il se charge plus vite",
+     "Il chauffe, gonfle et peut éclater",
+     "Il devient non polarisé"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Un électrolytique est polarisé : sa bande « − » doit aller vers la masse."
+   },
+   {
+    "question": "Quel est le rôle d'un condensateur de découplage de 100 nF placé près d'un circuit intégré ?",
+    "choix": [
+     "Augmenter la tension",
+     "Fournir les pointes de courant et absorber les parasites",
+     "Remplacer la pile",
+     "Mesurer le courant"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il agit comme une petite réserve locale qui stabilise l'alimentation du circuit."
+   },
+   {
+    "question": "Deux condensateurs de 100 µF placés en parallèle font :",
+    "choix": [
+     "50 µF",
+     "100 µF",
+     "200 µF",
+     "10 000 µF"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "En parallèle, les capacités s'additionnent : 100 + 100 = 200 µF (l'inverse des résistances)."
+   },
+   {
+    "question": "Pour un circuit alimenté en 5 V, quelle tension maximale choisir pour un électrolytique ?",
+    "choix": [
+     "3,3 V",
+     "5 V exactement",
+     "16 V ou 25 V",
+     "Peu importe"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "On prend de la marge : au moins le double de la tension de service est une bonne règle."
+   },
+   {
+    "question": "Avec R = 10 kΩ et C = 470 µF, combien de temps faut-il pour atteindre 5τ ?",
+    "choix": [
+     "4,7 s",
+     "10 s",
+     "23,5 s",
+     "47 s"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "τ = 10 000 × 0,000 47 = 4,7 s, donc 5τ = 23,5 s."
+   }
+  ]
+ },
+ {
+  "id": "1.4",
+  "titre": "La bobine",
+  "resume": "Un fil enroulé qui stocke de l'énergie magnétique et freine les variations de courant. Tu apprends U = L × ΔI / Δt, la constante τ = L / R, et tu commandes un relais en le protégeant avec une diode.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "1.4-photo.jpg",
+   "legende": "Des bobines de puissance sur une carte électronique : du fil de cuivre enroulé sur un noyau de ferrite.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × relais 5 V nu (bobine 5 V, par exemple SRD-05VDC) — ou un module relais tout prêt",
+   "1 × transistor NPN 2N2222 (ou BC547)",
+   "1 × diode 1N4007",
+   "1 × résistance 1 kΩ (marron-noir-rouge)",
+   "6 × câbles Dupont mâle-mâle",
+   "Facultatif : 1 × LED et 1 × résistance 220 Ω pour voir le contact du relais travailler"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Des bobines de toutes tailles : dans un relais, un moteur, un module buck, un chargeur sans fil.\n2. Le principe : un courant crée un champ magnétique (l'aimant du relais attire son contact, clic !).\n3. Le câblage du relais avec le transistor, et le rôle de la diode de roue libre.\n4. La différence entre un relais nu et un module relais prêt à l'emploi.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLa bobine (ou inductance) est le cousin du condensateur : elle stocke de l'énergie, mais sous forme **magnétique**. Elle est au cœur des relais, des moteurs, des haut-parleurs et des convertisseurs de tension.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer pourquoi une bobine freine les variations de courant ;\n- utiliser \\( U = L \\times \\Delta I / \\Delta t \\) et \\( \\tau = L / R \\) ;\n- lire la valeur d'une bobine CMS ;\n- commander un relais avec un transistor, protégé par une **diode de roue libre**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Un fil enroulé qui stocke de l'énergie\n\nQuand un courant traverse un fil enroulé, il crée un **champ magnétique**, qui stocke de l'énergie. La bobine **s'oppose à toute variation brusque** du courant : elle laisse passer le continu, mais freine les variations rapides.\n\n| | Condensateur | Bobine |\n|---|---|---|\n| Stocke l'énergie sous forme | électrique (entre deux plaques) | magnétique (autour du fil) |\n| S'oppose aux variations | de **tension** | de **courant** |\n| En continu, une fois établi | bloque le courant | laisse passer le courant (simple fil) |\n| Unité | farad (F) | henry (H) |\n| Repère sur un schéma | C1, C2… | L1, L2… |\n\nEn pratique, on utilise des sous-multiples du henry : 1 H = 1 000 mH, 1 mH = 1 000 µH. Sur le symbole, deux traits parallèles le long des spires indiquent un **noyau** (ferrite ou fer)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les formules clés\n\n### La tension aux bornes d'une bobine\n\n$$U = L \\times \\frac{\\Delta I}{\\Delta t}$$\n\n\\( \\Delta I \\) est la variation du courant, \\( \\Delta t \\) la durée de cette variation. Plus le courant change **vite**, plus la tension produite est **grande**. Si le courant ne varie pas, \\( U = 0 \\).\n\n### La constante de temps d'un circuit RL\n\nComme pour le condensateur, le courant ne s'établit pas d'un coup :\n\n$$\\tau = \\frac{L}{R}$$\n\nLe courant atteint 63 % de sa valeur finale après τ, et il est établi après environ 5τ.\n\n### L'énergie stockée\n\n$$E = \\frac{1}{2} \\times L \\times I^{2}$$\n\n### Exemple\n\nUne bobine de 10 mH en série avec 100 Ω, sous 5 V : courant final \\( I = 5 / 100 = 50\\ \\text{mA} \\).\n\n$$\\tau = \\frac{0{,}010}{100} = 0{,}000\\,1\\ \\text{s} = 0{,}1\\ \\text{ms} \\qquad E = \\frac{1}{2} \\times 0{,}010 \\times 0{,}05^{2} = 12{,}5\\ \\mu\\text{J}$$"
+   },
+   {
+    "type": "schema",
+    "fichier": "1.4-etablissement-courant.svg",
+    "legende": "Le courant dans une bobine de 10 mH avec 100 Ω sous 5 V : il ne monte pas d'un coup, il atteint 63 % après τ = 0,1 ms et sa valeur finale (50 mA) après environ 5τ = 0,5 ms."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les différents types et leur valeur\n\n| Type | Valeurs | Usage |\n|---|---|---|\n| Bobine à air (sans noyau) | du nH au µH | radio, hautes fréquences |\n| Noyau de ferrite | du µH au mH | filtres, alimentations |\n| Torique (sur un anneau) | du µH au mH | convertisseurs : peu de pertes, peu de parasites |\n| Bobine CMS | du µH au mH | modules buck / boost, cartes ESP32 |\n\n### Lire la valeur\n\n- **Bobines CMS** : code à 3 chiffres **en µH**. 101 = 10 suivi de 1 zéro = **100 µH** ; 102 = 1 mH ; **4R7** = 4,7 µH (le R remplace la virgule).\n- **Bobines à anneaux de couleur** : même code que les résistances, mais le résultat est **en µH**.\n- Vérifie aussi le **courant maximal** (par exemple 2 A) : au-delà, la bobine **sature** (son noyau ne suit plus) et chauffe.\n\n### Le circuit LC\n\nAssociée à un condensateur, une bobine forme un circuit qui « résonne » à une fréquence précise :\n\n$$f_0 = \\frac{1}{2\\pi\\sqrt{L \\times C}}$$\n\nAvec \\( L = 10\\ \\mu\\text{H} \\) et \\( C = 100\\ \\text{nF} \\) : \\( f_0 \\approx 159\\ \\text{kHz} \\). C'est le principe de l'accord d'un poste de radio, des filtres d'alimentation et de la recharge sans fil."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : commander un relais en sécurité\n\nUn **relais** est un interrupteur commandé par une bobine : quand elle est alimentée, son champ magnétique attire un contact (clic !). Il permet à l'Arduino de commuter un autre circuit, isolé du sien.\n\n### Pourquoi un transistor ?\n\nLa bobine d'un relais 5 V demande environ **70 mA**. Une broche d'Arduino donne 20 mA (40 mA au maximum absolu) : on passe par un **transistor** qui sert d'interrupteur. La broche ne fournit que le petit courant de base :\n\n$$I_B = \\frac{U_{broche} - 0{,}7}{R_B} = \\frac{5 - 0{,}7}{1000} \\approx 4{,}3\\ \\text{mA}$$\n\nLe 2N2222 amplifie ce courant au moins 100 fois : il peut laisser passer bien plus que les 70 mA de la bobine.\n\n### Pourquoi la diode ?\n\nQuand le transistor coupe, le courant de la bobine passe de 70 mA à 0 en quelques microsecondes. D'après \\( U = L \\times \\Delta I / \\Delta t \\), avec par exemple \\( L = 0{,}1\\ \\text{H} \\) et \\( \\Delta t = 10\\ \\mu\\text{s} \\) :\n\n$$U = 0{,}1 \\times \\frac{0{,}07}{0{,}000\\,01} = 700\\ \\text{V (en théorie)}$$\n\nEn pratique, la tension monte jusqu'à ce que quelque chose cède : souvent le transistor. La **diode de roue libre**, branchée **à l'envers** sur la bobine (bague côté +5 V), offre un chemin au courant : le pic disparaît."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.4-schema-relais.svg",
+    "legende": "D8 commande la base du transistor Q1 à travers 1 kΩ ; Q1 alimente la bobine du relais depuis le 5V. La diode D1, montée en sens inverse (bague vers +5 V), absorbe la surtension à la coupure."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. Place le **2N2222** : face plate vers toi, les pattes sont **E – B – C** (émetteur, base, collecteur). Vérifie sur sa fiche technique.\n3. **Émetteur** → **GND**.\n4. **D8** → résistance **1 kΩ** → **base**.\n5. Bobine du relais entre **+5V** et le **collecteur**.\n6. **Diode 1N4007** en parallèle sur la bobine : **bague (cathode) côté +5V**, l'autre patte côté collecteur.\n7. Téléverse le programme : tu dois entendre le relais cliquer toutes les 2 secondes."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 1.4 — faire cliquer un relais commandé par un transistor\nconst int RELAIS = 8;   // vers la base du transistor, à travers 1 kΩ\n\nvoid setup() {\n  pinMode(RELAIS, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  digitalWrite(RELAIS, HIGH);   // transistor passant : bobine alimentée, clic !\n  Serial.println(\"Relais ON\");\n  delay(2000);\n  digitalWrite(RELAIS, LOW);    // coupure : la diode absorbe la surtension\n  Serial.println(\"Relais OFF\");\n  delay(2000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "> 💡 **Le module relais** pour Arduino contient déjà le transistor, la diode et souvent une LED témoin : trois fils (VCC, GND, IN) et c'est prêt. Le montage de cette leçon te montre ce qu'il y a dedans.\n\n> 🔒 Un relais peut commuter le secteur 230 V, mais **pas dans ce cours** : teste uniquement des charges en très basse tension (une LED, un petit moteur alimenté par piles). Le 230 V demande une formation, un boîtier isolé et des borniers adaptés.\n\n> 📌 **Et avec un ESP32 ?** Commande sur **GPIO 26** (sortie 3,3 V) avec une résistance de base de **470 Ω** (\\( (3{,}3 - 0{,}7) / 470 \\approx 5{,}5\\ \\text{mA} \\)). La bobine reste alimentée en **5 V** (broche VIN de la carte, alimentée par l'USB), avec une **masse commune**. Dans le code : `RELAIS = 26`.\n\n## 5. Bon à savoir\n\n- **Modules buck / boost** : leur bobine CMS convertit une tension (par exemple 12 V → 5 V) avec très peu de pertes, bien mieux qu'un régulateur linéaire qui transforme l'excédent en chaleur.\n- **Associations** : comme les résistances. En série, les inductances s'additionnent ; en parallèle, l'inductance totale diminue.\n- **Perturbations** : le champ d'une bobine peut fausser un capteur magnétique ou une boussole placés trop près."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Oublier la diode de roue libre** : le pic de tension grille le transistor (parfois au bout de quelques centaines de clics).\n- **Diode à l'envers** : court-circuit dès que le transistor conduit.\n- **Bobine de relais sur une broche directe** : elle demande 70 mA, la broche n'en donne que 20.\n- **Dépasser le courant maximal d'une bobine** : elle sature et chauffe.\n- **Transistor mal orienté** : E, B et C inversés, le relais ne colle pas.\n\n## 📌 À retenir\n\n- \\( U = L \\times \\Delta I / \\Delta t \\) : la bobine freine les variations de courant.\n- \\( \\tau = L / R \\) et \\( E = \\frac{1}{2} L I^2 \\).\n- Relais, moteur, électroaimant : **toujours** une diode de roue libre, bague côté +.\n- Une broche ne commande une bobine qu'à travers un transistor (ou un module relais).\n- Code CMS en µH : 101 = 100 µH, 4R7 = 4,7 µH.\n\n## 🏆 Mini-défi\n\nUne bobine de **10 mH** est en série avec **100 Ω**. Calcule \\( \\tau = L / R \\). Combien de temps faut-il au courant pour s'établir (5τ) ?\n\n> ✅ Solution : \\( \\tau = 0{,}010 / 100 = 0{,}000\\,1\\ \\text{s} = 0{,}1\\ \\text{ms} \\), donc \\( 5\\tau = 0{,}5\\ \\text{ms} \\). C'est très rapide : c'est pour cela qu'on ne « voit » pas le retard d'une bobine à l'œil nu."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "En quelle unité s'exprime l'inductance d'une bobine ?",
+    "choix": [
+     "Le farad (F)",
+     "Le henry (H)",
+     "Le hertz (Hz)",
+     "Le tesla (T)"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'inductance se mesure en henrys, souvent en mH ou en µH."
+   },
+   {
+    "question": "À quoi s'oppose une bobine ?",
+    "choix": [
+     "Aux variations de tension",
+     "Aux variations de courant",
+     "Au courant continu établi",
+     "À la lumière"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La bobine freine les variations rapides du courant ; une fois le courant établi, elle se comporte comme un fil."
+   },
+   {
+    "question": "Que vaut la tension aux bornes d'une bobine parcourue par un courant constant ?",
+    "choix": [
+     "Elle est infinie",
+     "Elle vaut L × I",
+     "Elle est nulle (pour une bobine idéale)",
+     "Elle vaut 5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "U = L × ΔI / Δt : si le courant ne varie pas, ΔI = 0, donc U = 0."
+   },
+   {
+    "question": "Quelle est la constante de temps d'une bobine de 10 mH en série avec 100 Ω ?",
+    "choix": [
+     "0,1 ms",
+     "1 ms",
+     "10 ms",
+     "1 s"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "τ = L / R = 0,010 / 100 = 0,000 1 s = 0,1 ms."
+   },
+   {
+    "question": "Une bobine CMS est marquée « 101 ». Quelle est sa valeur ?",
+    "choix": [
+     "101 µH",
+     "100 µH",
+     "10 µH",
+     "1 mH"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Pour les bobines, le code à 3 chiffres est en µH : 10 suivi de 1 zéro = 100 µH."
+   },
+   {
+    "question": "Que signifie le marquage « 4R7 » sur une bobine ?",
+    "choix": [
+     "4,7 µH",
+     "47 µH",
+     "4,7 mH",
+     "4 700 µH"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le R remplace la virgule : 4R7 = 4,7 µH."
+   },
+   {
+    "question": "Pourquoi place-t-on une diode en parallèle sur la bobine d'un relais ?",
+    "choix": [
+     "Pour que le relais colle plus fort",
+     "Pour absorber la surtension produite à la coupure",
+     "Pour allumer une LED",
+     "Pour redresser le courant alternatif"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "À la coupure, la bobine produit un pic de tension (U = L × ΔI / Δt) ; la diode de roue libre lui offre un chemin."
+   },
+   {
+    "question": "Dans quel sens monte-t-on la diode de roue libre ?",
+    "choix": [
+     "Bague (cathode) côté +5 V",
+     "Bague côté transistor",
+     "Peu importe",
+     "En série avec la bobine"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "En fonctionnement normal, elle est bloquée (montée « à l'envers ») ; elle ne conduit qu'au moment de la coupure."
+   },
+   {
+    "question": "Pourquoi ne branche-t-on pas la bobine d'un relais directement sur une broche de l'Arduino ?",
+    "choix": [
+     "Parce qu'elle demande environ 70 mA alors qu'une broche en fournit 20",
+     "Parce que la bobine fonctionne en alternatif",
+     "Parce que le relais est trop lourd",
+     "On peut le faire sans problème"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le transistor fournit le courant de la bobine ; la broche ne donne que quelques mA à sa base."
+   },
+   {
+    "question": "Quel courant circule dans la base du transistor avec 5 V et une résistance de 1 kΩ (VBE ≈ 0,7 V) ?",
+    "choix": [
+     "≈ 0,43 mA",
+     "≈ 4,3 mA",
+     "≈ 43 mA",
+     "≈ 5 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "IB = (5 − 0,7) / 1 000 ≈ 0,004 3 A = 4,3 mA."
+   },
+   {
+    "question": "Quels appareils contiennent une bobine ?",
+    "choix": [
+     "Un relais",
+     "Un moteur électrique",
+     "Un module abaisseur (buck)",
+     "Une résistance ¼ W"
+    ],
+    "bonnes": [
+     "A",
+     "B",
+     "C"
+    ],
+    "explication": "Relais, moteurs, haut-parleurs et convertisseurs utilisent des bobines ; une résistance ordinaire n'en contient pas."
+   },
+   {
+    "question": "En continu, une fois le courant établi, une bobine idéale se comporte comme :",
+    "choix": [
+     "Un circuit ouvert",
+     "Un simple fil",
+     "Un condensateur",
+     "Une pile"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sans variation de courant, la bobine n'oppose aucune tension : c'est un fil (seule sa petite résistance de cuivre reste)."
+   }
+  ]
+ },
+ {
+  "id": "1.5",
+  "titre": "Le quartz",
+  "resume": "Un cristal qui vibre à une fréquence très précise : l'horloge du microcontrôleur. Tu apprends f = 1 / T, la précision en ppm, le choix des condensateurs de charge et tu mesures la précision de ton Arduino.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "1.5-photo.jpg",
+   "legende": "Un Arduino Uno : le petit boîtier métallique à côté du microcontrôleur est le quartz de 16 MHz qui cadence la carte.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × téléphone avec un chronomètre (pour comparer)",
+   "Pour aller plus loin (facultatif) : 1 × ATmega328P avec bootloader, 1 × quartz 16 MHz, 2 × condensateurs céramiques 22 pF, 1 × condensateur 100 nF, 1 × résistance 10 kΩ, 1 × breadboard",
+   "Facultatif : 1 × module RTC DS3231 (pour comparer la précision)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le quartz sur un Arduino Uno, sur un ESP32 et dans une montre.\n2. L'effet piézoélectrique : un cristal qui vibre quand on lui applique une tension.\n3. Le chronomètre Arduino comparé au téléphone pendant 10 minutes.\n4. Bonus : un ATmega328P seul sur breadboard avec son quartz et ses deux condensateurs de 22 pF.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nTout microcontrôleur a besoin d'un « tic-tac » régulier pour exécuter ses instructions, mesurer le temps avec `millis()` et communiquer à la bonne vitesse. Ce tic-tac vient d'un **quartz**.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer comment un quartz produit une fréquence stable ;\n- calculer une période avec \\( T = 1 / f \\) ;\n- comprendre la précision en **ppm** et l'écart qu'elle produit en une journée ;\n- choisir les condensateurs de charge d'un quartz ;\n- vérifier la précision de l'horloge de ton Arduino."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Un cristal qui vibre\n\nLe quartz est un cristal **piézoélectrique** : une tension le déforme, et quand il se déforme il produit une tension. Taillé avec précision, il vibre à **une seule fréquence**, très stable. Avec l'amplificateur intégré au microcontrôleur, il forme un **oscillateur** qui produit un signal carré.\n\nFréquence et période sont l'inverse l'une de l'autre (leçon 0.2) :\n\n$$T = \\frac{1}{f}$$\n\n| Quartz | Fréquence | Période | Où on le trouve |\n|---|---|---|---|\n| 16 MHz | 16 000 000 Hz | 62,5 ns | Arduino Uno, Nano, Mega |\n| 40 MHz | 40 000 000 Hz | 25 ns | module ESP32 |\n| 32,768 kHz | 32 768 Hz | ≈ 30,5 µs | montres, modules RTC (DS1307, DS3231) |\n\nLe calcul pour l'Uno :\n\n$$T = \\frac{1}{16 \\times 10^{6}} = 62{,}5 \\times 10^{-9}\\ \\text{s} = 62{,}5\\ \\text{ns}$$\n\nLa plupart des instructions de l'ATmega328P s'exécutent en **un seul cycle** : il peut en exécuter environ 16 millions par seconde."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.5-horloge.svg",
+    "legende": "Le signal d'horloge de l'Arduino Uno : un carré qui se répète toutes les 62,5 ns, soit 16 millions de fois par seconde."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les différents modèles\n\n| Modèle | Description | Usage |\n|---|---|---|\n| Quartz HC-49 | boîtier métal à 2 pattes, de 4 à 40 MHz | le plus courant (16 MHz) |\n| Quartz horloger | petit cylindre de 32,768 kHz | montres, modules RTC |\n| Résonateur céramique | 3 pattes, condensateurs intégrés, moins précis (≈ 0,5 %) | cartes à bas coût |\n| Oscillateur complet | boîtier à 4 broches (alimentation + sortie) | signal carré prêt à l'emploi |\n\nSur un schéma, le quartz est repéré **Y1** ou **X1** : un rectangle (le cristal) entre deux électrodes.\n\n### Pourquoi 32 768 Hz ?\n\nParce que 32 768 est une puissance de 2 (leçon 0.7) : \\( 32\\,768 = 2^{15} \\). Un simple compteur binaire qui divise 15 fois par 2 donne exactement **une impulsion par seconde** :\n\n$$\\frac{32\\,768\\ \\text{Hz}}{2^{15}} = 1\\ \\text{Hz}$$"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. La précision en ppm\n\nLa précision d'un quartz s'exprime en **ppm** (parties par million). 20 ppm signifie qu'il peut se tromper de 20 secondes sur un million de secondes. L'écart maximal sur une durée vaut :\n\n$$\\text{écart} = \\text{durée} \\times \\frac{\\text{ppm}}{10^{6}}$$\n\nSur une journée (86 400 s), avec un quartz de 20 ppm :\n\n$$86\\,400 \\times \\frac{20}{10^{6}} \\approx 1{,}7\\ \\text{s par jour}$$\n\n| Source d'horloge | Précision | Écart maximal par jour |\n|---|---|---|\n| Oscillateur interne de l'ATmega (8 MHz) | jusqu'à ± 10 % avant calibrage | plusieurs heures |\n| Résonateur céramique | ≈ 0,5 % = 5 000 ppm | ≈ 7 minutes |\n| Quartz standard | ≈ 20 ppm | ≈ 1,7 s |\n| Module RTC DS3231 (compensé en température) | ≈ 2 ppm | ≈ 0,17 s (≈ 5 s par mois) |\n\n> 💡 La vitesse d'une liaison série (9600 ou 115200 bauds) dépend directement de l'horloge. À 9600 bauds, un bit dure \\( 1 / 9600 \\approx 104\\ \\mu\\text{s} \\). La liaison tolère environ 2 % d'écart : un quartz ou un résonateur conviennent, l'oscillateur interne non calibré peut poser problème."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Les condensateurs de charge\n\nUn quartz ne démarre correctement qu'avec **deux condensateurs**, un de chaque côté vers la masse. Leur valeur dépend de la **capacité de charge** \\( C_L \\) indiquée dans la fiche technique du quartz :\n\n$$C = 2 \\times (C_L - C_p)$$\n\n\\( C_p \\) est la capacité parasite des pistes et des broches, environ 5 pF.\n\n| \\( C_L \\) du quartz | Calcul | Valeur normalisée |\n|---|---|---|\n| 16 pF | 2 × (16 − 5) = 22 pF | **22 pF** |\n| 18 pF | 2 × (18 − 5) = 26 pF | 27 pF |\n| 12,5 pF | 2 × (12,5 − 5) = 15 pF | 15 pF |\n\n## 5. Expérience : vérifier la précision de l'horloge\n\nLa fonction `millis()` compte les millisecondes écoulées depuis le démarrage, grâce au quartz. Le programme affiche les secondes : compare-les avec le chronomètre de ton téléphone pendant **10 minutes**.\n\n1. Téléverse le programme et ouvre le moniteur série.\n2. Appuie sur le reset de la carte et lance le chronomètre du téléphone **au même moment**.\n3. Après 10 minutes (600 s), note l'écart."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 1.5 — chronomètre basé sur l'horloge du quartz\n// Comparez avec le chronomètre du téléphone après 10 minutes\nunsigned long depart;\n\nvoid setup() {\n  Serial.begin(9600);\n  depart = millis();          // millis() compte grâce au quartz\n}\n\nvoid loop() {\n  unsigned long ms = millis() - depart;\n  unsigned long s = ms / 1000;\n  Serial.print(\"Temps : \");\n  Serial.print(s / 60);         // minutes\n  Serial.print(\" min \");\n  Serial.print(s % 60);         // secondes restantes\n  Serial.println(\" s\");\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\nAvec un quartz à 20 ppm, l'écart maximal en 10 minutes est de \\( 600 \\times 20 / 10^6 = 0{,}012\\ \\text{s} \\) : invisible à l'œil. Si tu vois plusieurs secondes d'écart, ta carte utilise probablement un **résonateur** (c'est le cas de nombreux clones). Pour mesurer l'heure sur des jours, on utilise un module RTC.\n\n> 📌 `millis()` est stocké sur 32 bits (`unsigned long`) : il repasse à 0 après \\( 2^{32}\\ \\text{ms} \\approx 49{,}7 \\) jours. C'est pour cela qu'on calcule toujours une **différence** (`millis() - depart`), qui reste juste même après ce débordement.\n\n### Pour aller plus loin : l'ATmega328P seul sur breadboard\n\nLe microcontrôleur de l'Uno peut fonctionner seul sur une breadboard (avec un bootloader). Il lui faut alors son quartz entre **XTAL1 (broche 9)** et **XTAL2 (broche 10)**, et un condensateur de **22 pF** de chaque côté vers **GND**. Quartz et condensateurs doivent être **collés aux broches** : des fils longs rendent l'oscillation instable."
+   },
+   {
+    "type": "schema",
+    "fichier": "1.5-schema-quartz.svg",
+    "legende": "Le quartz Y1 de 16 MHz entre XTAL1 (broche 9) et XTAL2 (broche 10) de l'ATmega328P, avec C1 et C2 de 22 pF vers la masse."
+   },
+   {
+    "type": "texte",
+    "contenu": "> 📌 **Et avec un ESP32 ?** Son quartz de **40 MHz** est déjà soudé dans le module métallique : rien à câbler. Le programme fonctionne tel quel. On peut ajouter un quartz de **32,768 kHz** sur les GPIO 32 et 33 pour garder l'heure précise en veille profonde.\n\n## ⚠️ Erreurs fréquentes\n\n- **Oublier les deux condensateurs de 22 pF** : le quartz ne démarre pas, le microcontrôleur semble mort.\n- **Fils trop longs** sur la breadboard : oscillation instable. Quartz collé aux broches !\n- **Changer de quartz** (par exemple 8 MHz) sans choisir la bonne carte dans l'IDE : `delay()` et la liaison série deviennent faux.\n- **Toucher le quartz** pendant un essai : la fréquence glisse, voire s'arrête.\n- **Une chute ou un choc** peut fissurer le cristal.\n\n## 📌 À retenir\n\n- \\( T = 1 / f \\) : 16 MHz donne une période de 62,5 ns.\n- Le quartz donne l'horloge : 16 MHz (Uno), 40 MHz (ESP32), 32,768 kHz \\( = 2^{15} \\) Hz (heure).\n- Précision en ppm : écart = durée × ppm / 1 000 000 ; 20 ppm ≈ 1,7 s par jour.\n- Toujours deux condensateurs (≈ 22 pF) vers GND : \\( C = 2 \\times (C_L - C_p) \\).\n- Quartz au plus près du microcontrôleur.\n\n## 🏆 Mini-défi\n\nUn quartz de 16 MHz est précis à **30 ppm**. Quel écart maximal peut-il accumuler en une journée de 86 400 s ? Et en un an ?\n\n> ✅ Solution : \\( 86\\,400 \\times 30 / 10^6 \\approx 2{,}6\\ \\text{s} \\) par jour, soit environ \\( 2{,}6 \\times 365 \\approx 946\\ \\text{s} \\approx 16 \\) minutes par an. D'où l'intérêt d'un module RTC pour une vraie horloge."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle est la fréquence du quartz d'un Arduino Uno ?",
+    "choix": [
+     "8 MHz",
+     "16 MHz",
+     "40 MHz",
+     "32,768 kHz"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'Uno est cadencé à 16 MHz ; l'ESP32 utilise un quartz de 40 MHz."
+   },
+   {
+    "question": "Quelle est la période d'un signal de 16 MHz ?",
+    "choix": [
+     "16 ns",
+     "62,5 ns",
+     "625 ns",
+     "1,6 µs"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "T = 1 / 16 000 000 = 0,000 000 062 5 s = 62,5 ns."
+   },
+   {
+    "question": "Sur quelle propriété repose le fonctionnement d'un quartz ?",
+    "choix": [
+     "Le magnétisme",
+     "La piézoélectricité",
+     "La photosensibilité",
+     "La radioactivité"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une tension déforme le cristal et sa déformation produit une tension : c'est l'effet piézoélectrique."
+   },
+   {
+    "question": "Pourquoi les montres utilisent-elles un quartz de 32,768 kHz ?",
+    "choix": [
+     "Parce que c'est le moins cher",
+     "Parce que 32 768 = 2^15 : en divisant 15 fois par 2, on obtient exactement 1 Hz",
+     "Parce que c'est la fréquence du secteur",
+     "Parce qu'il ne consomme rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un compteur binaire de 15 étages transforme 32 768 Hz en une impulsion par seconde."
+   },
+   {
+    "question": "Un quartz précis à 20 ppm peut dériver d'environ combien par jour ?",
+    "choix": [
+     "0,02 s",
+     "1,7 s",
+     "20 s",
+     "7 min"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "86 400 × 20 / 1 000 000 ≈ 1,73 s par jour."
+   },
+   {
+    "question": "Quels composants faut-il ajouter autour d'un quartz pour un ATmega328P ?",
+    "choix": [
+     "Une résistance de 220 Ω",
+     "Deux condensateurs d'environ 22 pF vers GND",
+     "Une diode 1N4007",
+     "Une bobine de 10 mH"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un condensateur de chaque côté du quartz, vers la masse, permet à l'oscillateur de démarrer à la bonne fréquence."
+   },
+   {
+    "question": "Le quartz a une capacité de charge CL = 16 pF, et Cp ≈ 5 pF. Quelle valeur pour les deux condensateurs ?",
+    "choix": [
+     "5 pF",
+     "11 pF",
+     "22 pF",
+     "32 pF"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "C = 2 × (CL − Cp) = 2 × (16 − 5) = 22 pF."
+   },
+   {
+    "question": "Quel est le repère d'un quartz sur un schéma ?",
+    "choix": [
+     "Q1",
+     "Y1 ou X1",
+     "L1",
+     "U1"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Y1 ou X1 pour un quartz ; Q1 désigne un transistor, L1 une bobine, U1 un circuit intégré."
+   },
+   {
+    "question": "Quelle source d'horloge est la plus précise ?",
+    "choix": [
+     "L'oscillateur interne de l'ATmega",
+     "Un résonateur céramique",
+     "Un quartz standard",
+     "Un module RTC DS3231"
+    ],
+    "bonnes": [
+     "D"
+    ],
+    "explication": "Le DS3231 est compensé en température (≈ 2 ppm) : environ 5 s d'écart par mois."
+   },
+   {
+    "question": "Que se passe-t-il si on remplace le quartz de 16 MHz par un 8 MHz sans rien changer dans l'IDE ?",
+    "choix": [
+     "Rien",
+     "Le programme va deux fois plus vite",
+     "delay() et la liaison série deviennent faux (tout est deux fois plus lent)",
+     "La carte grille"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le programme croit toujours tourner à 16 MHz : les durées calculées sont doublées et les bauds ne correspondent plus."
+   },
+   {
+    "question": "Après combien de temps millis() repasse-t-il à 0 sur un Arduino ?",
+    "choix": [
+     "≈ 65 secondes",
+     "≈ 24 heures",
+     "≈ 49,7 jours",
+     "Jamais"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "millis() est stocké sur 32 bits : 2^32 ms ≈ 4,3 milliards de ms ≈ 49,7 jours."
+   }
+  ]
+ }
+]
