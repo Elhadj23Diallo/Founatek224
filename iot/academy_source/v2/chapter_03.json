@@ -1,0 +1,905 @@
+[
+ {
+  "id": "3.1",
+  "titre": "Le timer NE555",
+  "resume": "Un petit chronomètre électronique : il fait clignoter, temporise et bipe sans microcontrôleur. Tu apprends ses modes astable et monostable, la formule de sa fréquence et tu mesures son signal avec l'Arduino.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "3.1-photo.jpg",
+   "legende": "Des circuits intégrés en boîtier DIP sur une carte : le NE555 est un boîtier DIP-8, l'encoche ou le point repère la broche 1.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × circuit NE555 (ou TLC555 / 7555 en version CMOS)",
+   "Résistances : 1 kΩ, 47 kΩ, 330 Ω",
+   "Condensateurs : 10 µF électrolytique, 10 nF et 100 nF céramiques",
+   "1 × LED",
+   "Pour le mini-défi : 1 × potentiomètre 100 kΩ",
+   "8 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le brochage du NE555 et les trois blocs qu'il contient : deux comparateurs et une bascule.\n2. Le câblage pas à pas du montage astable sur la breadboard.\n3. La LED qui clignote sans aucun programme, puis la fréquence mesurée par l'Arduino.\n4. Changer R2 ou C et voir la fréquence varier ; le mode monostable comme minuterie.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nInventé en 1971, le **NE555** reste l'un des circuits intégrés les plus vendus au monde. Avec deux résistances et un condensateur, il produit un signal carré ou une impulsion de durée précise, **sans programme**.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire le brochage d'un NE555 (DIP-8) ;\n- expliquer comment il oscille entre 1/3 et 2/3 de VCC ;\n- calculer la fréquence et les durées haute et basse en mode **astable** ;\n- calculer la durée d'une impulsion en mode **monostable** ;\n- mesurer la fréquence d'un signal avec `pulseIn()`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Brochage et principe\n\n| Broche | Nom | Rôle |\n|---|---|---|\n| 1 | GND | masse |\n| 2 | TRIG | déclenchement : déclenche quand elle descend sous 1/3 de VCC |\n| 3 | OUT | sortie : signal carré 0 V / VCC, jusqu'à 200 mA |\n| 4 | RESET | remise à zéro, active à l'état bas : **à relier au +** si elle ne sert pas |\n| 5 | CV | tension de contrôle : **10 nF vers la masse** |\n| 6 | THR | seuil : bascule quand elle dépasse 2/3 de VCC |\n| 7 | DIS | décharge du condensateur |\n| 8 | VCC | alimentation, de 4,5 à 16 V |\n\nÀ l'intérieur : **deux comparateurs** et une **bascule**. En mode astable, le condensateur C se charge à travers R1 + R2 jusqu'à **2/3 de VCC** : la sortie passe à l'état bas et la broche 7 décharge C à travers R2. Quand C redescend à **1/3 de VCC**, la sortie repasse à l'état haut, et ainsi de suite."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.1-oscillogramme-555.svg",
+    "legende": "En haut, la tension du condensateur oscille entre 1/3 et 2/3 de VCC. En bas, la sortie (broche 3) bascule à chaque seuil : c'est un signal carré d'environ 1,5 Hz avec R1 = 1 kΩ, R2 = 47 kΩ et C = 10 µF."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les formules du mode astable\n\nDurée de l'état haut (charge à travers R1 + R2) et de l'état bas (décharge à travers R2) :\n\n$$t_H = 0{,}693 \\times (R_1 + R_2) \\times C \\qquad t_B = 0{,}693 \\times R_2 \\times C$$\n\nPériode et fréquence :\n\n$$T = t_H + t_B = 0{,}693 \\times (R_1 + 2R_2) \\times C \\qquad f = \\frac{1{,}44}{(R_1 + 2R_2) \\times C}$$\n\nRapport cyclique (toujours supérieur à 50 %) :\n\n$$\\alpha = \\frac{t_H}{T} = \\frac{R_1 + R_2}{R_1 + 2R_2}$$\n\n### Exemple : R1 = 1 kΩ, R2 = 47 kΩ, C = 10 µF\n\n$$R_1 + 2R_2 = 1 + 94 = 95\\ \\text{k}\\Omega \\qquad f = \\frac{1{,}44}{95\\,000 \\times 10 \\times 10^{-6}} \\approx 1{,}52\\ \\text{Hz}$$\n\n$$t_H = 0{,}693 \\times 48\\,000 \\times 10^{-5} \\approx 0{,}33\\ \\text{s} \\qquad t_B = 0{,}693 \\times 47\\,000 \\times 10^{-5} \\approx 0{,}33\\ \\text{s}$$\n\nR1 étant petite devant R2, le rapport cyclique est proche de 50 % (\\( 48 / 95 \\approx 51\\ \\% \\)).\n\n> 💡 Règles de choix : **R1 ≥ 1 kΩ** (sinon la broche 7 chauffe), R2 entre 1 kΩ et 1 MΩ. Plus R2 ou C est grand, plus le clignotement est lent."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Le mode monostable : une minuterie\n\nUne impulsion vers la masse sur **TRIG** (broche 2) fait passer la sortie à l'état haut pendant une durée fixe :\n\n$$t = 1{,}1 \\times R \\times C$$\n\nExemple : R = 100 kΩ et C = 100 µF donnent \\( t = 1{,}1 \\times 100\\,000 \\times 0{,}0001 = 11\\ \\text{s} \\) : une lumière d'escalier qui reste allumée 11 secondes après l'appui.\n\n## 4. Les modèles courants\n\n| Modèle | Particularité |\n|---|---|\n| NE555 | le classique : 4,5 à 16 V, sortie jusqu'à 200 mA, très robuste |\n| TLC555 / 7555 | version CMOS : dès 2 V, consommation très faible, idéal sur pile ou en 3,3 V |\n| NE556 | deux 555 dans un boîtier DIP-14 |\n| Module 555 | petite carte prête à l'emploi, fréquence réglable au potentiomètre |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Expérience : faire clignoter une LED avec le 555\n\nLe 555 fait clignoter la LED tout seul ; l'Arduino sert seulement d'alimentation et d'appareil de mesure.\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino. Place le NE555 **à cheval sur la rainure**, encoche à gauche.\n2. **Broche 8 (VCC)** et **broche 4 (RESET)** au **5V** ; **broche 1** au **GND**. Ajoute **100 nF** entre 8 et 1.\n3. **R1 (1 kΩ)** entre 8 et 7 ; **R2 (47 kΩ)** entre 7 et 6 ; relie **2 à 6**.\n4. **C (10 µF)** entre 6 et GND, le **−** côté masse ; **10 nF** entre 5 et GND.\n5. **Broche 3** → **330 Ω** → **LED** → GND, et broche 3 → **D2** de l'Arduino.\n6. Branche l'USB : la LED clignote. Téléverse le programme pour mesurer la fréquence."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.1-schema-ne555.svg",
+    "legende": "Le NE555 en astable : R1 (1 kΩ) et R2 (47 kΩ) chargent C (10 µF) ; TRIG et THR sont reliées. La sortie (broche 3) fait clignoter la LED et part vers D2 pour la mesure. RESET au +5 V, CV par 10 nF à la masse."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 3.1 — mesurer la fréquence du NE555 sur D2\nconst int ENTREE = 2;   // broche 3 du NE555 -> D2\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(ENTREE, INPUT);\n}\n\nvoid loop() {\n  unsigned long h = pulseIn(ENTREE, HIGH, 3000000UL);   // durée haute (µs), 3 s max\n  unsigned long b = pulseIn(ENTREE, LOW, 3000000UL);    // durée basse (µs)\n  if (h == 0 || b == 0) return;                         // pas de signal\n  float f = 1000000.0 / (h + b);                        // h + b = période en µs\n  Serial.print(\"tH = \"); Serial.print(h / 1000.0, 0);\n  Serial.print(\" ms  tB = \"); Serial.print(b / 1000.0, 0);\n  Serial.print(\" ms  f = \"); Serial.print(f, 2);\n  Serial.println(\" Hz\");\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Grandeur | Calcul | Ta mesure |\n|---|---|---|\n| tH | ≈ 333 ms | … |\n| tB | ≈ 326 ms | … |\n| f | ≈ 1,5 Hz | … |\n\nUn écart de 10 à 20 % est normal : un condensateur électrolytique a souvent une tolérance de ± 20 %.\n\n> 📌 **Et avec un ESP32 ?** Alimente le 555 en 5 V mais passe la broche 3 par un **pont diviseur 10 kΩ / 20 kΩ** vers la **GPIO 4** (3,3 V maximum), avec `ENTREE = 4`. Ou utilise un **TLC555 alimenté en 3,3 V** : aucune adaptation nécessaire."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Broche 4 (RESET) en l'air** : le 555 se bloque ou clignote au hasard.\n- **Condensateur électrolytique à l'envers** : le − va à la masse.\n- **R1 trop petite** (moins de 1 kΩ) : la broche 7 chauffe.\n- **Oublier la résistance de la LED** sur la broche 3.\n- **Masse du 555 non reliée** à celle de l'Arduino : la mesure ne marche pas.\n\n## 📌 À retenir\n\n- Astable = signal carré ; monostable = une seule impulsion de durée \\( 1{,}1 \\times R \\times C \\).\n- \\( f = 1{,}44 / ((R_1 + 2R_2) \\times C) \\), \\( t_H = 0{,}693 (R_1 + R_2) C \\), \\( t_B = 0{,}693 R_2 C \\).\n- Le condensateur oscille entre 1/3 et 2/3 de VCC.\n- RESET (4) au +, CV (5) par 10 nF à la masse, 100 nF entre VCC et GND.\n- Sortie jusqu'à 200 mA ; `pulseIn()` mesure les durées haute et basse.\n\n## 🏆 Mini-défi\n\nRemplace R2 par un **potentiomètre de 100 kΩ en série avec 1 kΩ** (R2 varie alors de 1 kΩ à 101 kΩ). Entre quelles fréquences peux-tu régler la LED ? Vérifie avec le moniteur série.\n\n> ✅ Solution : R2 = 1 kΩ : \\( f = 1{,}44 / (3\\,000 \\times 10^{-5}) = 48\\ \\text{Hz} \\) (la LED paraît allumée en continu). R2 = 101 kΩ : \\( f = 1{,}44 / (203\\,000 \\times 10^{-5}) \\approx 0{,}71\\ \\text{Hz} \\). On règle donc de 0,7 Hz à 48 Hz environ."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien de broches a un NE555 en boîtier DIP ?",
+    "choix": [
+     "6",
+     "8",
+     "14",
+     "16"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le NE555 est un DIP-8 ; le NE556 (deux 555) est un DIP-14."
+   },
+   {
+    "question": "Quelle broche du NE555 est la sortie ?",
+    "choix": [
+     "1",
+     "3",
+     "5",
+     "8"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Broche 3 = OUT. 1 = GND, 5 = CV, 8 = VCC."
+   },
+   {
+    "question": "Que faire de la broche 4 (RESET) si on ne s'en sert pas ?",
+    "choix": [
+     "La laisser en l'air",
+     "La relier au + (VCC)",
+     "La relier à la sortie",
+     "La relier à TRIG"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "RESET est active à l'état bas : en l'air, elle peut bloquer le 555 au hasard."
+   },
+   {
+    "question": "Entre quelles tensions oscille le condensateur en mode astable ?",
+    "choix": [
+     "0 et VCC",
+     "1/3 et 2/3 de VCC",
+     "0 et 1/2 VCC",
+     "2/3 VCC et VCC"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les deux comparateurs internes basculent à 1/3 et à 2/3 de VCC."
+   },
+   {
+    "question": "Quelle est la fréquence avec R1 = 1 kΩ, R2 = 47 kΩ et C = 10 µF ?",
+    "choix": [
+     "≈ 0,15 Hz",
+     "≈ 1,5 Hz",
+     "≈ 15 Hz",
+     "≈ 150 Hz"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "f = 1,44 / ((1 000 + 2 × 47 000) × 0,000 01) = 1,44 / 0,95 ≈ 1,52 Hz."
+   },
+   {
+    "question": "Que se passe-t-il si on double la valeur de C ?",
+    "choix": [
+     "La fréquence double",
+     "La fréquence est divisée par deux",
+     "Rien",
+     "La LED s'éteint"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "f est inversement proportionnelle à C : C × 2 → f ÷ 2."
+   },
+   {
+    "question": "En astable classique, le rapport cyclique est :",
+    "choix": [
+     "Toujours inférieur à 50 %",
+     "Toujours supérieur à 50 %",
+     "Toujours égal à 50 %",
+     "Réglable de 0 à 100 %"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "tH dépend de R1 + R2, tB de R2 seulement : tH est toujours un peu plus long que tB."
+   },
+   {
+    "question": "Quelle durée donne un monostable avec R = 100 kΩ et C = 100 µF ?",
+    "choix": [
+     "≈ 1,1 s",
+     "≈ 11 s",
+     "≈ 110 s",
+     "≈ 0,11 s"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "t = 1,1 × R × C = 1,1 × 100 000 × 0,000 1 = 11 s."
+   },
+   {
+    "question": "À quoi sert le condensateur de 10 nF sur la broche 5 (CV) ?",
+    "choix": [
+     "À fixer la fréquence",
+     "À éviter les déclenchements parasites",
+     "À alimenter la LED",
+     "À rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il stabilise la tension de référence interne des comparateurs."
+   },
+   {
+    "question": "Pourquoi garder R1 ≥ 1 kΩ ?",
+    "choix": [
+     "Pour que la LED brille plus",
+     "Pour limiter le courant dans la broche 7 (décharge) qui chaufferait",
+     "Pour augmenter la tension",
+     "Ce n'est pas nécessaire"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Pendant la décharge, R1 relie directement VCC à la broche 7 : une valeur trop faible la surcharge."
+   },
+   {
+    "question": "Quelle fonction Arduino mesure la durée d'un état haut ou bas ?",
+    "choix": [
+     "analogRead()",
+     "pulseIn()",
+     "millis()",
+     "tone()"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "pulseIn(broche, HIGH) renvoie la durée de l'état haut en microsecondes."
+   },
+   {
+    "question": "Quel modèle choisir pour un montage alimenté en 3,3 V ou sur pile, qui doit consommer très peu ?",
+    "choix": [
+     "NE555",
+     "TLC555 (CMOS)",
+     "NE556",
+     "LM358"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La version CMOS fonctionne dès 2 V et consomme beaucoup moins que le NE555 bipolaire."
+   }
+  ]
+ },
+ {
+  "id": "3.2",
+  "titre": "Le registre à décalage 74HC595",
+  "resume": "Trois fils de l'Arduino pour commander 8 sorties : idéal pour piloter beaucoup de LED. Tu apprends le rôle de DATA, CLOCK et LATCH, la fonction shiftOut() et tu fais un chenillard de 8 LED.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "3.2-photo.jpg",
+   "legende": "Des circuits intégrés logiques en boîtier DIP : le 74HC595 est un DIP-16, encoche à gauche, broche 1 en bas à gauche.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard 830 points",
+   "1 × registre à décalage 74HC595 (DIP-16)",
+   "8 × LED et 8 × résistances 470 Ω",
+   "1 × condensateur 100 nF",
+   "Une quinzaine de câbles (des fils rigides précoupés rendent le montage plus propre)",
+   "Facultatif : un second 74HC595 et 8 LED de plus pour le chaînage"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le problème : un Uno n'a que 14 broches numériques, et un projet en demande vite plus.\n2. Le principe du décalage, expliqué avec 8 cases et des jetons : DATA, CLOCK, LATCH.\n3. Le câblage du 74HC595 et des 8 LED, broche par broche.\n4. Le chenillard, le compteur binaire, puis deux 595 chaînés pour 16 sorties.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUn afficheur, une matrice de LED, une rangée de relais : les sorties de l'Arduino s'épuisent vite. Le **74HC595** reçoit 8 bits **en série** sur un seul fil et les présente **en parallèle** sur 8 sorties. Trois broches de l'Arduino suffisent, et on peut en chaîner plusieurs.\n\nÀ la fin de cette leçon, tu sauras :\n\n- câbler un 74HC595 (broches fixes et broches de commande) ;\n- expliquer le rôle de DATA, CLOCK et LATCH ;\n- envoyer un octet avec `shiftOut()` ;\n- respecter les limites de courant du boîtier ;\n- chaîner deux registres pour 16 sorties."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Le brochage\n\n| Broche | Nom | Branchement |\n|---|---|---|\n| 16 | VCC | +5 V (de 2 à 6 V possible) |\n| 8 | GND | masse |\n| 14 | DATA (DS) | entrée série : D11 |\n| 11 | CLOCK (SH_CP) | horloge de décalage : D12 |\n| 12 | LATCH (ST_CP) | recopie vers les sorties : D8 |\n| 13 | OE | activation des sorties, active à l'état bas : **à la masse** |\n| 10 | MR | effacement, actif à l'état bas : **au +5 V** |\n| 15, 1 à 7 | QA, QB à QH | les 8 sorties |\n| 9 | QH' | sortie série, pour chaîner un second 595 |\n\n> ⚠️ **QA est la broche 15**, de l'autre côté du boîtier ; QB à QH sont les broches 1 à 7."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Comment ça marche\n\n1. On présente un bit (0 ou 1) sur **DATA**.\n2. Une impulsion sur **CLOCK** le fait entrer dans le registre : tous les bits déjà présents avancent d'une case.\n3. Après 8 impulsions, les 8 bits sont en place (mais les sorties n'ont pas encore changé).\n4. Une impulsion sur **LATCH** recopie les 8 bits vers les sorties QA à QH, **toutes en même temps**.\n\nLa fonction Arduino `shiftOut(DATA, CLOCK, MSBFIRST, octet)` fait les étapes 1 à 3 pour toi. `MSBFIRST` envoie d'abord le bit de poids fort (leçon 0.7) : il finit sur QH."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.2-chronogramme.svg",
+    "legende": "Chronogramme de l'envoi de l'octet 10110010 : un bit sur DATA à chaque front montant de CLOCK, puis une impulsion sur LATCH qui met à jour les 8 sorties d'un coup."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les limites de courant\n\nLe 74HC595 supporte **35 mA par sortie** au maximum absolu, mais surtout **70 mA au total** pour tout le boîtier. Avec 8 LED allumées en même temps, on vise environ 6 mA par LED :\n\n$$I = \\frac{5 - 2}{470} \\approx 6{,}4\\ \\text{mA} \\qquad 8 \\times 6{,}4 \\approx 51\\ \\text{mA} < 70\\ \\text{mA}$$\n\nAvec 220 Ω, chaque LED prendrait 13,6 mA, soit 109 mA pour les 8 : **trop** pour le boîtier.\n\n| Modèle | Particularité |\n|---|---|\n| 74HC595 | le standard en DIP-16, de 2 à 6 V |\n| 74HCT595 | alimenté en 5 V, il accepte des signaux de commande en 3,3 V |\n| TPIC6B595 | sorties de puissance (≈ 150 mA) : relais, grosses LED |\n| 74HC165 | l'inverse : 8 entrées (boutons) lues avec 3 fils |\n\n## 4. Combien de sorties ?\n\nEn chaînant n registres (QH' du premier vers DATA du suivant, CLOCK et LATCH communs) :\n\n$$\\text{sorties} = 8 \\times n \\quad \\text{avec toujours 3 broches de l'Arduino}$$"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Expérience : piloter 8 LED avec 3 broches\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino. Place le 74HC595 **à cheval sur la rainure**, encoche à gauche.\n2. Broches fixes : **16 (VCC)** et **10 (MR)** au **5V** ; **8 (GND)** et **13 (OE)** au **GND**. Ajoute **100 nF** entre 16 et 8.\n3. Commande : **D11 → 14 (DATA)**, **D12 → 11 (CLOCK)**, **D8 → 12 (LATCH)**.\n4. Sorties : **15 (QA)** puis **1 à 7 (QB à QH)** → chacune une **470 Ω** puis une **LED** vers GND.\n5. Téléverse le chenillard."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.2-schema-74hc595.svg",
+    "legende": "Le 74HC595 commandé par D11 (DATA), D12 (CLOCK) et D8 (LATCH). OE à la masse, MR au +5 V. Chaque sortie QA à QH alimente une LED à travers 470 Ω."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 3.2 — un chenillard de 8 LED avec un 74HC595\nconst int LATCH = 8;    // ST_CP, broche 12\nconst int DATA  = 11;   // DS, broche 14\nconst int CLOCK = 12;   // SH_CP, broche 11\n\nvoid envoyer(byte octet) {\n  digitalWrite(LATCH, LOW);                  // on prépare\n  shiftOut(DATA, CLOCK, MSBFIRST, octet);    // 8 bits, un par front d'horloge\n  digitalWrite(LATCH, HIGH);                 // les 8 sorties changent d'un coup\n}\n\nvoid setup() {\n  pinMode(LATCH, OUTPUT);\n  pinMode(DATA, OUTPUT);\n  pinMode(CLOCK, OUTPUT);\n}\n\nvoid loop() {\n  for (int i = 0; i < 8; i++) {   // chenillard\n    envoyer(1 << i);              // 00000001, 00000010, 00000100…\n    delay(150);\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Quelques octets à essayer\n\n| Valeur | Binaire | Effet |\n|---|---|---|\n| `1 << i` | une seule LED | chenillard |\n| `0b10101010` | une sur deux | damier |\n| `0xFF` (255) | 11111111 | toutes allumées (≈ 51 mA) |\n| `0x0F` (15) | 00001111 | la moitié |\n\n> 💡 **Luminosité** : OE est active à l'état bas. Relie OE à une broche PWM au lieu de la masse : `analogWrite(broche, 255 - luminosite)` règle les 8 LED d'un coup.\n\n> 💡 **Chaîner deux 595** : QH' (9) du premier sur DATA (14) du second, CLOCK et LATCH communs. Puis deux `shiftOut()` avant de remonter LATCH : le premier octet envoyé finit dans le second registre.\n\n> 📌 **Et avec un ESP32 ?** Alimente le 74HC595 en **3,3 V** et utilise par exemple **GPIO 5** (LATCH), **23** (DATA) et **18** (CLOCK). En 3,3 V, une résistance de **220 Ω** donne environ 6 mA par LED : \\( (3{,}3 - 2) / 220 \\approx 5{,}9\\ \\text{mA} \\)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **OE (13) en l'air** : sorties éteintes ou instables. Relie-la à GND.\n- **MR (10) à la masse** : le registre est effacé en permanence.\n- **CLOCK (11) et LATCH (12) inversés** : rien ne s'affiche.\n- **Chercher QA du mauvais côté** : c'est la broche 15.\n- **Pas de résistance ou résistances trop faibles** : les LED et le boîtier sont surchargés (70 mA au total).\n\n## 📌 À retenir\n\n- 3 fils pour 8 sorties : DATA, CLOCK, LATCH ; 8 × n sorties avec n registres chaînés.\n- `shiftOut()` envoie un octet, LATCH l'affiche.\n- OE à la masse, MR au 5 V, 100 nF entre VCC et GND.\n- Une résistance par LED, 70 mA maximum pour tout le boîtier.\n\n## 🏆 Mini-défi\n\nAffiche un **compteur binaire de 0 à 255** sur les 8 LED : remplace `1 << i` par une variable qui augmente de 1 à chaque tour."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : compteur binaire de 0 à 255 sur les 8 LED\nconst int LATCH = 8, DATA = 11, CLOCK = 12;\nbyte n = 0;   // un byte va de 0 à 255, puis revient à 0 tout seul\n\nvoid setup() {\n  pinMode(LATCH, OUTPUT); pinMode(DATA, OUTPUT); pinMode(CLOCK, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LATCH, LOW);\n  shiftOut(DATA, CLOCK, MSBFIRST, n);\n  digitalWrite(LATCH, HIGH);\n  n++;            // 255 + 1 = 0 : débordement (leçon 0.7)\n  delay(200);\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien de broches de l'Arduino faut-il pour commander un 74HC595 ?",
+    "choix": [
+     "1",
+     "3",
+     "8",
+     "16"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "DATA, CLOCK et LATCH : trois fils pour 8 sorties."
+   },
+   {
+    "question": "Quel est le rôle de la broche LATCH ?",
+    "choix": [
+     "Faire entrer un bit",
+     "Recopier les 8 bits vers les sorties en même temps",
+     "Effacer le registre",
+     "Alimenter le circuit"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les bits entrent avec CLOCK ; LATCH les présente sur les sorties d'un coup."
+   },
+   {
+    "question": "Que fait une impulsion sur CLOCK ?",
+    "choix": [
+     "Elle allume toutes les LED",
+     "Elle fait entrer le bit présent sur DATA et décale les autres d'une case",
+     "Elle remet à zéro",
+     "Elle change la luminosité"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Chaque front montant de l'horloge décale le registre d'une position."
+   },
+   {
+    "question": "Où brancher OE (broche 13) pour que les sorties fonctionnent ?",
+    "choix": [
+     "Au +5 V",
+     "À la masse",
+     "En l'air",
+     "Sur QA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "OE est active à l'état bas : à la masse, les sorties sont activées."
+   },
+   {
+    "question": "Où brancher MR (broche 10) ?",
+    "choix": [
+     "À la masse",
+     "Au +5 V",
+     "Sur D11",
+     "En l'air"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "MR efface le registre quand elle est à 0 : au +5 V, on ne l'efface pas."
+   },
+   {
+    "question": "Quelle broche du 74HC595 correspond à la sortie QA ?",
+    "choix": [
+     "1",
+     "7",
+     "9",
+     "15"
+    ],
+    "bonnes": [
+     "D"
+    ],
+    "explication": "QA est la broche 15 ; QB à QH sont les broches 1 à 7, et QH' (9) sert au chaînage."
+   },
+   {
+    "question": "Quel courant total maximal faut-il respecter pour un 74HC595 ?",
+    "choix": [
+     "≈ 20 mA",
+     "≈ 70 mA",
+     "≈ 500 mA",
+     "≈ 2 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Environ 70 mA pour tout le boîtier : d'où des LED à ≈ 6 mA (470 Ω)."
+   },
+   {
+    "question": "Avec 470 Ω et des LED rouges sous 5 V, quel courant consomment 8 LED allumées ?",
+    "choix": [
+     "≈ 6 mA",
+     "≈ 51 mA",
+     "≈ 109 mA",
+     "≈ 470 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = (5 − 2) / 470 ≈ 6,4 mA par LED ; × 8 ≈ 51 mA."
+   },
+   {
+    "question": "Combien de sorties obtient-on avec trois 74HC595 chaînés ?",
+    "choix": [
+     "8",
+     "16",
+     "24",
+     "32"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "8 × 3 = 24 sorties, toujours avec 3 broches de l'Arduino."
+   },
+   {
+    "question": "Quelle valeur allume une LED sur deux ?",
+    "choix": [
+     "0b11110000",
+     "0b10101010",
+     "0b00000001",
+     "0xFF"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "10101010 : un bit sur deux vaut 1."
+   },
+   {
+    "question": "Comment relie-t-on deux 74HC595 en chaîne ?",
+    "choix": [
+     "QA du premier sur QA du second",
+     "QH' (9) du premier sur DATA (14) du second, CLOCK et LATCH communs",
+     "Les deux LATCH sur des broches différentes uniquement",
+     "Ce n'est pas possible"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les bits qui sortent du premier registre entrent dans le second ; l'horloge et le verrou sont partagés."
+   },
+   {
+    "question": "Quel circuit permet au contraire de lire 8 boutons avec 3 fils ?",
+    "choix": [
+     "74HC165",
+     "74HC08",
+     "NE555",
+     "LM358"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le 74HC165 est un registre à entrées parallèles et sortie série."
+   }
+  ]
+ },
+ {
+  "id": "3.3",
+  "titre": "L'amplificateur opérationnel LM358",
+  "resume": "Un amplificateur double : il grossit un petit signal ou compare deux tensions. Tu apprends le montage non inverseur (G = 1 + R2 / R1), le comparateur, le suiveur et tu amplifies une petite tension lue par A0.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "3.3-photo.jpg",
+   "legende": "Une carte électronique avec ses circuits intégrés : le LM358 existe en DIP-8 (même boîtier que le NE555) et en SOIC-8 soudé en surface.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × amplificateur opérationnel LM358 (DIP-8) — ou MCP6002 pour l'ESP32",
+   "Résistances : 10 kΩ (× 2), 47 kΩ, 100 kΩ (× 2)",
+   "1 × condensateur 100 nF",
+   "Pour le comparateur (facultatif) : 1 × LDR et 1 × potentiomètre 10 kΩ",
+   "1 × multimètre, 8 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le symbole et le brochage du LM358 : deux amplificateurs dans un boîtier.\n2. La règle d'or de l'ampli-op en contre-réaction : il fait tout pour que V+ = V−.\n3. Le montage non inverseur : 0,45 V devient 2,6 V, mesuré au multimètre et par A0.\n4. Trop de gain : la sortie plafonne à 3,5 V. Puis le comparateur avec une LDR.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nBeaucoup de capteurs donnent une tension **trop petite** pour être lue précisément (quelques dizaines de millivolts), ou un signal qu'on veut transformer en oui / non. L'**amplificateur opérationnel** (ampli-op) fait les deux.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire le brochage du LM358 et câbler son alimentation ;\n- utiliser l'ampli-op en **comparateur** ;\n- calculer le gain d'un montage **non inverseur** ;\n- connaître la limite de sortie du LM358 et choisir un modèle **rail-to-rail** ;\n- réaliser un **suiveur** pour ne pas perturber une mesure."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Deux entrées, une sortie\n\nUn ampli-op a une entrée **non inverseuse (+)**, une entrée **inverseuse (−)** et une **sortie**. Il amplifie énormément (plus de 100 000 fois) la **différence** entre ses deux entrées.\n\n### Le brochage du LM358 (deux amplis dans un DIP-8)\n\n| Broche | Rôle | Broche | Rôle |\n|---|---|---|---|\n| 1 | sortie A | 8 | VCC (+3 à +32 V) |\n| 2 | entrée − A | 7 | sortie B |\n| 3 | entrée + A | 6 | entrée − B |\n| 4 | GND | 5 | entrée + B |\n\n### En comparateur (sans contre-réaction)\n\nLa sortie part au maximum si \\( V_+ > V_- \\), au minimum sinon. Exemple : une LDR sur V+ et un seuil réglable au potentiomètre sur V− : la sortie bascule quand il fait nuit (fiche 7.5).\n\n### En amplificateur (avec contre-réaction)\n\nQuand une partie de la sortie revient sur l'entrée −, l'ampli-op s'ajuste pour que **\\( V_- = V_+ \\)**. C'est la règle qui permet de calculer tous les montages."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Le montage non inverseur\n\nLe signal arrive sur V+. R2 renvoie la sortie vers V−, R1 relie V− à la masse. La sortie vaut :\n\n$$V_s = G \\times V_e \\qquad\\qquad G = 1 + \\frac{R_2}{R_1}$$\n\n### Pourquoi ? (avec la règle \\( V_- = V_+ \\))\n\nR1 et R2 forment un diviseur de la sortie : \\( V_- = V_s \\times \\frac{R_1}{R_1 + R_2} \\). Comme \\( V_- = V_e \\) :\n\n$$V_s = V_e \\times \\frac{R_1 + R_2}{R_1} = V_e \\times \\left(1 + \\frac{R_2}{R_1}\\right)$$\n\n### Exemple de l'expérience\n\nLa tension d'entrée vient d'un pont R3 = 100 kΩ / R4 = 10 kΩ sur le 5 V :\n\n$$V_e = 5 \\times \\frac{10}{110} \\approx 0{,}45\\ \\text{V} \\qquad G = 1 + \\frac{47}{10} = 5{,}7 \\qquad V_s = 5{,}7 \\times 0{,}45 \\approx 2{,}6\\ \\text{V}$$\n\nA0 lit alors environ \\( 2{,}6 \\times 1023 / 5 \\approx 530 \\).\n\n### La limite du LM358\n\nLe LM358 ne monte **pas jusqu'à son alimentation** : sa sortie plafonne vers \\( V_{CC} - 1{,}5\\ \\text{V} \\), soit **≈ 3,5 V en 5 V**. Ses entrées, en revanche, fonctionnent jusqu'à la masse. Pour aller de 0 à 5 V, ou travailler en 3,3 V, on prend un ampli-op **rail-to-rail** comme le MCP6002."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.3-gain-saturation.svg",
+    "legende": "La sortie suit Vs = G × Ve, puis plafonne vers 3,5 V (saturation du LM358 en 5 V). Avec G = 5,7, 0,45 V donne 2,6 V ; avec G = 11, la même entrée sature déjà."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. D'autres montages utiles\n\n| Montage | Branchement | Résultat |\n|---|---|---|\n| Suiveur | sortie reliée directement à V−, signal sur V+ | \\( G = 1 \\) : recopie la tension sans charger le capteur |\n| Non inverseur | R2 de la sortie vers V−, R1 de V− à la masse | \\( G = 1 + R_2 / R_1 \\) |\n| Inverseur | signal sur V− par R1, R2 de la sortie vers V−, V+ à la masse | \\( G = -R_2 / R_1 \\) (besoin d'une alimentation symétrique) |\n| Comparateur | pas de contre-réaction | sortie haute si \\( V_+ > V_- \\) |\n\n### Les modèles courants\n\n| Modèle | Particularité |\n|---|---|\n| LM358 | double, 3 à 32 V, entrées jusqu'à la masse : le plus courant |\n| LM324 | quatre amplis dans un DIP-14 |\n| MCP6002 | rail-to-rail, 1,8 à 6 V : parfait en 3,3 V avec un ESP32 |\n| LM393 | comparateur double, sortie collecteur ouvert, plus rapide |\n\n> 💡 Toujours **100 nF** entre VCC (8) et GND (4), au plus près du boîtier. Un ampli inutilisé : monte-le en suiveur avec V+ à la masse."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : amplifier une petite tension\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino. Place le LM358 à cheval sur la rainure, encoche à gauche.\n2. **Broche 8** au **5V**, **broche 4** au **GND**, **100 nF** entre les deux.\n3. Entrée : pont **R3 = 100 kΩ** (du 5V au point Ve) et **R4 = 10 kΩ** (de Ve à GND) ; Ve → **broche 3 (+)**.\n4. Contre-réaction : **R2 = 47 kΩ** de la **broche 1 (sortie)** à la **broche 2 (−)** ; **R1 = 10 kΩ** de la broche 2 au GND.\n5. **Broche 1** → **A0**. Téléverse le programme et compare avec le multimètre."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.3-schema-lm358.svg",
+    "legende": "Montage non inverseur : le pont R3 / R4 fournit Ve ≈ 0,45 V sur l'entrée + ; R2 et R1 fixent le gain G = 1 + 47 / 10 = 5,7. La sortie (≈ 2,6 V) est lue par A0."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 3.3 — mesurer la sortie d'un amplificateur non inverseur\nconst float G = 1 + 47.0 / 10.0;   // gain = 5,7\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  float vs = analogRead(A0) * 5.0 / 1023;   // sortie de l'ampli\n  float ve = vs / G;                         // entrée déduite\n  Serial.print(\"Vs = \"); Serial.print(vs, 2);\n  Serial.print(\" V   Ve = \"); Serial.print(ve, 3);\n  Serial.println(\" V\");\n  if (vs > 3.4) Serial.println(\"Attention : saturation probable\");\n  delay(500);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Mesure | Calcul | Ta mesure |\n|---|---|---|\n| Ve (broche 3) | ≈ 0,45 V | … |\n| V− (broche 2) | ≈ 0,45 V (égale à V+ !) | … |\n| Vs (broche 1) | ≈ 2,6 V | … |\n| A0 | ≈ 530 | … |\n\nMesurer V− égale à V+ au multimètre, c'est vérifier la règle d'or de l'ampli-op.\n\n> 📌 **Et avec un ESP32 ?** Utilise un **MCP6002 alimenté en 3,3 V** : en 3,3 V, la sortie du LM358 plafonnerait vers 1,8 V. Lis la sortie sur **GPIO 34** (ADC1) et remplace `5.0 / 1023` par `3.3 / 4095`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Entrées + et − inversées** : la sortie part en butée.\n- **Oublier VCC (8) ou GND (4)** : rien ne marche.\n- **Gain trop fort** : la sortie plafonne vers 3,5 V (saturation).\n- **Confondre R1 et R2** : le gain change complètement (1 + 10/47 ≈ 1,2 au lieu de 5,7).\n- **Entrée en l'air** : la sortie dérive au hasard.\n\n## 📌 À retenir\n\n- En contre-réaction, l'ampli-op s'arrange pour que \\( V_- = V_+ \\).\n- Non inverseur : \\( G = 1 + R_2 / R_1 \\), \\( V_s = G \\times V_e \\). Suiveur : \\( G = 1 \\).\n- Comparateur : sortie haute si \\( V_+ > V_- \\).\n- LM358 : sortie maximale ≈ VCC − 1,5 V ; en 3,3 V, un rail-to-rail (MCP6002).\n- 100 nF entre VCC et GND.\n\n## 🏆 Mini-défi\n\nRemplace R2 par **100 kΩ** : quel gain obtient-on ? La tension lue sur A0 dépasse-t-elle 3,5 V ? Explique ce que tu observes.\n\n> ✅ Solution : \\( G = 1 + 100 / 10 = 11 \\). En théorie \\( V_s = 11 \\times 0{,}45 \\approx 5\\ \\text{V} \\), mais le LM358 sature vers **3,5 V** : A0 lit environ 715 et le programme affiche « saturation probable ». La règle \\( V_- = V_+ \\) n'est plus respectée : V− reste sous V+."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien d'amplificateurs contient un LM358 ?",
+    "choix": [
+     "1",
+     "2",
+     "4",
+     "8"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le LM358 est un double ampli-op (A et B) ; le LM324 en contient quatre."
+   },
+   {
+    "question": "Quelles broches alimentent le LM358 ?",
+    "choix": [
+     "1 et 8",
+     "8 (VCC) et 4 (GND)",
+     "3 et 2",
+     "5 et 6"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Broche 8 au + et broche 4 à la masse, comme pour beaucoup de DIP-8."
+   },
+   {
+    "question": "Quel est le gain d'un non inverseur avec R1 = 10 kΩ et R2 = 47 kΩ ?",
+    "choix": [
+     "4,7",
+     "5,7",
+     "10",
+     "47"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "G = 1 + R2 / R1 = 1 + 4,7 = 5,7."
+   },
+   {
+    "question": "Avec G = 5,7 et Ve = 0,45 V, quelle est la sortie ?",
+    "choix": [
+     "≈ 0,08 V",
+     "≈ 2,6 V",
+     "≈ 4,5 V",
+     "≈ 5,7 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Vs = 5,7 × 0,45 ≈ 2,6 V, sous le plafond de 3,5 V."
+   },
+   {
+    "question": "Quelle est la tension maximale de sortie d'un LM358 alimenté en 5 V ?",
+    "choix": [
+     "≈ 1,5 V",
+     "≈ 3,5 V",
+     "5 V exactement",
+     "≈ 6,5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sa sortie plafonne vers VCC − 1,5 V."
+   },
+   {
+    "question": "En montage amplificateur avec contre-réaction, que fait l'ampli-op ?",
+    "choix": [
+     "Il rend V+ égale à 0",
+     "Il ajuste sa sortie pour que V− = V+",
+     "Il coupe la sortie",
+     "Il double la tension d'alimentation"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est la règle d'or qui permet de calculer tous les montages."
+   },
+   {
+    "question": "En comparateur, quand la sortie passe-t-elle à l'état haut ?",
+    "choix": [
+     "Quand V+ > V−",
+     "Quand V− > V+",
+     "Quand V+ = 0",
+     "Jamais"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Sans contre-réaction, la sortie bascule selon le signe de V+ − V−."
+   },
+   {
+    "question": "Quel est le gain d'un montage suiveur ?",
+    "choix": [
+     "0",
+     "1",
+     "10",
+     "Infini"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La sortie recopie l'entrée ; l'intérêt est de ne pas charger le capteur."
+   },
+   {
+    "question": "Quel ampli-op choisir pour un ESP32 alimenté en 3,3 V ?",
+    "choix": [
+     "LM358",
+     "MCP6002 (rail-to-rail)",
+     "LM393",
+     "NE555"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le MCP6002 fonctionne de 1,8 à 6 V et sa sortie va presque de 0 à 3,3 V."
+   },
+   {
+    "question": "Avec R2 = 100 kΩ et R1 = 10 kΩ, que se passe-t-il pour Ve = 0,45 V sur un LM358 en 5 V ?",
+    "choix": [
+     "Vs = 4,95 V",
+     "La sortie sature vers 3,5 V",
+     "Vs = 0,45 V",
+     "Vs = 0 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "G = 11 donnerait ≈ 4,95 V en théorie, mais le LM358 plafonne à ≈ 3,5 V."
+   },
+   {
+    "question": "Que mesure-t-on sur l'entrée − (broche 2) dans l'expérience ?",
+    "choix": [
+     "0 V",
+     "≈ 0,45 V, la même tension que l'entrée +",
+     "≈ 2,6 V",
+     "5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La contre-réaction rend V− égale à V+."
+   },
+   {
+    "question": "Pourquoi placer 100 nF entre VCC et GND du LM358 ?",
+    "choix": [
+     "Pour augmenter le gain",
+     "Pour éviter les oscillations et les mesures qui sautent",
+     "Pour faire clignoter une LED",
+     "Ce n'est pas utile"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est le condensateur de découplage, indispensable près de chaque circuit intégré."
+   }
+  ]
+ },
+ {
+  "id": "3.4",
+  "titre": "Les convertisseurs CAN et CNA",
+  "resume": "Ils traduisent une tension en nombre (CAN) ou un nombre en tension (CNA). Tu apprends la résolution, le pas de quantification, les modules ADS1115 et MCP4725, et tu crées une tension puis tu la relis.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "3.4-photo.jpg",
+   "legende": "Un Arduino Uno : son microcontrôleur contient un CAN 10 bits, relié aux entrées A0 à A5. Il n'a pas de vrai CNA : la PWM l'imite.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × module CNA MCP4725 (I2C, 12 bits)",
+   "Facultatif : 1 × module CAN ADS1115 (I2C, 16 bits)",
+   "1 × multimètre",
+   "6 × câbles Dupont mâle-mâle",
+   "La bibliothèque « Adafruit MCP4725 » (gestionnaire de bibliothèques de l'IDE)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le CAN comme un escalier : la tension continue découpée en marches.\n2. Pourquoi 10 bits donnent 1 024 valeurs, et ce que vaut une marche en 5 V et en 3,3 V.\n3. Le câblage du MCP4725 en I2C, le scanner d'adresse, puis la rampe de tension.\n4. La rampe dans le traceur série, et la comparaison avec le multimètre.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe monde réel est **analogique** (une température, une lumière, un son) ; le microcontrôleur est **numérique**. Deux convertisseurs font le pont :\n\n- le **CAN** (convertisseur analogique-numérique, ADC en anglais) : une tension → un nombre ;\n- le **CNA** (convertisseur numérique-analogique, DAC) : un nombre → une tension.\n\nÀ la fin de cette leçon, tu sauras :\n\n- calculer la résolution et le pas d'un convertisseur ;\n- convertir un nombre lu en tension, et inversement ;\n- choisir entre le CAN intégré et un ADS1115 ;\n- créer une vraie tension analogique avec un MCP4725 en I2C."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Résolution et pas de quantification\n\nUn convertisseur de **n bits** découpe la plage de 0 à \\( V_{ref} \\) en \\( 2^n \\) marches (leçon 0.7). La plus petite variation qu'il distingue, le **pas** (ou quantum), vaut :\n\n$$q = \\frac{V_{ref}}{2^{n}}$$\n\nPour le CAN de l'Uno, le nombre lu vaut (leçon 0.3) :\n\n$$N = V_{in} \\times \\frac{1023}{V_{ref}} \\qquad\\qquad V_{in} = N \\times \\frac{V_{ref}}{1023}$$\n\n| Convertisseur | Bits | Niveaux | Plage | Pas |\n|---|---|---|---|---|\n| CAN de l'Uno | 10 | 1 024 | 0 à 5 V | ≈ 4,9 mV |\n| CAN de l'ESP32 | 12 | 4 096 | 0 à 3,3 V | ≈ 0,8 mV |\n| ADS1115 (gain ± 4,096 V) | 16 | 65 536 | − 4,096 à + 4,096 V | 125 µV |\n| CNA MCP4725 | 12 | 4 096 | 0 à VCC | ≈ 1,2 mV en 5 V |\n| CNA de l'ESP32 (GPIO 25, 26) | 8 | 256 | 0 à 3,3 V | ≈ 12,9 mV |\n\n> 💡 Le calcul du pas de l'ADS1115 : sa plage totale fait 8,192 V, découpée en 65 536 marches : \\( 8{,}192 / 65\\,536 = 0{,}000\\,125\\ \\text{V} = 125\\ \\mu\\text{V} \\)."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.4-marches-can.svg",
+    "legende": "Un CAN transforme une tension continue en marches. Ici, un CAN de 3 bits (8 marches) pour bien voir ; le CAN de l'Uno en a 1 024, l'ADS1115 en a 65 536."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les modèles courants\n\n| Modèle | Type | Liaison | Usage |\n|---|---|---|---|\n| CAN de l'Uno | 10 bits, 6 entrées (A0 à A5) | intégré | potentiomètre, LDR, LM35 |\n| ADS1115 | CAN 16 bits, 4 entrées, gain réglable | I2C | balance, tension de batterie, mesures fines |\n| MCP4725 | CNA 12 bits, 1 sortie | I2C | consigne de tension, générateur de signal |\n| ESP32 | CAN 12 bits + 2 CNA 8 bits (GPIO 25, 26) | intégré | mesures et sons simples |\n\n### Choisir son convertisseur\n\n- **10 bits** suffisent pour un potentiomètre ou une LDR ; **16 bits** pour une balance ou une batterie précise.\n- Ne **jamais dépasser** la tension maximale de l'entrée : 5 V sur l'Uno, 3,3 V sur l'ESP32.\n- Pour une vraie sortie analogique : un CNA. Sinon, une PWM suivie d'un filtre RC (leçon 0.2).\n\n### Améliorer une mesure : moyenner\n\nLe CAN est un peu bruité. Faire la moyenne de N lectures divise le bruit aléatoire par environ \\( \\sqrt{N} \\) : avec 16 lectures, il est divisé par 4."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : créer une tension et la relire\n\nLe MCP4725 crée une tension à partir d'un nombre de 0 à 4095 ; l'entrée A0 de l'Arduino la relit.\n\n$$V_{out} = n \\times \\frac{V_{CC}}{4096}$$\n\nExemple : \\( n = 2048 \\) donne \\( V_{out} \\approx 2{,}5\\ \\text{V} \\), que A0 relit comme \\( N \\approx 2{,}5 \\times 1023 / 5 \\approx 512 \\).\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. **5V → VCC** et **GND → GND** du module.\n3. **A4 → SDA** et **A5 → SCL** (bus I2C de l'Uno).\n4. **OUT → A0**.\n5. Installe la bibliothèque « Adafruit MCP4725 », téléverse, puis ouvre le moniteur ou le traceur série."
+   },
+   {
+    "type": "schema",
+    "fichier": "3.4-schema-mcp4725.svg",
+    "legende": "Le MCP4725 relié en I2C (A4 = SDA, A5 = SCL) et alimenté par le 5V de l'Uno. Sa sortie OUT est relue par l'entrée A0."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 3.4 — CNA en sortie (MCP4725), CAN en entrée (A0)\n#include <Adafruit_MCP4725.h>   // bibliothèque Adafruit MCP4725\nAdafruit_MCP4725 cna;\n\nvoid setup() {\n  Serial.begin(9600);\n  cna.begin(0x60);   // adresse 0x60 ou 0x62 selon le module\n}\n\nvoid loop() {\n  for (int n = 0; n <= 4095; n += 512) {\n    cna.setVoltage(n, false);              // CNA : nombre -> tension\n    delay(500);\n    int N = analogRead(A0);                // CAN : tension -> nombre\n    float attendu = n * 5.0 / 4096;\n    Serial.print(n); Serial.print(\" -> attendu \");\n    Serial.print(attendu, 2); Serial.print(\" V, relu \");\n    Serial.print(N * 5.0 / 1023, 2); Serial.println(\" V\");\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| n (CNA) | Tension attendue | N lu par A0 | Ta mesure au multimètre |\n|---|---|---|---|\n| 0 | 0,00 V | ≈ 0 | … |\n| 1024 | 1,25 V | ≈ 256 | … |\n| 2048 | 2,50 V | ≈ 512 | … |\n| 3072 | 3,75 V | ≈ 767 | … |\n\nLe CNA est plus fin (1,2 mV) que le CAN de l'Uno (4,9 mV) : quatre valeurs de n successives donnent souvent la même lecture sur A0.\n\n> 💡 Rien ne sort ? Lance un **scanner I2C** (exemple « i2c_scanner ») : l'adresse peut être 0x60, 0x61 ou 0x62.\n\n> 📌 **Et avec un ESP32 ?** SDA = **GPIO 21**, SCL = **GPIO 22**, MCP4725 alimenté en **3,3 V**, OUT sur **GPIO 34** (ADC1). Remplace `5.0 / 1023` par `3.3 / 4095` et `5.0 / 4096` par `3.3 / 4096`. L'ESP32 possède aussi deux CNA 8 bits : `dacWrite(25, 128);` donne environ 1,65 V sur la GPIO 25."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Mauvaise adresse I2C** (0x60, 0x61 ou 0x62) : rien ne sort. Lance un scanner I2C.\n- **SDA et SCL inversés** (Uno : A4 = SDA, A5 = SCL).\n- **Masses non reliées** : mesures fausses.\n- **Oublier que n va de 0 à 4095** (12 bits), pas de 0 à 1023.\n- **Plus de 5 V sur A0** : l'entrée est détruite.\n\n## 📌 À retenir\n\n- CAN : tension → nombre ; CNA : nombre → tension.\n- \\( q = V_{ref} / 2^n \\) ; \\( N = V_{in} \\times 1023 / V_{ref} \\).\n- Uno : CAN 10 bits (4,9 mV), pas de CNA (la PWM l'imite).\n- ADS1115 (16 bits, 125 µV) et MCP4725 (12 bits) se branchent en I2C.\n- Moyenner N lectures réduit le bruit d'environ \\( \\sqrt{N} \\).\n\n## 🏆 Mini-défi\n\nProduis une **rampe de 0 à 4095 par pas de 64**, puis affiche la tension relue dans le **traceur série** de l'IDE Arduino. Combien de marches comporte ta rampe ?"
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : rampe de 0 à 4095 par pas de 64 (64 marches)\n#include <Adafruit_MCP4725.h>\nAdafruit_MCP4725 cna;\n\nvoid setup() {\n  Serial.begin(9600);\n  cna.begin(0x60);\n}\n\nvoid loop() {\n  for (int n = 0; n <= 4095; n += 64) {   // 4096 / 64 = 64 marches\n    cna.setVoltage(n, false);\n    delay(20);\n    Serial.println(analogRead(A0) * 5.0 / 1023);   // une seule valeur par ligne : idéal pour le traceur\n  }\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Que fait un CAN ?",
+    "choix": [
+     "Il transforme un nombre en tension",
+     "Il transforme une tension en nombre",
+     "Il amplifie une tension",
+     "Il stocke de l'énergie"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Convertisseur analogique-numérique : une tension devient un nombre."
+   },
+   {
+    "question": "Que fait un CNA ?",
+    "choix": [
+     "Il transforme un nombre en tension",
+     "Il transforme une tension en nombre",
+     "Il mesure un courant",
+     "Il compte le temps"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Convertisseur numérique-analogique : un nombre devient une tension."
+   },
+   {
+    "question": "Combien de niveaux a un convertisseur 12 bits ?",
+    "choix": [
+     "1 024",
+     "2 048",
+     "4 096",
+     "65 536"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "2^12 = 4 096."
+   },
+   {
+    "question": "Quel est le pas du CAN de l'Uno (10 bits, 5 V) ?",
+    "choix": [
+     "≈ 0,5 mV",
+     "≈ 4,9 mV",
+     "≈ 49 mV",
+     "≈ 0,5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "q = 5 / 1 024 ≈ 0,0049 V = 4,9 mV."
+   },
+   {
+    "question": "Quelle tension donne le MCP4725 alimenté en 5 V avec n = 2048 ?",
+    "choix": [
+     "≈ 1,25 V",
+     "≈ 2,5 V",
+     "≈ 4,1 V",
+     "5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Vout = 2 048 × 5 / 4 096 = 2,5 V."
+   },
+   {
+    "question": "Sur un Uno, A0 reçoit 2,5 V. Quelle valeur renvoie analogRead ?",
+    "choix": [
+     "≈ 128",
+     "≈ 512",
+     "≈ 1 023",
+     "≈ 2 048"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "N = 2,5 × 1 023 / 5 ≈ 512."
+   },
+   {
+    "question": "L'Arduino Uno possède-t-il un vrai CNA ?",
+    "choix": [
+     "Oui, sur A0",
+     "Non : la PWM (avec un filtre RC) l'imite",
+     "Oui, sur D13",
+     "Oui, 16 bits"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "analogWrite produit un signal PWM, pas une tension continue ; un MCP4725 donne une vraie tension."
+   },
+   {
+    "question": "Sur l'Uno, quelles broches forment le bus I2C ?",
+    "choix": [
+     "D0 et D1",
+     "A4 (SDA) et A5 (SCL)",
+     "D11 et D13",
+     "A0 et A1"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "SDA = A4, SCL = A5 sur l'Uno ; GPIO 21 et 22 sur l'ESP32."
+   },
+   {
+    "question": "Quel module choisir pour mesurer précisément la tension d'une batterie (au dixième de millivolt) ?",
+    "choix": [
+     "Le CAN de l'Uno",
+     "Un ADS1115 (16 bits)",
+     "Un MCP4725",
+     "Un NE555"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'ADS1115 a un pas de 125 µV avec le gain ± 4,096 V."
+   },
+   {
+    "question": "Le MCP4725 ne répond pas. Quelle est la première vérification ?",
+    "choix": [
+     "Changer de carte",
+     "Lancer un scanner I2C pour connaître son adresse (0x60, 0x61 ou 0x62)",
+     "Inverser 5V et GND",
+     "Ajouter une LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'adresse dépend du module ; un scanner I2C l'affiche."
+   },
+   {
+    "question": "Par combien le bruit aléatoire est-il divisé environ en moyennant 16 lectures ?",
+    "choix": [
+     "2",
+     "4",
+     "8",
+     "16"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le bruit aléatoire diminue comme la racine carrée du nombre de mesures : √16 = 4."
+   },
+   {
+    "question": "Combien de marches comporte une rampe de 0 à 4095 par pas de 64 ?",
+    "choix": [
+     "16",
+     "32",
+     "64",
+     "4 096"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "4 096 / 64 = 64 marches."
+   }
+  ]
+ }
+]
