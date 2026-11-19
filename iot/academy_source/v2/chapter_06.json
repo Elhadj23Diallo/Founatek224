@@ -1,0 +1,1365 @@
+[
+ {
+  "id": "6.1",
+  "titre": "Le bouton poussoir",
+  "resume": "Il ferme le circuit tant qu'on appuie dessus : la commande la plus simple. Tu apprends à le câbler sans résistance grâce à INPUT_PULLUP, à comprendre les rebonds et à les filtrer, et à faire basculer une LED à chaque appui.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "6.1-photo.jpg",
+   "legende": "Deux boutons tactiles (12 × 12 mm avec capuchon, et 6 × 6 mm) et la vue de dessous : les pattes 1–2 et 3–4 sont toujours reliées, l'appui relie les deux paires.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × breadboard",
+   "2 × boutons poussoirs tactiles 6 × 6 ou 12 × 12 mm",
+   "1 × LED et 1 × résistance 220 Ω",
+   "Facultatif : 1 × condensateur 100 nF (anti-rebond matériel)",
+   "1 × multimètre (pour repérer les pattes)",
+   "5 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le bouton démonté par la pensée : ressort, lamelle, et les 4 pattes reliées 2 par 2.\n2. Une entrée « en l'air » qui lit n'importe quoi, puis la même avec INPUT_PULLUP.\n3. Les rebonds : un appui compté 3 fois, puis corrigé par l'anti-rebond.\n4. La LED qui bascule à chaque appui, puis le mini-défi à deux boutons.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe **bouton poussoir** ferme un circuit **seulement pendant l'appui**. C'est la commande la plus simple pour envoyer un ordre à une carte : marche, arrêt, valider, changer de mode.\n\nÀ la fin de cette leçon, tu sauras :\n\n- repérer les pattes d'un bouton à 4 pattes ;\n- câbler un bouton **sans résistance** avec `INPUT_PULLUP` ;\n- expliquer pourquoi une entrée « en l'air » lit n'importe quoi ;\n- comprendre les **rebonds** et les filtrer ;\n- détecter un appui (un changement d'état) plutôt qu'un état."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Comment fonctionne un poussoir\n\nUn ressort maintient le contact ouvert. En appuyant, une lamelle métallique relie les deux bornes : le circuit est fermé.\n\n| Type | Particularité |\n|---|---|\n| Tactile 6 × 6 mm | le plus courant : 4 pattes, s'enfiche dans une breadboard, course ≈ 0,3 mm |\n| Tactile 12 × 12 mm | plus gros, avec capuchon coloré : agréable au doigt |\n| Bouton de panneau | 12 à 30 mm, à visser en façade : boîtiers, bornes, arcade |\n| Module KY-004 | bouton sur carte avec résistance : 3 broches S, + et − |\n\n### Les symboles\n\n- **NO** (normalement ouvert) : fermé seulement pendant l'appui. C'est le cas courant.\n- **NF** (normalement fermé) : s'ouvre quand on appuie. On l'utilise pour les arrêts d'urgence.\n\nOn le repère par **S1**, **SW1** ou **BP1**.\n\n> 💡 **Trouver les pattes** : au multimètre en continuité, deux pattes qui sonnent **sans appui** sont reliées en interne. En cas de doute, prends deux pattes **opposées en diagonale** : on passe toujours par le contact."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Pourquoi une résistance de tirage\n\nUne entrée numérique non reliée (« en l'air ») capte les parasites : elle lit HIGH, puis LOW, au hasard. Il faut la **tirer** vers un état connu. L'ATmega328P possède une résistance interne de 20 à 50 kΩ vers le 5 V, activée par `INPUT_PULLUP`.\n\n| Bouton | Ce que lit D2 |\n|---|---|\n| relâché | **HIGH** (tirée vers 5 V) |\n| appuyé | **LOW** (reliée à la masse) |\n\nPendant l'appui, un tout petit courant traverse la résistance interne :\n\n$$I = \\frac{U}{R} = \\frac{5}{35\\,000} \\approx 0{,}14\\ \\text{mA}$$"
+   },
+   {
+    "type": "schema",
+    "fichier": "6.1-pullup.svg",
+    "legende": "Avec INPUT_PULLUP, une résistance interne relie D2 au +5 V. Bouton relâché : D2 lit HIGH. Bouton appuyé : D2 est relié à la masse et lit LOW."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les rebonds\n\nLe contact métallique ne se ferme pas proprement : il rebondit pendant **1 à 10 ms**. Or `loop()` tourne des dizaines de milliers de fois par seconde : un seul appui peut être compté 2, 3 ou 10 fois."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.1-rebonds.svg",
+    "legende": "Au moment de l'appui, la tension sur D2 oscille plusieurs fois entre 5 V et 0 V avant de se stabiliser. Attendre 50 ms après un changement suffit à ignorer ces rebonds."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Trois façons de filtrer\n\n| Méthode | Principe |\n|---|---|\n| `delay(50)` après un changement | le plus simple, mais bloque le programme 50 ms |\n| `millis()` ou la bibliothèque **Bounce2** | on compare l'instant du dernier changement, sans bloquer |\n| condensateur 100 nF entre la broche et GND | anti-rebond matériel, rien à changer dans le code |\n\nAvec le condensateur, la constante de temps du filtre vaut :\n\n$$\\tau = R \\times C = 35\\,000 \\times 100 \\times 10^{-9} = 3{,}5\\ \\text{ms}$$\n\nLes rebonds, plus rapides, sont lissés.\n\n> 💡 **Pull-down** : 10 kΩ vers GND et bouton vers le 5 V. Relâché = LOW, appuyé = HIGH. Les deux montages marchent, mais le pull-up interne évite une résistance."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : allumer une LED avec un bouton\n\nChaque appui **inverse** l'état de la LED. Pour cela, on ne regarde pas l'état du bouton, mais son **changement** (front descendant HIGH → LOW).\n\n### Le montage pas à pas\n\n1. Place le bouton **à cheval sur la rainure** de la breadboard.\n2. Une patte → **D2**, la patte opposée en diagonale → **GND**. Aucune résistance.\n3. **D13** → **220 Ω** → **LED** → **GND** : \\( I = (5 - 2) / 220 \\approx 14\\ \\text{mA} \\).\n4. Téléverse le programme."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.1-schema-bouton.svg",
+    "legende": "Le bouton BP1 relie D2 à la masse ; D13 commande la LED à travers 220 Ω. Toutes les masses sont communes."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 6.1 — la LED change d'état à chaque appui\nconst int BOUTON = 2, LED = 13;   // bouton -> GND, LED + 220 Ω -> GND\nbool led = false;\nint avant = HIGH;                  // état précédent du bouton\n\nvoid setup() {\n  pinMode(BOUTON, INPUT_PULLUP);   // résistance de tirage interne\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int etat = digitalRead(BOUTON);\n  if (etat != avant) {             // le bouton a changé\n    if (etat == LOW) led = !led;   // appui (front descendant) : on bascule\n    digitalWrite(LED, led);\n    delay(50);                     // anti-rebond simple\n    avant = etat;\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Action | LED |\n|---|---|\n| 1er appui | s'allume |\n| bouton maintenu | reste allumée (un seul changement) |\n| 2e appui | s'éteint |\n| sans le `delay(50)` | parfois, un appui ne change rien (compté deux fois) |\n\n> 📌 **Et avec un ESP32 ?** `INPUT_PULLUP` existe sur la plupart des GPIO (bouton sur GPIO 4, LED sur GPIO 2). Les **GPIO 34 à 39 n'ont pas de pull-up interne** : ajouter 10 kΩ vers 3,3 V."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Oublier `INPUT_PULLUP`** : l'entrée flotte, la LED réagit au hasard.\n- **Tester HIGH au lieu de LOW** : avec le pull-up, appuyé = LOW.\n- **Bouton mal orienté** sur la breadboard : il semble toujours appuyé.\n- **Pas d'anti-rebond** : un seul appui compte 2 ou 3 fois.\n- **Bouton entre 5 V et GND** : court-circuit à chaque appui !\n\n## 📌 À retenir\n\n- Un poussoir n'est fermé que pendant l'appui.\n- `INPUT_PULLUP` : relâché = HIGH, appuyé = LOW, aucune résistance externe.\n- Les rebonds durent quelques ms : prévoir un anti-rebond.\n- On détecte un **changement** d'état pour compter les appuis.\n- Bouton à 4 pattes : câbler en diagonale.\n\n## 🏆 Mini-défi\n\nAjoute un **second bouton sur D3** : l'un allume la LED, l'autre l'éteint. Puis **compte les appuis** et affiche le total dans le moniteur série."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : deux boutons (marche / arrêt) et compteur d'appuis\nconst int MARCHE = 2, ARRET = 3, LED = 13;\nint avantM = HIGH, avantA = HIGH;\nunsigned long appuis = 0;\n\nvoid setup() {\n  pinMode(MARCHE, INPUT_PULLUP);\n  pinMode(ARRET, INPUT_PULLUP);\n  pinMode(LED, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int m = digitalRead(MARCHE), a = digitalRead(ARRET);\n  if (m != avantM || a != avantA) {          // un des boutons a changé\n    if (m == LOW && avantM == HIGH) { digitalWrite(LED, HIGH); appuis++; }\n    if (a == LOW && avantA == HIGH) { digitalWrite(LED, LOW);  appuis++; }\n    Serial.print(\"Appuis : \"); Serial.println(appuis);\n    delay(50);                                 // anti-rebond\n    avantM = m; avantA = a;\n  }\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Un bouton poussoir NO est fermé :",
+    "choix": [
+     "En permanence",
+     "Seulement pendant l'appui",
+     "Seulement quand on le relâche",
+     "Jamais"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "NO = normalement ouvert : il se ferme pendant l'appui."
+   },
+   {
+    "question": "Avec INPUT_PULLUP, que lit la broche quand le bouton est appuyé ?",
+    "choix": [
+     "HIGH",
+     "LOW",
+     "Une valeur au hasard",
+     "512"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le bouton relie la broche à la masse : LOW."
+   },
+   {
+    "question": "Pourquoi une entrée non reliée lit-elle n'importe quoi ?",
+    "choix": [
+     "Elle est cassée",
+     "Elle « flotte » et capte les parasites",
+     "Elle est en 3,3 V",
+     "Le programme est faux"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il faut une résistance de tirage pour fixer son état."
+   },
+   {
+    "question": "Faut-il une résistance externe pour un bouton avec INPUT_PULLUP ?",
+    "choix": [
+     "Oui, 220 Ω",
+     "Oui, 10 kΩ vers GND",
+     "Non, la résistance interne suffit",
+     "Oui, 1 MΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "La résistance de tirage interne (20 à 50 kΩ) fait le travail."
+   },
+   {
+    "question": "Combien de temps durent les rebonds d'un bouton ?",
+    "choix": [
+     "Quelques nanosecondes",
+     "1 à 10 ms environ",
+     "1 seconde",
+     "1 minute"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Assez pour que le programme compte plusieurs appuis."
+   },
+   {
+    "question": "Quel est le symptôme d'un bouton sans anti-rebond ?",
+    "choix": [
+     "La LED grille",
+     "Un seul appui est compté plusieurs fois",
+     "Le bouton chauffe",
+     "Rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Chaque rebond est vu comme un nouvel appui."
+   },
+   {
+    "question": "Quel courant traverse la résistance interne (≈ 35 kΩ) pendant l'appui ?",
+    "choix": [
+     "≈ 0,14 mA",
+     "≈ 14 mA",
+     "≈ 140 mA",
+     "≈ 1,4 A"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "I = 5 / 35 000 ≈ 0,000 14 A."
+   },
+   {
+    "question": "Que vaut la constante de temps τ avec 35 kΩ et un condensateur de 100 nF ?",
+    "choix": [
+     "0,35 ms",
+     "3,5 ms",
+     "35 ms",
+     "350 ms"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "τ = 35 000 × 0,000 000 1 = 0,003 5 s."
+   },
+   {
+    "question": "Sur un bouton à 4 pattes, quelles pattes choisir en cas de doute ?",
+    "choix": [
+     "Deux pattes du même côté",
+     "Deux pattes opposées en diagonale",
+     "Les 4 ensemble",
+     "N'importe lesquelles"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "En diagonale, on passe toujours par le contact."
+   },
+   {
+    "question": "Pour faire basculer une LED à chaque appui, on détecte :",
+    "choix": [
+     "L'état HIGH",
+     "L'état LOW",
+     "Le changement d'état HIGH → LOW",
+     "La tension analogique"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Sinon, la LED basculerait en permanence tant que le bouton est maintenu."
+   },
+   {
+    "question": "Que se passe-t-il avec un bouton branché entre 5 V et GND ?",
+    "choix": [
+     "Il marche très bien",
+     "Court-circuit à chaque appui",
+     "La LED s'allume",
+     "Rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'appui relie directement le 5 V à la masse."
+   },
+   {
+    "question": "Sur un ESP32, quelles broches n'ont pas de pull-up interne ?",
+    "choix": [
+     "GPIO 2 et 4",
+     "GPIO 34 à 39",
+     "GPIO 21 et 22",
+     "Aucune"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il faut ajouter 10 kΩ vers 3,3 V sur ces entrées seules."
+   }
+  ]
+ },
+ {
+  "id": "6.2",
+  "titre": "L'interrupteur",
+  "resume": "Il garde sa position sans qu'on le tienne : marche ou arrêt, A ou B. Tu apprends les sigles SPST, SPDT et DPDT, les interrupteurs ILS, à glissière et de fin de course, et tu détectes l'ouverture d'une porte.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "6.2-photo.jpg",
+   "legende": "Un panneau couvert d'interrupteurs à bascule : chaque levier reste dans la position où on l'a mis.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × interrupteur à lame souple (ILS, « reed ») et 1 × petit aimant",
+   "Ou : 1 × interrupteur à glissière SPDT au pas de 2,54 mm",
+   "1 × LED et 1 × résistance 220 Ω",
+   "Pour le mini-défi : 1 × buzzer actif ou passif",
+   "1 × breadboard, 5 × câbles Dupont, 1 × multimètre"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Poussoir et interrupteur côte à côte : l'un revient, l'autre garde sa position.\n2. Les bornes d'un SPDT trouvées au multimètre : le commun, puis A et B.\n3. L'ILS qui se ferme à l'approche d'un aimant, sur une maquette de porte.\n4. L'alarme de porte : LED, message et bips du mini-défi.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nContrairement au poussoir, un **interrupteur garde sa position** : ouvert ou fermé, sans qu'on le tienne. Il sert à mettre sous tension, à choisir un mode ou à détecter une position (porte, fin de course).\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire les sigles SPST, SPDT, DPDT, NO et NC ;\n- trouver le commun d'un inverseur au multimètre ;\n- lire un interrupteur avec `INPUT_PULLUP` ;\n- détecter une porte avec un ILS et un aimant ;\n- calculer le nombre de combinaisons d'un interrupteur DIP."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Les sigles\n\n**P** = pôle (nombre de circuits commandés ensemble), **T** = voie (*throw*, nombre de positions de chaque circuit).\n\n| Sigle | Signification | Bornes | Usage |\n|---|---|---|---|\n| SPST | 1 pôle, 1 voie | 2 | marche / arrêt |\n| SPDT | 1 pôle, 2 voies (inverseur) | 3 | choisir A ou B |\n| DPDT | 2 inverseurs commandés ensemble | 6 | inverser le sens d'un moteur |\n\nSur un **fin de course** : **C** (ou COM) = commun, **NO** = normalement ouvert, **NC** = normalement fermé."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.2-symboles.svg",
+    "legende": "Les symboles : interrupteur simple (SPST), inverseur (SPDT) dont le commun C va vers A ou B, et le bouton poussoir pour comparer."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les différents types\n\n| Type | Particularité |\n|---|---|\n| À bascule | levier métallique, 2 ou 3 positions, robuste : tableaux de bord, coffrets |\n| À glissière | petit curseur SPDT au pas de 2,54 mm : idéal pour couper une pile |\n| ILS (reed) | deux lames dans une ampoule de verre, fermées par un aimant : alarme de porte |\n| Fin de course | micro-rupteur à levier : il bascule quand une pièce arrive en butée |\n| DIP | barrette de 4 à 8 mini-interrupteurs : adresse, options d'une carte |\n\n### Combien de réglages avec un interrupteur DIP ?\n\nChaque interrupteur a 2 positions. Avec n interrupteurs :\n\n$$N = 2^{n} \\qquad 4\\ \\text{interrupteurs} \\Rightarrow 2^4 = 16 \\text{ adresses} \\qquad 8 \\Rightarrow 256$$\n\n### Le lire comme un bouton\n\nUne borne sur la broche, l'autre sur GND, avec `INPUT_PULLUP` : **fermé = LOW**, **ouvert = HIGH**. Le courant est minime (≈ 0,14 mA) : le moindre interrupteur suffit pour une entrée de carte.\n\n> ⚠️ Le courant et la tension maximum sont écrits sur le boîtier (ex. 3 A 250 V~). **Ne jamais couper le 230 V** avec un mini-interrupteur de breadboard.\n\n> 💡 **Fin de course sûr** : câbler **COM et NC** sur une sécurité. Si un fil se coupe, la carte voit « ouvert » et arrête le moteur."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : détecter une porte avec un ILS\n\nL'ILS est fixé sur le cadre, l'aimant sur la porte. Porte fermée : l'aimant est contre l'ILS, les lames se touchent.\n\n| Situation | ILS | D2 lit | LED |\n|---|---|---|---|\n| aimant contre l'ILS (porte fermée) | fermé | LOW | éteinte |\n| aimant éloigné (porte ouverte) | ouvert | HIGH | allumée |\n\n### Le montage pas à pas\n\n1. **ILS** entre **D2** et **GND** (ses pattes ne sont pas polarisées).\n2. **D13** → **220 Ω** → **LED** → **GND**.\n3. Téléverse, ouvre le moniteur série et approche puis éloigne l'aimant.\n\nUn interrupteur à bascule ou à glissière se branche **exactement de la même façon**."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.2-schema-ils.svg",
+    "legende": "L'ILS relie D2 à la masse quand l'aimant est proche ; la LED sur D13 s'allume quand la porte est ouverte."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 6.2 — surveiller une porte avec un ILS\nconst int ILS = 2, LED = 13;   // ILS -> GND, LED + 220 Ω -> GND\nint avant = -1;                // dernier état affiché (-1 : aucun)\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(ILS, INPUT_PULLUP);   // résistance de tirage interne\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int etat = digitalRead(ILS);   // LOW = aimant proche = porte fermée\n  digitalWrite(LED, etat);       // LED allumée si la porte est ouverte\n  if (etat != avant) {           // on n'affiche que les changements\n    Serial.println(etat ? \"Ouverte\" : \"Fermée\");\n    avant = etat;\n    delay(20);                   // anti-rebond\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Action | Moniteur série | LED |\n|---|---|---|\n| au démarrage, aimant contre l'ILS | Fermée | éteinte |\n| aimant éloigné de plus de 2 cm | Ouverte | allumée |\n| aimant rapproché | Fermée | éteinte |\n\n> 💡 **3 positions** : un inverseur ON-OFF-ON a un point milieu. Lu sur deux broches, il donne trois modes (A, arrêt, B).\n\n> 📌 **Et avec un ESP32 ?** ILS sur GPIO 4 avec `INPUT_PULLUP`, LED sur GPIO 2. Pour **réveiller l'ESP32** de son sommeil profond à l'ouverture, utiliser une GPIO RTC (ex. GPIO 33) et `esp_sleep_enable_ext0_wakeup(GPIO_NUM_33, 1)` : idéal pour une alarme sur batterie."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Oublier `INPUT_PULLUP`** : l'état lu change tout seul.\n- **Confondre SPST et SPDT** : sur 3 bornes, le commun est souvent au milieu.\n- **Aimant trop loin** de l'ILS (plus de 1 à 2 cm) : il reste ouvert.\n- **Pattes de l'ILS pliées au ras du verre** : l'ampoule casse.\n- **Couper du 230 V** avec un mini-interrupteur : danger !\n\n## 📌 À retenir\n\n- Un interrupteur garde sa position, un poussoir non.\n- SPST = marche / arrêt, SPDT = inverseur, DPDT = double inverseur.\n- Lecture : `INPUT_PULLUP`, fermé = LOW, ouvert = HIGH.\n- ILS : il se ferme près d'un aimant.\n- DIP de n interrupteurs : \\( 2^n \\) combinaisons.\n\n## 🏆 Mini-défi\n\nAjoute un **buzzer sur D8** (leçon 8.2) : il sonne **3 fois** quand la porte s'ouvre. Bonus : **compte le nombre d'ouvertures** et affiche-le."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : alarme de porte avec 3 bips et compteur\nconst int ILS = 2, LED = 13, BUZZER = 8;\nint avant = LOW;\nunsigned int ouvertures = 0;\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(ILS, INPUT_PULLUP);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int etat = digitalRead(ILS);\n  digitalWrite(LED, etat);\n  if (etat == HIGH && avant == LOW) {        // la porte vient de s'ouvrir\n    ouvertures++;\n    Serial.print(\"Ouverture n° \"); Serial.println(ouvertures);\n    for (int i = 0; i < 3; i++) {\n      tone(BUZZER, 2000, 150);                  // bip de 150 ms à 2 kHz\n      delay(300);\n    }\n  }\n  if (etat != avant) delay(20);                 // anti-rebond\n  avant = etat;\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle est la différence entre un interrupteur et un poussoir ?",
+    "choix": [
+     "L'interrupteur garde sa position, le poussoir revient seul",
+     "Aucune",
+     "Le poussoir garde sa position",
+     "L'interrupteur ne marche qu'en 230 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Un poussoir n'est fermé que pendant l'appui."
+   },
+   {
+    "question": "Combien de bornes a un interrupteur SPDT ?",
+    "choix": [
+     "2",
+     "3",
+     "4",
+     "6"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un commun et deux voies A et B."
+   },
+   {
+    "question": "Que signifie SPST ?",
+    "choix": [
+     "1 pôle, 1 voie : marche / arrêt",
+     "2 pôles, 2 voies",
+     "Interrupteur tactile",
+     "Inverseur"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Un seul circuit, ouvert ou fermé."
+   },
+   {
+    "question": "Avec INPUT_PULLUP, que lit la broche quand l'interrupteur est fermé ?",
+    "choix": [
+     "HIGH",
+     "LOW",
+     "Une valeur au hasard",
+     "1023"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Fermé, il relie la broche à la masse."
+   },
+   {
+    "question": "Qu'est-ce qui ferme un ILS ?",
+    "choix": [
+     "La lumière",
+     "Un aimant proche",
+     "La chaleur",
+     "Un doigt"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les deux lames souples se touchent sous l'effet du champ magnétique."
+   },
+   {
+    "question": "Combien d'adresses donne un interrupteur DIP à 4 positions ?",
+    "choix": [
+     "4",
+     "8",
+     "16",
+     "32"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "2⁴ = 16 combinaisons."
+   },
+   {
+    "question": "Sur un fin de course, que signifie NC ?",
+    "choix": [
+     "Non connecté",
+     "Normalement fermé",
+     "Normalement ouvert",
+     "Neutre commun"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "NC = normally closed : fermé au repos."
+   },
+   {
+    "question": "Pourquoi câbler une sécurité sur COM et NC ?",
+    "choix": [
+     "Pour consommer moins",
+     "Si un fil se coupe, la carte voit « ouvert » et arrête la machine",
+     "Pour aller plus vite",
+     "C'est obligatoire en 3,3 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un défaut de câblage ressemble alors à une alarme, pas à un fonctionnement normal."
+   },
+   {
+    "question": "Quel interrupteur inverse le sens d'un moteur à courant continu ?",
+    "choix": [
+     "SPST",
+     "SPDT",
+     "DPDT",
+     "Un poussoir NO"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Deux inverseurs commandés ensemble croisent les deux fils du moteur."
+   },
+   {
+    "question": "L'aimant est à 5 cm de l'ILS. Que lit D2 ?",
+    "choix": [
+     "LOW",
+     "HIGH",
+     "0,5 V",
+     "Cela dépend de la LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Trop loin : l'ILS reste ouvert, le pull-up donne HIGH."
+   },
+   {
+    "question": "Peut-on couper du 230 V avec un mini-interrupteur à glissière de breadboard ?",
+    "choix": [
+     "Oui",
+     "Non, c'est dangereux",
+     "Oui, avec INPUT_PULLUP",
+     "Oui, si on le tient"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il faut un interrupteur prévu pour cette tension et ce courant."
+   },
+   {
+    "question": "Quel interrupteur est idéal pour couper l'alimentation d'une pile sur une petite carte ?",
+    "choix": [
+     "Un ILS",
+     "Un interrupteur à glissière",
+     "Un fin de course",
+     "Un clavier"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Petit, au pas de 2,54 mm, il garde sa position."
+   }
+  ]
+ },
+ {
+  "id": "6.3",
+  "titre": "Le clavier 4 × 4",
+  "resume": "16 touches lues avec seulement 8 fils : l'outil idéal pour taper un code. Tu apprends le câblage en lignes et colonnes, le balayage, la bibliothèque Keypad et tu programmes un digicode à 4 chiffres.",
+  "duree_minutes": 45,
+  "photo": {
+   "fichier": "6.3-photo.jpg",
+   "legende": "Le clavier à code d'un interphone d'immeuble : comme le clavier Arduino, ses touches sont rangées en lignes et en colonnes.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × clavier à membrane 4 × 4 (8 fils)",
+   "1 × LED et 1 × résistance 220 Ω",
+   "Pour le mini-défi : 1 × buzzer",
+   "1 × barrette de 8 broches mâle-mâle ou 8 câbles Dupont mâle-mâle",
+   "La bibliothèque « Keypad » (Mark Stanley, Alexander Brevig) dans le gestionnaire de bibliothèques"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le clavier retourné : la nappe de 8 fils, lignes et colonnes.\n2. Le balayage expliqué touche par touche, et la vérification au multimètre.\n3. Le câblage sur D9 à D2 et l'affichage des touches dans le moniteur série.\n4. Le digicode : bon code, mauvais code, effacement avec *, puis le mini-défi.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nSeize boutons séparés demanderaient 16 broches. Le **clavier matriciel** range ses touches en **4 lignes et 4 colonnes** : 8 fils suffisent. C'est la base d'une serrure électronique, d'une alarme ou d'un menu.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer comment un appui relie une ligne à une colonne ;\n- calculer le nombre de fils d'un clavier matriciel ;\n- comprendre le **balayage** des colonnes ;\n- utiliser la bibliothèque Keypad et `getKey()` ;\n- programmer un digicode avec validation et effacement."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Lignes et colonnes\n\nChaque touche est un poussoir NO (leçon 6.1) placé au croisement d'une **ligne** et d'une **colonne**. Un appui relie les deux.\n\n$$\\text{touches} = L \\times C \\qquad \\text{fils} = L + C$$\n\n| Clavier | Touches | Fils | Économie |\n|---|---|---|---|\n| 4 × 3 | 12 | 7 | 5 broches |\n| 4 × 4 | 16 | 8 | 8 broches |\n| 8 × 8 | 64 | 16 | 48 broches |\n\n### Le balayage\n\n1. La carte met **une colonne à LOW**, les autres en haute impédance.\n2. Elle lit les **4 lignes**, tirées vers HIGH par les pull-up internes.\n3. Une ligne à LOW désigne la touche appuyée à ce croisement.\n4. Elle passe à la colonne suivante, et recommence sans cesse.\n\nLa bibliothèque **Keypad** fait ce balayage pour toi, avec un anti-rebond de 10 ms."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.3-matrice.svg",
+    "legende": "Les 16 touches au croisement de 4 lignes (bleu, sur D9 à D6) et de 4 colonnes (orange, sur D5 à D2). Un appui sur « 5 » relie la ligne L2 à la colonne C2."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les modèles courants\n\n| Modèle | Particularité |\n|---|---|\n| Membrane 4 × 4 | le plus vendu : film souple autocollant, touches 0–9, A–D, * et # |\n| Membrane 4 × 3 | 12 touches sans A–D, 7 fils : suffit pour un digicode |\n| Clavier rigide | vraies touches sur circuit imprimé : plus solide |\n| Clavier I2C | avec un PCF8574 : 2 fils (SDA, SCL) au lieu de 8 |\n\nCaractéristiques d'une membrane : 24 V et 30 mA au plus, rebonds ≤ 5 ms, environ 1 million d'appuis.\n\n### Combien de codes possibles ?\n\nAvec 10 chiffres et un code de n chiffres :\n\n$$N = 10^{n} \\qquad 4 \\text{ chiffres} \\Rightarrow 10\\,000 \\text{ codes}$$\n\nAu rythme d'un essai toutes les 3 s, tout essayer prendrait \\( 10\\,000 \\times 3 = 30\\,000\\ \\text{s} \\approx 8\\ \\text{h} \\). Bloquer le clavier après 3 erreurs (mini-défi) rend cette attaque impossible en pratique.\n\n> 💡 **Repérer les broches** : de gauche à droite, souvent L1 L2 L3 L4 puis C1 C2 C3 C4. En cas de doute, au multimètre : touche 1 appuyée, L1 et C1 sonnent."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : un digicode à 4 chiffres\n\nOn tape le code puis on valide avec **#** ; la touche **\\*** efface la saisie.\n\n### Le montage pas à pas\n\n1. Installe la bibliothèque **Keypad** (Croquis > Inclure une bibliothèque > Gérer les bibliothèques).\n2. Nappe du clavier : **L1 à L4 → D9 à D6**, **C1 à C4 → D5 à D2** (broche 1 du clavier sur D9).\n3. **D13 → 220 Ω → LED → GND** : la LED s'allume si le code est bon.\n4. Aucune résistance : les pull-up internes sont activés par la bibliothèque.\n\n> ⚠️ Évite **D0 et D1**, réservées à la liaison série avec l'ordinateur."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.3-schema-clavier.svg",
+    "legende": "Les 4 lignes sur D9 à D6, les 4 colonnes sur D5 à D2, et la LED témoin sur D13."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 6.3 — digicode à 4 chiffres avec la bibliothèque Keypad\n#include <Keypad.h>\n\nchar touches[4][4] = {{'1','2','3','A'},\n                      {'4','5','6','B'},\n                      {'7','8','9','C'},\n                      {'*','0','#','D'}};\nbyte lignes[4]   = {9, 8, 7, 6};    // L1 à L4\nbyte colonnes[4] = {5, 4, 3, 2};    // C1 à C4\nKeypad clavier(makeKeymap(touches), lignes, colonnes, 4, 4);\n\nconst String CODE = \"1234\";\nString saisie = \"\";\n\nvoid setup() {\n  pinMode(13, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  char t = clavier.getKey();          // 0 si aucune touche\n  if (!t) return;\n  Serial.print(t);\n  if (t == '*') {                     // effacer\n    saisie = \"\";\n    Serial.println(\"  (effacé)\");\n  } else if (t == '#') {              // valider\n    bool bon = (saisie == CODE);\n    digitalWrite(13, bon);\n    Serial.println(bon ? \"  CODE BON\" : \"  code faux\");\n    saisie = \"\";\n  } else {\n    saisie += t;                      // ajouter le caractère\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Touches tapées | Moniteur série | LED |\n|---|---|---|\n| 1 2 3 4 # | 1234#  CODE BON | allumée |\n| 5 5 5 5 # | 5555#  code faux | éteinte |\n| 1 2 * | 12*  (effacé) | inchangée |\n\n> 💡 **Appui long** : `clavier.getState()` renvoie PRESSED, HOLD ou RELEASED ; un appui long (HOLD) peut tout effacer.\n\n> 📌 **Et avec un ESP32 ?** Même bibliothèque, par exemple lignes sur GPIO 13, 12, 14, 27 et colonnes sur GPIO 26, 25, 33, 32. Éviter les GPIO 34 à 39 : entrées seules, sans pull-up."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Lignes et colonnes inversées** : les touches lues sont mélangées.\n- **Nappe branchée à l'envers** : touches décalées ou muettes.\n- **Utiliser D0 et D1** : conflit avec le moniteur série.\n- **Comparer avec \"1\" au lieu de '1'** : `getKey()` renvoie un caractère (`char`).\n- **Long `delay()` dans `loop()`** : des appuis sont perdus.\n\n## 📌 À retenir\n\n- 16 touches en 4 lignes × 4 colonnes, 8 fils grâce au balayage.\n- Touches = L × C ; fils = L + C.\n- Keypad : `getKey()` renvoie la touche appuyée (ou 0).\n- Une touche est un `char` : '1', pas \"1\".\n- Code de n chiffres : \\( 10^n \\) possibilités.\n\n## 🏆 Mini-défi\n\nAjoute un **buzzer sur D10** : un **bip court** à chaque touche, **trois bips** si le code est faux. Bonus : **bloque le clavier 30 s** après 3 erreurs."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : bips et blocage après 3 erreurs\n#include <Keypad.h>\nchar touches[4][4] = {{'1','2','3','A'},{'4','5','6','B'},{'7','8','9','C'},{'*','0','#','D'}};\nbyte lignes[4] = {9, 8, 7, 6}, colonnes[4] = {5, 4, 3, 2};\nKeypad clavier(makeKeymap(touches), lignes, colonnes, 4, 4);\nconst int LED = 13, BUZZER = 10;\nconst String CODE = \"1234\";\nString saisie = \"\";\nint erreurs = 0;\n\nvoid setup() { pinMode(LED, OUTPUT); }\n\nvoid loop() {\n  char t = clavier.getKey();\n  if (!t) return;\n  tone(BUZZER, 2500, 40);                     // bip court à chaque touche\n  if (t == '*') { saisie = \"\"; return; }\n  if (t != '#') { saisie += t; return; }\n  if (saisie == CODE) {\n    digitalWrite(LED, HIGH); erreurs = 0;\n  } else {\n    digitalWrite(LED, LOW); erreurs++;\n    for (int i = 0; i < 3; i++) { tone(BUZZER, 600, 150); delay(250); }\n    if (erreurs >= 3) {                       // blocage de 30 s\n      delay(30000);                           // ici, bloquer est voulu\n      erreurs = 0;\n    }\n  }\n  saisie = \"\";\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien de fils faut-il pour un clavier 4 × 4 ?",
+    "choix": [
+     "4",
+     "8",
+     "16",
+     "32"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "4 lignes + 4 colonnes = 8 fils pour 16 touches."
+   },
+   {
+    "question": "Que fait un appui sur une touche du clavier matriciel ?",
+    "choix": [
+     "Il envoie un nombre",
+     "Il relie une ligne à une colonne",
+     "Il alimente le clavier",
+     "Il coupe le 5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Chaque touche est un poussoir placé au croisement."
+   },
+   {
+    "question": "Combien de touches et de fils pour un clavier 8 × 8 ?",
+    "choix": [
+     "16 touches, 64 fils",
+     "64 touches, 16 fils",
+     "64 touches, 64 fils",
+     "8 touches, 8 fils"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Touches = 8 × 8 = 64 ; fils = 8 + 8 = 16."
+   },
+   {
+    "question": "Pendant le balayage, la carte met une colonne à :",
+    "choix": [
+     "HIGH",
+     "LOW",
+     "2,5 V",
+     "PWM"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Puis elle lit les lignes tirées vers HIGH : celle qui passe à LOW désigne la touche."
+   },
+   {
+    "question": "Que renvoie getKey() quand aucune touche n'est appuyée ?",
+    "choix": [
+     "'0'",
+     "0 (aucun caractère)",
+     "-1",
+     "\"rien\""
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "D'où le test if (!t) return;."
+   },
+   {
+    "question": "Quelle comparaison est correcte pour la touche 1 ?",
+    "choix": [
+     "t == \"1\"",
+     "t == '1'",
+     "t == 1",
+     "t = '1'"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "getKey() renvoie un char : on compare avec des apostrophes."
+   },
+   {
+    "question": "Pourquoi éviter D0 et D1 pour le clavier ?",
+    "choix": [
+     "Elles sont analogiques",
+     "Elles servent à la liaison série avec l'ordinateur",
+     "Elles sont en 3,3 V",
+     "Elles sont trop rapides"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le téléversement et le moniteur série les utilisent."
+   },
+   {
+    "question": "Combien de codes différents à 4 chiffres existe-t-il ?",
+    "choix": [
+     "40",
+     "1 000",
+     "10 000",
+     "4⁴ = 256"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "10⁴ = 10 000 codes, de 0000 à 9999."
+   },
+   {
+    "question": "Faut-il ajouter un delay() pour l'anti-rebond avec Keypad ?",
+    "choix": [
+     "Oui, 500 ms",
+     "Non, la bibliothèque filtre déjà les rebonds",
+     "Oui, 5 s",
+     "Oui, à chaque ligne"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Keypad intègre un anti-rebond de 10 ms par défaut."
+   },
+   {
+    "question": "Les touches lues sont mélangées. Quelle est la cause la plus probable ?",
+    "choix": [
+     "Lignes et colonnes inversées dans le code ou le câblage",
+     "La LED est à l'envers",
+     "Il manque une résistance de 10 kΩ",
+     "Le code est trop long"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Il faut faire correspondre la nappe aux tableaux lignes[] et colonnes[]."
+   },
+   {
+    "question": "Combien de fils utilise un clavier équipé d'un module I2C PCF8574 ?",
+    "choix": [
+     "2 (SDA, SCL), plus l'alimentation",
+     "8",
+     "16",
+     "4"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le PCF8574 fait le balayage et transmet les touches par le bus I2C."
+   },
+   {
+    "question": "Dans le digicode, quel est le rôle de la touche # ?",
+    "choix": [
+     "Effacer",
+     "Valider le code tapé",
+     "Allumer la LED",
+     "Rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "# valide, * efface la saisie."
+   }
+  ]
+ },
+ {
+  "id": "6.4",
+  "titre": "L'encodeur rotatif",
+  "resume": "Un bouton qui tourne sans fin et indique le sens et le nombre de crans. Tu apprends le principe des deux signaux décalés A et B, à compter les crans et le sens, à calculer un angle et une vitesse de rotation.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "6.4-photo.jpg",
+   "legende": "La molette d'une souris : un encodeur rotatif. Elle tourne sans butée, par crans, et indique au PC le sens et le nombre de crans.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × module encodeur rotatif KY-040 (ou un encodeur EC11 nu)",
+   "5 × câbles Dupont femelle-mâle",
+   "Facultatif : 2 × condensateurs 10 nF (anti-rebond)",
+   "Pour le mini-défi : 1 × écran LCD 16 × 2 avec module I2C"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Encodeur et potentiomètre côte à côte : crans réguliers et rotation sans fin.\n2. Les signaux A et B : qui change en premier donne le sens.\n3. Le câblage du KY-040 et le compteur dans le moniteur série.\n4. L'appui sur l'axe qui remet à zéro, puis le compteur limité de 0 à 100 sur un LCD.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUn **encodeur rotatif** ressemble à un potentiomètre, mais il tourne **sans fin**, par **crans** réguliers. Il ne donne pas une position : il signale chaque cran et son **sens**. Le programme tient le compte.\n\nÀ la fin de cette leçon, tu sauras :\n\n- distinguer un encodeur d'un potentiomètre ;\n- lire deux signaux en **quadrature** et en déduire le sens ;\n- compter les crans sans en compter deux fois trop ;\n- calculer un angle et une vitesse de rotation ;\n- lire le bouton intégré à l'axe."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Encodeur ou potentiomètre ?\n\n| | Potentiomètre (leçon 1.2) | Encodeur rotatif |\n|---|---|---|\n| Rotation | entre deux butées | sans fin |\n| Information | une position absolue | des crans et un sens |\n| Lecture | analogique (`analogRead`) | numérique (`digitalRead`) |\n| Au toucher | tourne en douceur | « clics » réguliers |\n\n### Le module KY-040\n\n| Broche | Rôle |\n|---|---|\n| CLK (A) | premier signal, pull-up de 10 kΩ sur le module |\n| DT (B) | second signal, décalé, pull-up de 10 kΩ sur le module |\n| SW | bouton de l'axe, **sans** pull-up : `INPUT_PULLUP` |\n| + et GND | alimentation 3,3 à 5 V |\n\nIl fait environ **20 crans par tour**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Deux signaux en quadrature\n\nDeux contacts A et B s'ouvrent et se ferment à chaque cran, **décalés d'un quart de période**. Si A change avant B, on tourne dans un sens ; si B change avant A, dans l'autre.\n\nRègle du programme : **au moment où CLK (A) passe à LOW**, on lit DT (B) :\n\n- DT vaut HIGH → **+1** ;\n- DT vaut LOW → **−1**."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.4-quadrature.svg",
+    "legende": "À gauche, sens horaire : A descend pendant que B est encore haut (+1). À droite, sens inverse : A descend alors que B est déjà bas (−1)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les calculs\n\n### L'angle d'un cran\n\n$$\\theta = \\frac{360°}{N_{crans}} = \\frac{360°}{20} = 18° \\text{ par cran}$$\n\nUn compteur de 45 correspond donc à \\( 45 \\times 18 = 810° \\), soit 2 tours et un quart.\n\n### La vitesse de rotation\n\nSi l'on compte n crans pendant une durée t :\n\n$$v = \\frac{n}{N_{crans} \\times t} \\text{ (tours par seconde)} \\qquad \\times 60 \\text{ pour des tours par minute}$$\n\nExemple : 50 crans en 2 s → \\( 50 / (20 \\times 2) = 1{,}25\\ \\text{tr/s} = 75\\ \\text{tr/min} \\).\n\n### Les modèles\n\n| Modèle | Particularité |\n|---|---|\n| KY-040 | module prêt à brancher : EC11, bouton et pull-up |\n| EC11 nu | composant à 5 pattes : ajouter les pull-up (internes ou 10 kΩ) |\n| Optique | disque à fentes et capteurs infrarouges : des centaines de points par tour |\n| Absolu | donne la position exacte (code Gray), même après une coupure |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : un compteur qui tourne\n\n### Le montage pas à pas\n\n1. **CLK → D2**, **DT → D3**, **SW → D4**.\n2. **+ → 5V**, **GND → GND**.\n3. Téléverse, ouvre le moniteur série et tourne l'axe cran par cran.\n4. Appuie sur l'axe : le compteur revient à 0."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.4-schema-ky040.svg",
+    "legende": "Le KY-040 relié à l'Uno : CLK sur D2, DT sur D3, SW sur D4, alimentation en 5 V."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 6.4 — compter les crans d'un encodeur KY-040\nconst int CLK = 2, DT = 3, SW = 4;\nint compteur = 0;\nint avant;                        // état précédent de CLK\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(CLK, INPUT);            // pull-up déjà sur le module\n  pinMode(DT, INPUT);\n  pinMode(SW, INPUT_PULLUP);      // le bouton n'a pas de pull-up\n  avant = digitalRead(CLK);\n}\n\nvoid loop() {\n  int etat = digitalRead(CLK);\n  if (etat != avant && etat == LOW) {        // un seul front par cran\n    compteur += digitalRead(DT) ? 1 : -1;    // DT donne le sens\n    Serial.print(compteur);\n    Serial.print(\"  (\"); Serial.print(compteur * 18); Serial.println(\"°)\");\n  }\n  avant = etat;\n  if (digitalRead(SW) == LOW) {               // appui sur l'axe\n    compteur = 0;\n    Serial.println(\"remise à zéro\");\n    delay(200);\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Action | Moniteur série |\n|---|---|\n| 1 cran vers la droite | 1  (18°) |\n| 5 crans vers la droite | 5  (90°) |\n| 2 crans vers la gauche | 3  (54°) |\n| appui sur l'axe | remise à zéro |\n\nSi le compteur va à l'envers, inverse CLK et DT (ou le signe dans le code).\n\n> 💡 **Interruptions** : `attachInterrupt(digitalPinToInterrupt(2), fonction, FALLING)` sur D2 : aucun cran n'est perdu, même quand `loop()` est occupée.\n\n> 💡 **Bibliothèque Encoder** (P. Stoffregen) : `Encoder enc(2, 3);` puis `enc.read()`, qui compte **4 pas par cran** (tous les fronts de A et de B).\n\n> 📌 **Et avec un ESP32 ?** Module alimenté en 3,3 V, par exemple CLK sur GPIO 18, DT sur GPIO 19, SW sur GPIO 5. La bibliothèque **ESP32Encoder** compte les crans avec le compteur matériel (PCNT), sans rien perdre."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Compter les fronts de CLK et de DT** : deux fois trop de pas.\n- **Oublier `INPUT_PULLUP` sur SW** : bouton toujours « appuyé ».\n- **Long `delay()` dans `loop()`** : des crans sont perdus.\n- **CLK et DT inversés** : le compteur va à l'envers.\n- **Lire l'encodeur avec `analogRead()`** : c'est un signal numérique.\n\n## 📌 À retenir\n\n- Rotation sans fin, par crans réguliers (≈ 20 par tour, 18° par cran).\n- A et B décalés d'un quart de période : leur ordre donne le sens.\n- Un seul front de CLK par cran ; on lit DT à cet instant.\n- Vitesse : \\( v = n / (N_{crans} \\times t) \\).\n- SW = poussoir, en `INPUT_PULLUP`.\n\n## 🏆 Mini-défi\n\nAffiche le compteur sur un **écran LCD** (leçon 9.2) et **limite-le entre 0 et 100**. Bonus : un appui sur l'axe **change le pas**, de 1 à 10."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : réglage de 0 à 100 sur LCD I2C, pas de 1 ou 10\n#include <LiquidCrystal_I2C.h>          // bibliothèque « LiquidCrystal I2C »\nLiquidCrystal_I2C lcd(0x27, 16, 2);      // adresse 0x27 (ou 0x3F)\nconst int CLK = 2, DT = 3, SW = 4;\nint valeur = 50, pas = 1, avant;\n\nvoid afficher() {\n  lcd.clear();\n  lcd.print(\"Valeur : \"); lcd.print(valeur);\n  lcd.setCursor(0, 1);\n  lcd.print(\"Pas : \"); lcd.print(pas);\n}\n\nvoid setup() {\n  pinMode(SW, INPUT_PULLUP);\n  lcd.init(); lcd.backlight();\n  avant = digitalRead(CLK);\n  afficher();\n}\n\nvoid loop() {\n  int etat = digitalRead(CLK);\n  if (etat != avant && etat == LOW) {\n    valeur += digitalRead(DT) ? pas : -pas;\n    valeur = constrain(valeur, 0, 100);   // bornes 0 et 100\n    afficher();\n  }\n  avant = etat;\n  if (digitalRead(SW) == LOW) {\n    pas = (pas == 1) ? 10 : 1;            // bascule entre 1 et 10\n    afficher();\n    while (digitalRead(SW) == LOW) { }    // attendre le relâchement\n    delay(50);\n  }\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle est la principale différence entre un encodeur et un potentiomètre ?",
+    "choix": [
+     "L'encodeur tourne sans fin et donne des crans, le potentiomètre a des butées et donne une position",
+     "Aucune",
+     "Le potentiomètre est numérique",
+     "L'encodeur est analogique"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le programme garde lui-même la valeur d'un encodeur."
+   },
+   {
+    "question": "Comment l'encodeur indique-t-il le sens de rotation ?",
+    "choix": [
+     "Par la tension de A",
+     "Par l'ordre dans lequel A et B changent",
+     "Par la vitesse",
+     "Par le bouton SW"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les deux signaux sont décalés d'un quart de période."
+   },
+   {
+    "question": "Quand CLK passe à LOW et que DT vaut HIGH, le compteur :",
+    "choix": [
+     "Augmente de 1",
+     "Diminue de 1",
+     "Revient à 0",
+     "Ne change pas"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Selon la règle du programme : DT haut → +1."
+   },
+   {
+    "question": "Quel angle correspond à un cran d'un encodeur de 20 crans par tour ?",
+    "choix": [
+     "9°",
+     "18°",
+     "20°",
+     "36°"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "360° / 20 = 18°."
+   },
+   {
+    "question": "50 crans en 2 s sur un encodeur de 20 crans par tour : quelle vitesse ?",
+    "choix": [
+     "25 tr/min",
+     "50 tr/min",
+     "75 tr/min",
+     "100 tr/min"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "50 / (20 × 2) = 1,25 tr/s = 75 tr/min."
+   },
+   {
+    "question": "Que se passe-t-il si l'on compte les fronts de CLK et de DT ?",
+    "choix": [
+     "Rien",
+     "On compte deux fois trop de pas",
+     "Le sens s'inverse",
+     "Le bouton ne marche plus"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il faut un seul front de CLK par cran."
+   },
+   {
+    "question": "Quelle broche du KY-040 n'a pas de résistance de tirage sur le module ?",
+    "choix": [
+     "CLK",
+     "DT",
+     "SW",
+     "+"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "On active INPUT_PULLUP pour le bouton SW."
+   },
+   {
+    "question": "Le compteur va à l'envers. Que faire ?",
+    "choix": [
+     "Changer de carte",
+     "Inverser CLK et DT (ou le signe dans le code)",
+     "Ajouter une LED",
+     "Passer en analogRead"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le sens dépend de l'ordre des deux signaux."
+   },
+   {
+    "question": "Combien de pas par cran compte la bibliothèque Encoder.h ?",
+    "choix": [
+     "1",
+     "2",
+     "4",
+     "20"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Elle compte tous les fronts de A et de B : 4 par cran."
+   },
+   {
+    "question": "Pourquoi utiliser une interruption sur CLK ?",
+    "choix": [
+     "Pour consommer moins",
+     "Pour ne perdre aucun cran même si loop() est occupée",
+     "Pour changer le sens",
+     "Pour alimenter le module"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La fonction est appelée dès le front, quoi que fasse loop()."
+   },
+   {
+    "question": "Quel encodeur donne la position exacte même après une coupure de courant ?",
+    "choix": [
+     "KY-040",
+     "EC11",
+     "Encodeur absolu",
+     "Encodeur optique incrémental"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Il code la position (code Gray) au lieu de compter des crans."
+   },
+   {
+    "question": "Quelle fonction borne une valeur entre 0 et 100 ?",
+    "choix": [
+     "map()",
+     "constrain()",
+     "abs()",
+     "random()"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "constrain(valeur, 0, 100) ramène la valeur dans l'intervalle."
+   }
+  ]
+ },
+ {
+  "id": "6.5",
+  "titre": "Le joystick",
+  "resume": "Deux potentiomètres et un bouton sous un seul manche : X, Y et clic. Tu apprends à lire les deux axes, à prévoir une zone morte, à transformer une position en direction, en vitesse ou en angle de servo.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "6.5-photo.jpg",
+   "legende": "Le module joystick KY-023 : un manche monté sur deux potentiomètres (X et Y) et un bouton, avec 5 broches GND, +5V, VRx, VRy et SW.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × module joystick KY-023",
+   "5 × câbles Dupont femelle-mâle",
+   "Pour le mini-défi : 2 × servomoteurs SG90 et une alimentation 5 V séparée (≈ 1 A)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le joystick démonté par la pensée : deux potentiomètres, deux ressorts, un bouton.\n2. Les valeurs X et Y dans le moniteur série, au repos puis aux quatre coins.\n3. La zone morte : sans elle, le robot bouge tout seul.\n4. Deux servos pilotés par le manche, et le clic qui les recentre.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUn **joystick** réunit deux potentiomètres de 10 kΩ (un par axe) et un bouton poussoir sous un manche. Il sert à piloter un robot, une tourelle, un curseur ou un menu.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire les axes X et Y avec `analogRead()` ;\n- convertir une lecture en tension et en écart par rapport au centre ;\n- prévoir une **zone morte** autour du repos ;\n- transformer une position en vitesse ou en angle avec `map()` ;\n- lire le clic avec `INPUT_PULLUP`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Comment fonctionne un joystick\n\nLe manche fait tourner deux potentiomètres de 10 kΩ. Chacun donne une tension de 0 à 5 V, lue de 0 à 1023. Lâché, le manche revient au **centre** grâce aux ressorts : environ **512** sur X et sur Y. Appuyer sur le manche ferme le bouton **SW**.\n\n| Broche | Rôle | Branchement |\n|---|---|---|\n| GND | masse | GND |\n| +5V | alimentation des potentiomètres | 5V (3,3 V sur ESP32) |\n| VRx | curseur de l'axe X | A0 |\n| VRy | curseur de l'axe Y | A1 |\n| SW | bouton, **sans** pull-up sur le module | D2 en `INPUT_PULLUP` |\n\n### Les modèles courants\n\n| Modèle | Particularité |\n|---|---|\n| KY-023 | 2 axes + bouton, 5 broches : le plus courant |\n| Shield manette | carte pour Uno avec joystick et 4 à 6 boutons : idéale pour les jeux |\n| 3 axes | le manche tourne aussi sur lui-même : 3e potentiomètre (axe Z) |\n| Numérique (arcade) | 4 micro-rupteurs haut, bas, gauche, droite : tout ou rien |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les calculs\n\n### Tension et écart au centre\n\n$$U = N \\times \\frac{5}{1023} \\qquad N = 512 \\Rightarrow U \\approx 2{,}5\\ \\text{V}$$\n\nOn travaille plus facilement avec l'écart au centre :\n\n$$x = N_X - 512 \\quad \\text{de } -512 \\text{ à } +511$$\n\n### La zone morte\n\nAu repos, la valeur varie un peu autour de 512 (par exemple de 500 à 525). On ignore les petits écarts :\n\n$$|x| < Z \\Rightarrow \\text{repos} \\qquad Z = 100 \\text{ par exemple}$$\n\n### Vers une vitesse ou un angle\n\n`map()` fait une règle de trois :\n\n$$\\text{angle} = N \\times \\frac{180}{1023} \\qquad \\texttt{map(N, 0, 1023, 0, 180)}$$\n\n$$\\text{vitesse} = \\texttt{map(N, 0, 1023, -255, 255)} \\quad \\text{(signe = sens du moteur)}$$\n\nExemple : N = 768 → angle \\( = 768 \\times 180 / 1023 \\approx 135° \\)."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.5-zones.svg",
+    "legende": "Les valeurs X et Y vont de 0 à 1023. La zone morte jaune (± 100 autour de 512) est le repos ; en dehors, on lit une direction, éventuellement deux à la fois en diagonale."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : lire X, Y et le bouton\n\n### Le montage pas à pas\n\n1. **GND → GND**, **+5V → 5V**.\n2. **VRx → A0**, **VRy → A1**.\n3. **SW → D2** (`INPUT_PULLUP` : appuyé = LOW).\n4. Téléverse, ouvre le moniteur série et bouge le manche."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.5-schema-ky023.svg",
+    "legende": "Le KY-023 relié à l'Uno : VRx sur A0, VRy sur A1, SW sur D2, alimentation en 5 V."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 6.5 — lire la direction d'un joystick KY-023\nconst int VRX = A0, VRY = A1, SW = 2;\nconst int ZONE = 100;                 // zone morte autour du centre\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(SW, INPUT_PULLUP);          // pas de pull-up sur le module\n}\n\nvoid loop() {\n  int x = analogRead(VRX) - 512;      // de -512 à +511\n  int y = analogRead(VRY) - 512;\n  Serial.print(\"x=\"); Serial.print(x);\n  Serial.print(\" y=\"); Serial.print(y); Serial.print(\"  \");\n  if (x < -ZONE)      Serial.print(\"Gauche \");\n  else if (x > ZONE)  Serial.print(\"Droite \");\n  if (y < -ZONE)      Serial.print(\"Haut \");\n  else if (y > ZONE)  Serial.print(\"Bas \");\n  if (digitalRead(SW) == LOW) Serial.print(\"Clic\");\n  Serial.println();\n  delay(200);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Manche | Moniteur série |\n|---|---|\n| lâché | x=3 y=-8 (rien : zone morte) |\n| poussé à fond d'un côté | x=-512 … Gauche |\n| poussé en diagonale | Droite Haut |\n| enfoncé | … Clic |\n\nSelon le montage, pousser « vers le haut » donne 0 ou 1023 : teste et **inverse si besoin** (`y = 512 - analogRead(VRY)`).\n\n> 💡 **Calibrer le centre** : lis X et Y au démarrage, manche lâché, et sers-t'en comme centre à la place de 512.\n\n> 📌 **Et avec un ESP32 ?** Alimente le joystick en **3,3 V**. Lis VRx et VRy sur **GPIO 34 et 35** (ADC1, de 0 à 4095, centre ≈ 2048) et SW sur GPIO 32 avec `INPUT_PULLUP`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Lire VRx avec `digitalRead()`** : on n'obtient que 0 ou 1.\n- **Oublier `INPUT_PULLUP` sur SW** : clic lu au hasard.\n- **Pas de zone morte** : le robot bouge sans qu'on touche le manche.\n- **Joystick en 5 V sur un ESP32** : valeurs fausses, entrée en danger.\n- **VRx et VRy inversés** : gauche / droite devient haut / bas.\n\n## 📌 À retenir\n\n- Deux potentiomètres + un bouton.\n- X et Y : `analogRead()` de 0 à 1023, centre ≈ 512 (≈ 2,5 V).\n- Toujours une zone morte autour du centre.\n- `map()` transforme la position en angle ou en vitesse.\n- SW en `INPUT_PULLUP` : appuyé = LOW.\n\n## 🏆 Mini-défi\n\nCommande **deux servomoteurs** (leçon 8.4) avec le joystick : X tourne l'un, Y l'autre. Bonus : un **clic ramène les deux servos à 90°**."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : tourelle à deux servos (pan / tilt)\n#include <Servo.h>\nServo panoramique, inclinaison;\nconst int VRX = A0, VRY = A1, SW = 2;\n\nvoid setup() {\n  panoramique.attach(9);     // servo X sur D9\n  inclinaison.attach(10);    // servo Y sur D10\n  pinMode(SW, INPUT_PULLUP);\n}\n\nvoid loop() {\n  if (digitalRead(SW) == LOW) {             // clic : retour au centre\n    panoramique.write(90);\n    inclinaison.write(90);\n    delay(300);\n    return;\n  }\n  panoramique.write(map(analogRead(VRX), 0, 1023, 0, 180));\n  inclinaison.write(map(analogRead(VRY), 0, 1023, 0, 180));\n  delay(15);                                // laisser le temps aux servos\n}\n\n// Les servos sont alimentés par une source 5 V séparée,\n// dont le GND est relié à celui de l'Arduino."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Que contient un joystick KY-023 ?",
+    "choix": [
+     "Un accéléromètre",
+     "Deux potentiomètres et un bouton",
+     "Un encodeur rotatif",
+     "Un capteur tactile"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un potentiomètre de 10 kΩ par axe et un poussoir sous le manche."
+   },
+   {
+    "question": "Quelle valeur lit-on environ sur X quand le manche est lâché ?",
+    "choix": [
+     "0",
+     "255",
+     "512",
+     "1023"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Les ressorts ramènent le manche au centre : environ 512."
+   },
+   {
+    "question": "Quelle tension correspond à une lecture de 512 sur un Uno ?",
+    "choix": [
+     "≈ 0,5 V",
+     "≈ 2,5 V",
+     "≈ 5 V",
+     "512 mV"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = 512 × 5 / 1023 ≈ 2,50 V."
+   },
+   {
+    "question": "À quoi sert la zone morte ?",
+    "choix": [
+     "À protéger l'entrée",
+     "À ignorer les petites variations autour du centre",
+     "À augmenter la précision",
+     "À économiser de l'énergie"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sinon, le robot bouge alors qu'on ne touche pas le manche."
+   },
+   {
+    "question": "Avec quelle fonction lit-on VRx ?",
+    "choix": [
+     "digitalRead()",
+     "analogRead()",
+     "pulseIn()",
+     "tone()"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est une tension variable, pas un état 0 / 1."
+   },
+   {
+    "question": "Le bouton SW du KY-023 a-t-il une résistance de tirage ?",
+    "choix": [
+     "Oui, sur le module",
+     "Non : il faut INPUT_PULLUP",
+     "Oui, 220 Ω",
+     "Il n'en a pas besoin"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Appuyé = LOW avec le pull-up interne."
+   },
+   {
+    "question": "Que renvoie map(768, 0, 1023, 0, 180) environ ?",
+    "choix": [
+     "45",
+     "90",
+     "135",
+     "180"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "768 × 180 / 1023 ≈ 135."
+   },
+   {
+    "question": "Pour piloter le sens d'un moteur, quelle plage peut-on viser avec map() ?",
+    "choix": [
+     "0 à 1023",
+     "−255 à 255",
+     "0 à 5",
+     "−1 à 1 seulement"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le signe donne le sens, la valeur absolue la vitesse PWM."
+   },
+   {
+    "question": "Sur un ESP32, quelle est la valeur au centre d'un axe ?",
+    "choix": [
+     "≈ 512",
+     "≈ 1023",
+     "≈ 2048",
+     "≈ 4095"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le convertisseur 12 bits va de 0 à 4095 : centre ≈ 2048."
+   },
+   {
+    "question": "Gauche / droite se lisent comme haut / bas. Pourquoi ?",
+    "choix": [
+     "VRx et VRy sont inversés",
+     "La zone morte est trop petite",
+     "Il manque INPUT_PULLUP",
+     "Le joystick est en 3,3 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Il suffit d'inverser les fils ou les broches dans le code."
+   },
+   {
+    "question": "Pourquoi alimenter des servos par une source séparée ?",
+    "choix": [
+     "Pour aller plus vite",
+     "Leurs pics de courant feraient redémarrer l'Arduino",
+     "Parce qu'ils sont en 12 V",
+     "Ce n'est pas utile"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "On relie seulement les masses."
+   },
+   {
+    "question": "Comment calibrer le centre réel du joystick ?",
+    "choix": [
+     "Le mesurer au démarrage, manche lâché",
+     "Utiliser toujours 500",
+     "Mettre une résistance",
+     "Ce n'est pas possible"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "On remplace 512 par la valeur lue au repos."
+   }
+  ]
+ },
+ {
+  "id": "6.6",
+  "titre": "Le capteur tactile",
+  "resume": "Un bouton sans pièce mobile : il suffit d'effleurer la pastille. Tu apprends le principe capacitif, les modes du module TTP223 (cavaliers A et B), et tu fabriques une lampe tactile qui s'allume et s'éteint au toucher.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "6.6-photo.jpg",
+   "legende": "L'écran d'un téléphone détecte le doigt par la même méthode qu'un module TTP223 : le doigt modifie une petite capacité électrique.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × module tactile TTP223 (3 broches : VCC, I/O ou SIG, GND)",
+   "3 × câbles Dupont femelle-mâle",
+   "Facultatif : une plaque de plastique ou de verre de 1 à 3 mm",
+   "Pour le mini-défi : 1 × buzzer"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le module de près : la pastille, la puce, les cavaliers A et B.\n2. Le principe : le doigt ajoute une petite capacité, mesurée par la puce.\n3. La lampe tactile : un contact allume, le suivant éteint.\n4. La pastille qui fonctionne à travers une plaque de plastique, puis le mini-défi.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUn **capteur tactile capacitif** remplace un bouton mécanique : pas de pièce mobile, pas d'usure, pas de clic. Il fonctionne même à travers du plastique ou du verre fin : idéal pour un bouton caché ou étanche.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer le principe capacitif ;\n- estimer l'ordre de grandeur d'une capacité ;\n- brancher un TTP223 sans résistance ;\n- choisir le mode avec les cavaliers A et B ;\n- détecter un **nouveau** contact (front montant) pour basculer une lampe."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Le principe capacitif\n\nLa pastille de cuivre forme un petit **condensateur** avec son environnement. Un doigt proche augmente sa capacité : la puce TTP223 détecte ce changement et fait passer sa sortie à **HIGH**.\n\n### L'ordre de grandeur\n\nPour deux surfaces parallèles de surface S, séparées d'une épaisseur d d'isolant de permittivité relative εr :\n\n$$C = \\varepsilon_0 \\times \\varepsilon_r \\times \\frac{S}{d}$$\n\nUn doigt de 1 cm² posé sur 1 mm de plastique (εr ≈ 3) :\n\n$$C = 8{,}85 \\times 10^{-12} \\times 3 \\times \\frac{10^{-4}}{10^{-3}} \\approx 2{,}7 \\times 10^{-12}\\ \\text{F} = 2{,}7\\ \\text{pF}$$\n\nQuelques picofarads seulement : c'est pour cela qu'il faut une puce spécialisée. Plus la plaque est épaisse (d grand), plus le changement est faible."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.6-principe.svg",
+    "legende": "Le doigt, à travers une fine couche isolante, ajoute quelques picofarads à la capacité de la pastille. La puce mesure ce changement et active sa sortie."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Le module TTP223\n\n| Caractéristique | Valeur |\n|---|---|\n| Alimentation | 2 à 5,5 V |\n| Consommation | quelques µA seulement |\n| Temps de réponse | ≈ 60 ms |\n| Sortie | active : HIGH tant que le doigt touche (réglage d'usine) |\n\nUne consommation de quelques µA permet de le laisser alimenté sur pile : une CR2032 de 220 mAh à 3 µA tiendrait \\( 220 / 0{,}003 \\approx 73\\,000\\ \\text{h} \\), plus de 8 ans (en pratique, la pile vieillit avant).\n\n### Les cavaliers A et B\n\n| A | B | Comportement de la sortie |\n|---|---|---|\n| ouvert | ouvert | HIGH pendant le contact (comme un poussoir) : **réglage d'usine** |\n| soudé | ouvert | LOW pendant le contact (active à l'état bas) |\n| ouvert | soudé | mode bascule : chaque contact inverse la sortie |\n| soudé | soudé | mode bascule, sortie inversée |\n\n### Les variantes\n\n| Module | Particularité |\n|---|---|\n| TTP223 | 1 touche, 3 broches : le plus courant et le moins cher |\n| TTP224 | 4 touches indépendantes et 4 sorties |\n| TTP229 | clavier tactile de 16 touches, lu en série avec 2 fils |\n| MPR121 | 12 électrodes en I2C : on dessine ses propres touches |\n\n> ⚠️ **Ne pas toucher la pastille à la mise sous tension** : la puce se calibre à ce moment-là."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : une lampe tactile\n\nChaque contact allume ou éteint la LED « L » de la carte (D13). Le programme repère le passage **LOW → HIGH** pour ne basculer qu'une fois par contact.\n\n### Le montage pas à pas\n\n1. **SIG (I/O) → D2**, **VCC → 5V**, **GND → GND**.\n2. Aucune résistance : la sortie du module est pilotée par la puce.\n3. Téléverse **sans toucher la pastille**, puis effleure-la."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.6-schema-ttp223.svg",
+    "legende": "Le TTP223 relié à l'Uno : SIG sur D2, VCC sur 5 V, GND sur GND."
+   },
+   {
+    "type": "schema",
+    "fichier": "6.6-chronogramme.svg",
+    "legende": "À chaque contact, SIG passe à HIGH avec environ 60 ms de retard ; le programme détecte le front montant et inverse la LED."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 6.6 — lampe tactile : un contact allume, le suivant éteint\nconst int TOUCH = 2, LED = 13;   // TTP223 en mode direct (cavaliers ouverts)\nbool lampe = false;\nint avant = LOW;                 // état précédent de SIG\n\nvoid setup() {\n  pinMode(TOUCH, INPUT);         // sortie active du module : pas de pull-up\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int etat = digitalRead(TOUCH);           // HIGH = doigt posé\n  if (etat == HIGH && avant == LOW) {      // nouveau contact (front montant)\n    lampe = !lampe;                        // on bascule la lampe\n    digitalWrite(LED, lampe);\n  }\n  avant = etat;\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Action | LED « L » |\n|---|---|\n| 1er contact | s'allume |\n| doigt laissé posé | reste allumée |\n| 2e contact | s'éteint |\n| à travers 2 mm de plastique | fonctionne encore |\n\n> 💡 **Mode bascule matériel** : avec le cavalier B soudé, le module garde l'état lui-même ; il suffit alors de recopier SIG sur la LED.\n\n> 📌 **Et avec un ESP32 ?** Alimente le TTP223 en 3,3 V et lis SIG sur une GPIO (ex. GPIO 4). L'ESP32 a aussi ses **propres entrées tactiles** : `touchRead(T0)` sur GPIO 4, sans aucun module (la valeur **baisse** quand on touche)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Toucher la pastille à la mise sous tension** : calibrage faussé.\n- **Pastille près d'un fil ou d'un métal** : déclenchements parasites.\n- **Tester LOW au lieu de HIGH** (l'inverse si le cavalier A est soudé).\n- **Plaque trop épaisse** devant la pastille : plus de détection.\n- **Alimentation bruitée** (moteur, relais) : fausses détections.\n\n## 📌 À retenir\n\n- Un bouton sans contact mécanique : le doigt ajoute quelques pF.\n- \\( C = \\varepsilon_0 \\varepsilon_r S / d \\) : plus l'isolant est épais, plus l'effet est faible.\n- Doigt posé : SIG = HIGH par défaut ; aucune résistance.\n- Cavalier A : actif à LOW ; cavalier B : mode bascule.\n- Ne pas toucher à la mise sous tension.\n\n## 🏆 Mini-défi\n\nAjoute un **buzzer sur D8** : un **bip court** à chaque contact. Bonus : un **contact long** (plus d'une seconde) **éteint tout**."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : bip à chaque contact, appui long = tout éteindre\nconst int TOUCH = 2, LED = 13, BUZZER = 8;\nbool lampe = false;\nint avant = LOW;\nunsigned long debut = 0;           // instant du début du contact\nbool longTraite = false;\n\nvoid setup() {\n  pinMode(TOUCH, INPUT);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int etat = digitalRead(TOUCH);\n  if (etat == HIGH && avant == LOW) {          // nouveau contact\n    debut = millis();\n    longTraite = false;\n    tone(BUZZER, 2000, 50);                     // bip court\n    lampe = !lampe;\n    digitalWrite(LED, lampe);\n  }\n  if (etat == HIGH && !longTraite && millis() - debut > 1000) {\n    lampe = false;                              // contact long : tout éteindre\n    digitalWrite(LED, LOW);\n    tone(BUZZER, 800, 300);                     // bip grave de confirmation\n    longTraite = true;\n  }\n  avant = etat;\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Comment un capteur tactile capacitif détecte-t-il le doigt ?",
+    "choix": [
+     "Par la pression",
+     "Par la chaleur",
+     "Le doigt augmente la capacité de la pastille",
+     "Par la lumière"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "La puce mesure ce petit changement de capacité."
+   },
+   {
+    "question": "Quel est l'ordre de grandeur de la capacité ajoutée par un doigt ?",
+    "choix": [
+     "Quelques picofarads",
+     "Quelques microfarads",
+     "Quelques farads",
+     "Quelques ohms"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Environ 2,7 pF pour 1 cm² à travers 1 mm de plastique."
+   },
+   {
+    "question": "Que se passe-t-il si la plaque devant la pastille est plus épaisse ?",
+    "choix": [
+     "La détection est meilleure",
+     "La capacité ajoutée diminue, la détection devient difficile",
+     "Rien",
+     "Le module grille"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C = ε0 εr S / d : si d augmente, C diminue."
+   },
+   {
+    "question": "Par défaut, que vaut SIG quand le doigt touche le TTP223 ?",
+    "choix": [
+     "LOW",
+     "HIGH",
+     "Une tension analogique",
+     "Il clignote"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Cavaliers ouverts : sortie active à l'état haut pendant le contact."
+   },
+   {
+    "question": "Faut-il une résistance de tirage sur SIG ?",
+    "choix": [
+     "Oui, 10 kΩ",
+     "Non, la sortie est pilotée par la puce",
+     "Oui, INPUT_PULLUP",
+     "Oui, 220 Ω"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "On utilise simplement pinMode(TOUCH, INPUT)."
+   },
+   {
+    "question": "Que fait le cavalier B soudé ?",
+    "choix": [
+     "Sortie active à LOW",
+     "Mode bascule : chaque contact inverse la sortie",
+     "Augmente la sensibilité",
+     "Coupe le module"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le module garde l'état lui-même."
+   },
+   {
+    "question": "Que fait le cavalier A soudé ?",
+    "choix": [
+     "Mode bascule",
+     "La sortie devient active à LOW",
+     "Double la portée",
+     "Rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il inverse la logique de la sortie."
+   },
+   {
+    "question": "Pourquoi ne pas toucher la pastille à la mise sous tension ?",
+    "choix": [
+     "On risque un choc électrique",
+     "La puce se calibre à ce moment et prendrait le doigt pour l'état normal",
+     "La LED grillerait",
+     "Ça n'a aucune importance"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le calibrage serait faussé."
+   },
+   {
+    "question": "Pour basculer une lampe une seule fois par contact, on détecte :",
+    "choix": [
+     "L'état HIGH",
+     "Le front montant LOW → HIGH",
+     "L'état LOW",
+     "La tension"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sinon, la lampe basculerait sans arrêt tant que le doigt est posé."
+   },
+   {
+    "question": "Quel est le temps de réponse typique d'un TTP223 ?",
+    "choix": [
+     "≈ 60 ns",
+     "≈ 60 µs",
+     "≈ 60 ms",
+     "≈ 6 s"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Environ 60 ms, imperceptible pour un humain."
+   },
+   {
+    "question": "Quel module offre 12 électrodes tactiles en I2C ?",
+    "choix": [
+     "TTP223",
+     "TTP224",
+     "MPR121",
+     "KY-040"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "On peut y dessiner ses propres touches."
+   },
+   {
+    "question": "Sur un ESP32, comment lire une entrée tactile sans module ?",
+    "choix": [
+     "analogRead(4)",
+     "touchRead(T0)",
+     "digitalRead(T0)",
+     "Ce n'est pas possible"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'ESP32 a des entrées capacitives intégrées ; la valeur baisse au toucher."
+   }
+  ]
+ }
+]
