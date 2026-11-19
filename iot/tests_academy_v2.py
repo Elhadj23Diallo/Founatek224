@@ -202,6 +202,11 @@ class AdminFullAccessTests(TestCase):
     def test_admin_sees_unpublished_parcours_and_book_link(self):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get("/parcours/"), "Non publié")
+        liste = self.client.get(f"/parcours/{self.parcours.id}/")
+        import re
+        html = liste.content.decode()
+        self.assertRegex(html, r'lesson-marker">\s*0\.10\s*<')
+        self.assertIsNone(re.search(r'lesson-marker">\s*10\s*<', html))
         resp = self.client.get("/academy/livre-1/")
         self.assertContains(resp, "Vue administrateur")
         self.assertContains(resp, f"/parcours/{self.parcours.id}/")

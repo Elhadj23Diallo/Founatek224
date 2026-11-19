@@ -223,7 +223,7 @@
                 {% if item.completed %}status-completed{% elif item.debloquee %}status-unlocked{% else %}status-locked{% endif %}">
                 
                 <div class="lesson-marker">
-                    {% if item.completed %}✔{% else %}{{ item.lecon.ordre }}{% endif %}
+                    {% if item.completed %}✔{% else %}{{ item.numero }}{% endif %}
                 </div>
 
                 <div class="lesson-info">

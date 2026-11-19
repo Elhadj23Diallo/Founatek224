@@ -553,10 +553,16 @@ def liste_lecons(request, parcours_id):
 
     lecons_data = []
 
+    # Livre 1 : l'ordre interne vaut partie × 100 + fiche (1103 = fiche 11.3).
+    from .book_catalog import BOOK_SLUG
+    is_book = parcours.slug == BOOK_SLUG
+
     for lecon in lecons:
         progression = progressions.get(lecon.id)
+        numero = f"{lecon.ordre // 100}.{lecon.ordre % 100}" if is_book else lecon.ordre
         lecons_data.append({
             "lecon": lecon,
+            "numero": numero,
             "debloquee": has_full_access(request.user) or (
                 can_read_lesson(request.user, lecon) and lecon_est_debloquee(request.user, lecon)
             ),
