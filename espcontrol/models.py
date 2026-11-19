@@ -417,6 +417,20 @@ class AgentConfig(models.Model):
         return f"AgentConfig({self.user.username})"
 
 
+class PushToken(models.Model):
+    """Jeton de notification push Expo (ExponentPushToken[...]) d'un telephone.
+    Un meme jeton ne peut appartenir qu'a un seul utilisateur a la fois : si le
+    meme appareil se reconnecte avec un autre compte, le jeton change de
+    proprietaire (voir mobile_register_push_token)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="push_tokens")
+    token = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.token[:20]}…"
+
+
 
 #Rendre l'agent dynamique
 

@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/mobile/sensor-ingest/', api_views.mobile_sensor_ingest, name='mobile_sensor_ingest'),
     path('api/mobile/upload-image/', api_views.MobileImageUploadAPIView.as_view(), name='mobile_image_upload'),
     path('api/mobile/air-quality-summary/', api_views.mobile_air_quality_summary, name='mobile_air_quality_summary'),
+    path('api/mobile/push-token/', api_views.mobile_register_push_token, name='mobile_register_push_token'),
     path('api/mobile/alerts/', api_views.mobile_alerts, name='mobile_alerts'),
     path('api/mobile/alerts/archive/', api_views.mobile_alerts_archive, name='mobile_alerts_archive'),
     path('api/mobile/alerts/delete/', api_views.mobile_alerts_delete, name='mobile_alerts_delete'),

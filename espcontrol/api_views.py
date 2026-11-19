@@ -32,6 +32,7 @@ from .models import (
     Device,
     LEDColor,
     NtcSensorData,
+    PushToken,
     Relais,
     SensorData,
     SensorRule,
@@ -312,6 +313,20 @@ def mobile_air_quality_summary(request):
             }
         )
     return Response(payload, status=status.HTTP_200_OK)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_register_push_token(request):
+    """Enregistre (ou reassigne) un jeton de notification push Expo pour
+    l'utilisateur connecte. Appele depuis l'app apres l'octroi de la
+    permission notifications."""
+    token = (request.data.get("token") or "").strip()
+    if not token:
+        return Response({"error": "token manquant"}, status=400)
+    PushToken.objects.update_or_create(token=token, defaults={"user": request.user})
+    return Response({"ok": True})
 
 
 @csrf_exempt

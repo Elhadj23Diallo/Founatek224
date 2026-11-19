@@ -1,3 +1,5 @@
+import requests
+
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
@@ -6,7 +8,9 @@ from django.conf import settings
 from django.utils import timezone, translation
 from django.utils.timezone import localtime
 
-from .models import AppareilData, Device, AgentAlert, ProactiveChatMessage
+from .models import AppareilData, Device, AgentAlert, ProactiveChatMessage, PushToken
+
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 
 
 @receiver(user_logged_in)
@@ -70,6 +74,36 @@ def send_alert_email(sender, instance, created, **kwargs):
         )
     except Exception:
         # Ne jamais faire echouer la creation de l'alerte a cause de l'email
+        pass
+
+
+@receiver(post_save, sender=AgentAlert)
+def send_alert_push_notification(sender, instance, created, **kwargs):
+    """Notification push (Expo) sur le telephone, en plus de l'email — fonctionne
+    meme application fermee, contrairement a la vibration qui necessite que
+    l'ecran Alertes soit ouvert. Jamais pour le niveau INFO (comme la vibration)."""
+    if not created or instance.level == "INFO":
+        return
+    try:
+        tokens = list(PushToken.objects.filter(user=instance.user).values_list("token", flat=True))
+        if not tokens:
+            return
+        icon = "🔴" if instance.level == "CRITICAL" else "⚠️"
+        device_name = instance.device.name if instance.device else "votre appareil"
+        messages = [{
+            "to": push_token,
+            "title": f"{icon} Alerte {instance.level} — {device_name}",
+            "body": instance.message,
+            "sound": "default",
+            "priority": "high",
+            "data": {"alert_id": instance.id, "level": instance.level},
+        } for push_token in tokens]
+        requests.post(
+            EXPO_PUSH_URL, json=messages, timeout=5,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+        )
+    except Exception:
+        # Ne jamais faire echouer la creation de l'alerte a cause du push
         pass
 
 
