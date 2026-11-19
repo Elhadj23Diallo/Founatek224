@@ -1,0 +1,1776 @@
+[
+ {
+  "id": "2.1",
+  "titre": "La diode",
+  "resume": "Un clapet anti-retour pour le courant : elle le laisse passer dans un seul sens. Tu apprends sa tension de seuil, ses usages (protection, redressement, roue libre) et tu mesures sa chute de tension.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "2.1-photo.jpg",
+   "legende": "Trois diodes courantes : 1N4007 (redressement), 1N5819 (Schottky) et 1N4148 (signal). La bague marque la cathode K.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × diode 1N4007 (facultatif : 1 × 1N4148 et 1 × 1N5819 pour comparer)",
+   "1 × résistance 220 Ω et 1 × résistance 330 Ω",
+   "1 × multimètre (mode diode)",
+   "4 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. La diode comme un clapet anti-retour : l'analogie de l'eau.\n2. Le test au multimètre en mode diode : ≈ 0,6 V dans un sens, « OL » dans l'autre.\n3. L'expérience : la chute de tension mesurée par A0, puis la diode retournée.\n4. Trois usages concrets : anti-inversion de pile, pont de diodes d'un chargeur, diode de roue libre d'un relais.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLa diode est le plus simple des **semi-conducteurs** : elle laisse passer le courant dans un sens et le bloque dans l'autre. Ce petit comportement suffit à protéger une carte contre une pile branchée à l'envers, à transformer l'alternatif en continu ou à sauver un transistor.\n\nÀ la fin de cette leçon, tu sauras :\n\n- repérer l'anode et la cathode d'une diode ;\n- utiliser sa tension de seuil (≈ 0,7 V) dans tes calculs ;\n- choisir entre une diode de redressement, de signal et Schottky ;\n- mesurer la chute de tension d'une diode avec l'Arduino."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Un clapet anti-retour\n\nUne diode est une **jonction P-N** de silicium. Elle a deux bornes : l'**anode (A)** et la **cathode (K)**, repérée par la **bague** sur le boîtier.\n\n- **Sens direct** (anode au +) : elle conduit dès que la tension dépasse son **seuil**, environ **0,7 V** pour le silicium.\n- **Sens inverse** (cathode au +) : elle bloque le courant… jusqu'à sa **tension de claquage**, à ne jamais atteindre.\n\nQuand elle conduit, la tension à ses bornes reste presque fixe :\n\n$$V_d \\approx 0{,}7\\ \\text{V (silicium)} \\qquad V_d \\approx 0{,}3\\ \\text{V (Schottky)}$$\n\nElle transforme cette chute de tension en chaleur :\n\n$$P = V_d \\times I$$\n\n> 💡 Comme pour une LED (leçon 2.3), une fois le seuil franchi, le courant monte très vite : il faut **toujours une résistance** (ou une charge) pour le limiter."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.1-caracteristique.svg",
+    "legende": "Courbes courant-tension en sens direct : rien ne passe sous le seuil, puis le courant monte très vite. Le seuil dépend du type : 0,3 V (Schottky), 0,7 V (silicium), 2 V (LED rouge), 3 V (LED bleue)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les différents types\n\n| Type | Exemple | Caractéristiques | Usage |\n|---|---|---|---|\n| Redressement | 1N4001 à 1N4007 | 1 A, jusqu'à 1 000 V | alimentation, protection, roue libre |\n| Signal | 1N4148 | ≈ 200 mA, très rapide, verre | signaux logiques |\n| Schottky | 1N5819 | chute ≈ 0,3 V, très rapide | alimentations, panneaux solaires |\n| Pont de diodes | 4 diodes dans un boîtier | redresse l'alternatif | entrée des chargeurs secteur |\n\n### Choisir une diode\n\n- **Courant maximal** \\( I_F \\) au moins **deux fois** le courant utile.\n- **Tension inverse maximale** \\( V_{RRM} \\) supérieure à la tension d'alimentation.\n- La référence est écrite sur le boîtier : 1N4007, 1N4148, 1N5819…"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Trois usages à connaître\n\n### Protéger contre l'inversion de polarité\n\nUne diode en série sur l'alimentation ne laisse passer le courant que si la pile est dans le bon sens. Le prix à payer : la chute de tension. Avec une 1N4007, 5 V deviennent \\( 5 - 0{,}7 = 4{,}3\\ \\text{V} \\) ; avec une Schottky 1N5819, \\( 5 - 0{,}3 = 4{,}7\\ \\text{V} \\).\n\n### Redresser l'alternatif\n\nQuatre diodes en losange (le **pont de diodes**) envoient les deux alternances dans le même sens : la tension devient toujours positive. Un condensateur la lisse ensuite (leçon 1.3).\n\n### Absorber le pic d'une bobine\n\nC'est la **diode de roue libre** de la leçon 1.4 : montée à l'envers sur la bobine d'un relais ou d'un moteur, elle protège le transistor à la coupure."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.1-pont-de-diodes.svg",
+    "legende": "Le pont de diodes : quelle que soit l'alternance, le courant ressort par la borne + (à droite). Le condensateur lisse la tension pour la charge. C'est l'entrée de tous les chargeurs secteur."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : mesurer la chute de tension d'une diode\n\nLa broche D7 alimente la diode à travers 220 Ω ; A0 lit la tension de l'anode, donc la chute de la diode.\n\n$$I = \\frac{5 - 0{,}7}{220} \\approx 0{,}020\\ \\text{A} = 20\\ \\text{mA} \\qquad P = 0{,}7 \\times 0{,}020 = 14\\ \\text{mW}$$\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. **D7** → résistance **220 Ω** → **anode** de la 1N4007.\n3. **Cathode** (côté bague) → **GND**.\n4. Relie le point commun résistance / anode à **A0**.\n5. Téléverse le programme et ouvre le moniteur série."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.1-schema-diode-a0.svg",
+    "legende": "D7 alimente la diode D1 (1N4007) à travers 220 Ω ; A0 mesure la tension à ses bornes."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.1 — lire la chute de tension d'une diode\nconst int ALIM = 7;   // alimente la diode à travers 220 Ω\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(ALIM, OUTPUT);\n  digitalWrite(ALIM, HIGH);\n}\n\nvoid loop() {\n  float vd = analogRead(A0) * 5.0 / 1023;   // tension aux bornes de la diode\n  float i = (5.0 - vd) / 220.0 * 1000.0;    // courant en mA (loi d'Ohm sur R)\n  Serial.print(\"Diode : \"); Serial.print(vd, 2);\n  Serial.print(\" V   courant : \"); Serial.print(i, 1);\n  Serial.println(\" mA\");\n  delay(500);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Montage | A0 lit | Courant |\n|---|---|---|\n| 1N4007 dans le bon sens | ≈ 0,65 V | ≈ 20 mA |\n| 1N4148 dans le bon sens | ≈ 0,7 V | ≈ 19 mA |\n| 1N5819 (Schottky) | ≈ 0,3 V | ≈ 21 mA |\n| Diode retournée | ≈ 5 V | 0 : elle bloque |\n\nUne LED (leçon 2.3) se comporte de la même façon, avec une chute plus grande : de 1,8 à 3,3 V selon la couleur.\n\n> 📌 **Et avec un ESP32 ?** Alimentation sur **GPIO 25** (3,3 V), mesure sur **GPIO 34** (ADC1). Dans le code : `ALIM = 25` et `5.0 / 1023` devient `3.3 / 4095`. Le courant devient \\( (3{,}3 - 0{,}7) / 220 \\approx 12\\ \\text{mA} \\).\n\n### Le test au multimètre\n\nEn mode diode : environ **0,6 V** dans un sens, « **OL** » dans l'autre. 0 V dans les deux sens : la diode est en court-circuit. « OL » dans les deux sens : elle est coupée."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Diode montée à l'envers** : le circuit reste éteint (ou court-circuit pour une diode de roue libre).\n- **Oublier la résistance** : rien ne limite le courant, la diode et la broche grillent.\n- **Dépasser le courant maximal** : une 1N4148 (≈ 200 mA) ne remplace pas une 1N4007 (1 A).\n- **Oublier la chute de 0,7 V** d'une diode de protection en série : 5 V deviennent 4,3 V.\n- **Diode trop lente** dans une alimentation à découpage : préfère une Schottky.\n\n## 📌 À retenir\n\n- Le courant va de l'anode (A) vers la cathode (K, côté bague).\n- Chute ≈ 0,7 V (silicium), ≈ 0,3 V (Schottky) ; \\( P = V_d \\times I \\).\n- Toujours une résistance ou une charge pour limiter le courant.\n- 1N4007 pour la puissance, 1N4148 pour les signaux, 1N5819 pour perdre peu de tension.\n- Usages : anti-inversion, pont de diodes, roue libre.\n\n## 🏆 Mini-défi\n\nAvec une résistance de **330 Ω** au lieu de 220 Ω, quel courant traverse la diode ? La tension lue par A0 change-t-elle beaucoup ?\n\n> ✅ Solution : \\( I = (5 - 0{,}7) / 330 \\approx 13\\ \\text{mA} \\). La tension de la diode ne baisse que de quelques centièmes de volt (≈ 0,63 V) : c'est tout l'intérêt d'une diode, sa tension reste presque fixe quel que soit le courant."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Comment repère-t-on la cathode d'une diode ?",
+    "choix": [
+     "C'est la patte la plus longue",
+     "Par la bague peinte sur le boîtier",
+     "Elle est toujours rouge",
+     "On ne peut pas la repérer"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La bague (blanche, grise ou noire) marque la cathode K, comme la barre du symbole."
+   },
+   {
+    "question": "Dans quel sens le courant traverse-t-il une diode ?",
+    "choix": [
+     "De la cathode vers l'anode",
+     "De l'anode vers la cathode",
+     "Dans les deux sens",
+     "Il ne la traverse jamais"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "En sens direct, anode au +, le courant va de A vers K."
+   },
+   {
+    "question": "Quelle est la chute de tension typique d'une diode au silicium qui conduit ?",
+    "choix": [
+     "0,07 V",
+     "0,7 V",
+     "2 V",
+     "5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Environ 0,6 à 0,7 V pour le silicium ; environ 0,3 V pour une Schottky."
+   },
+   {
+    "question": "Avec 5 V, une diode (0,7 V) et 220 Ω en série, quel courant circule ?",
+    "choix": [
+     "≈ 2 mA",
+     "≈ 20 mA",
+     "≈ 200 mA",
+     "≈ 2 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = (5 − 0,7) / 220 ≈ 0,0195 A ≈ 20 mA."
+   },
+   {
+    "question": "Quelle puissance dissipe une diode traversée par 20 mA avec une chute de 0,7 V ?",
+    "choix": [
+     "0,14 mW",
+     "14 mW",
+     "140 mW",
+     "1,4 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "P = Vd × I = 0,7 × 0,020 = 0,014 W = 14 mW."
+   },
+   {
+    "question": "Quelle diode choisir pour perdre le moins de tension possible ?",
+    "choix": [
+     "1N4007",
+     "1N4148",
+     "1N5819 (Schottky)",
+     "Une LED"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "La Schottky a une chute d'environ 0,3 V, contre 0,7 V pour une diode au silicium."
+   },
+   {
+    "question": "À quoi sert un pont de diodes ?",
+    "choix": [
+     "À augmenter la tension",
+     "À transformer l'alternatif en continu (redresser)",
+     "À faire clignoter une LED",
+     "À mesurer un courant"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Ses quatre diodes envoient les deux alternances dans le même sens : la tension devient toujours positive."
+   },
+   {
+    "question": "Une diode de protection 1N4007 est en série sur une alimentation de 5 V. Quelle tension reçoit la carte ?",
+    "choix": [
+     "5,7 V",
+     "5 V",
+     "≈ 4,3 V",
+     "0 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "La diode « consomme » environ 0,7 V : 5 − 0,7 ≈ 4,3 V."
+   },
+   {
+    "question": "Au multimètre en mode diode, une diode affiche 0 V dans les deux sens. Que conclure ?",
+    "choix": [
+     "Elle est en bon état",
+     "Elle est en court-circuit",
+     "Elle est coupée",
+     "C'est une LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une diode saine affiche ≈ 0,6 V dans un sens et OL dans l'autre. 0 V partout : court-circuit."
+   },
+   {
+    "question": "Quels sont des usages courants de la diode ?",
+    "choix": [
+     "Protéger contre l'inversion de polarité",
+     "Redresser une tension alternative",
+     "Absorber le pic d'une bobine (roue libre)",
+     "Stocker de l'énergie"
+    ],
+    "bonnes": [
+     "A",
+     "B",
+     "C"
+    ],
+    "explication": "Stocker de l'énergie est le rôle du condensateur ou de la bobine, pas de la diode."
+   },
+   {
+    "question": "Quelle diode est la plus adaptée aux signaux logiques rapides de faible courant ?",
+    "choix": [
+     "1N4007",
+     "1N4148",
+     "Un pont de diodes",
+     "Une Zener 12 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La 1N4148 est une petite diode de signal rapide (≈ 200 mA max)."
+   }
+  ]
+ },
+ {
+  "id": "2.2",
+  "titre": "La diode Zener",
+  "resume": "Une diode montée à l'envers qui maintient une tension fixe à ses bornes. Tu apprends à la dimensionner (R = (Ve − Vz) / I), à protéger une entrée et à stabiliser une pile 9 V à 5,1 V.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "2.2-photo.jpg",
+   "legende": "Deux diodes Zener 5,1 V : en verre (BZX55C5V1, 0,5 W) et en boîtier DO-41 (1N4733A, 1 W). La bague marque la cathode.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × diode Zener 5,1 V (BZX55C5V1 ou 1N4733A)",
+   "1 × résistance 470 Ω, 1 × résistance 1 kΩ, 2 × résistances 10 kΩ",
+   "1 × pile 9 V avec son clip (facultatif : 4 piles AA en boîtier)",
+   "1 × multimètre",
+   "6 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. La Zener en sens direct (0,7 V) puis en sens inverse (5,1 V) au multimètre, avec sa résistance.\n2. Le calcul de la résistance série pour 8 mA.\n3. Le montage : une pile neuve puis une pile usée, la tension Zener qui ne bouge presque pas.\n4. La protection d'une entrée d'Arduino avec 1 kΩ et une Zener 5,1 V.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne diode ordinaire ne doit jamais conduire en sens inverse. La **Zener**, elle, est faite pour ça : montée à l'envers, elle se met à conduire à une tension précise, sa **tension Zener** \\( V_z \\), et la maintient.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer comment une Zener fixe une tension ;\n- calculer la résistance série et vérifier la puissance ;\n- lire le marquage « 5V1 » ;\n- protéger une entrée d'Arduino contre les surtensions ;\n- stabiliser une pile 9 V à 5,1 V et le mesurer."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Une diode qui conduit à l'envers… exprès\n\n- **Sens direct** : elle se comporte comme une diode normale (≈ 0,7 V).\n- **Sens inverse** : elle bloque, **jusqu'à** \\( V_z \\). Au-delà, elle conduit **sans être détruite**, et la tension à ses bornes reste proche de \\( V_z \\).\n\nOn la place donc **cathode vers le +**, avec une **résistance en série** qui absorbe l'excédent de tension et limite le courant :\n\n$$V_s \\approx V_z \\qquad\\qquad R = \\frac{V_e - V_z}{I}$$\n\navec \\( I \\) entre **5 et 20 mA** en général. Il reste à vérifier la puissance dans la Zener :\n\n$$P = V_z \\times I \\quad < \\quad P_{max}\\ (0{,}5\\ \\text{ou}\\ 1\\ \\text{W, avec une marge} \\times 2)$$\n\n### Exemple : 9 V → 5,1 V à environ 8 mA\n\n$$R = \\frac{9 - 5{,}1}{0{,}008} \\approx 488\\ \\Omega \\;\\rightarrow\\; 470\\ \\Omega \\qquad I = \\frac{9 - 5{,}1}{470} \\approx 8{,}3\\ \\text{mA}$$\n\n$$P = 5{,}1 \\times 0{,}0083 \\approx 42\\ \\text{mW}$$\n\n42 mW, très loin des 500 mW d'une BZX55 : aucun risque."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.2-regulation-zener.svg",
+    "legende": "Tension aux bornes de la Zener en fonction de la tension d'entrée : elle suit l'entrée jusqu'à environ 5,1 V, puis reste presque constante. Une pile 9 V neuve ou usée donne donc la même tension."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les modèles courants\n\n| Modèle | Boîtier | Puissance | Valeurs |\n|---|---|---|---|\n| BZX55C… | verre DO-35 | 0,5 W | de 2,4 V à 75 V, la plus courante dans les kits |\n| 1N47xxA | DO-41 | 1 W | 1N4733A = 5,1 V ; de 3,3 V à 100 V |\n| BZX84 | CMS SOT-23 | ≈ 0,3 W | sur les cartes Arduino et les modules |\n| Diode TVS | SMBJ, P6KE | protection | absorbe les pics très rapides (USB, décharges) |\n\n### Lire le marquage\n\n- « **5V1** » = 5,1 V : le V remplace la virgule (comme le k de 4k7). « 3V3 » = 3,3 V, « 12 » = 12 V.\n- Une **0,5 W** en 5,1 V supporte au plus \\( 0{,}5 / 5{,}1 \\approx 98\\ \\text{mA} \\) : vise 5 à 20 mA.\n- La **bague** marque la cathode K, à placer **côté +** en régulation."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Protéger une entrée d'Arduino\n\nUn capteur peut envoyer plus de 5 V par erreur (alimentation 12 V, parasite). Une résistance de **1 kΩ** en série puis une Zener **5,1 V** vers GND : la broche ne voit jamais plus d'environ 5 V. Si l'entrée monte à 12 V :\n\n$$I = \\frac{12 - 5{,}1}{1000} = 6{,}9\\ \\text{mA} \\qquad P_{Zener} = 5{,}1 \\times 0{,}0069 \\approx 35\\ \\text{mW}$$\n\nPour une entrée **3,3 V** d'ESP32, on prend une Zener **3V3**.\n\n> 💡 **Zener ou régulateur 7805 ?** La Zener convient pour quelques mA (une référence, une protection). Pour alimenter une carte (100 mA et plus), on utilise un régulateur (leçon 2.8)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : stabiliser une pile 9 V à 5,1 V\n\nLa pile alimente la Zener à travers 470 Ω. Comme 5,1 V est trop proche de la limite de A0 (5 V), on divise par deux avec un pont de 2 × 10 kΩ : A0 lit environ 2,55 V, et le programme multiplie par 2.\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino et la pile.\n2. **+9 V** → résistance **470 Ω** → **cathode** de la Zener (côté bague).\n3. **Anode** de la Zener → **−** de la pile → **GND** de l'Arduino (masse commune).\n4. Pont diviseur : **10 kΩ** du point Zener vers un point milieu, **10 kΩ** du point milieu vers GND ; point milieu → **A0**.\n5. Branche la pile, téléverse le programme et ouvre le moniteur série."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.2-schema-zener.svg",
+    "legende": "La pile 9 V alimente la Zener DZ1 (5,1 V) à travers 470 Ω. Le pont 10 kΩ / 10 kΩ divise par deux pour A0. Le − de la pile est relié au GND de l'Arduino."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.2 — mesurer la tension d'une diode Zener\nconst float K_PONT = 2.0;   // pont 10 k / 10 k : A0 reçoit la moitié\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int brut = analogRead(A0);          // 0 à 1023\n  float vA0 = brut * 5.0 / 1023;      // tension sur A0\n  float vz = vA0 * K_PONT;            // tension aux bornes de la Zener\n  Serial.print(\"Tension Zener : \");\n  Serial.print(vz, 2);\n  Serial.println(\" V\");\n  delay(500);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Source | Tension Zener attendue | Courant dans 470 Ω | Ta mesure |\n|---|---|---|---|\n| pile 9 V neuve (≈ 9,5 V) | ≈ 5,1 V | ≈ 9,4 mA | … |\n| pile 9 V usée (≈ 7 V) | ≈ 5,0 V | ≈ 4 mA | … |\n| 4 piles AA (6 V) | ≈ 4,9 à 5,0 V | ≈ 1,9 mA (trop peu) | … |\n\nAvec 6 V, le courant devient trop faible pour que la Zener régule bien : il faut au moins quelques mA. Une Zener n'est pas un régulateur parfait, mais elle est simple et peu chère.\n\n> 📌 **Et avec un ESP32 ?** Entrée ADC à 3,3 V maximum : mesure sur **GPIO 34**. Le pont ÷ 2 donne environ 2,55 V, sous la limite. Remplace `5.0 / 1023` par `3.3 / 4095`. Pour protéger une entrée 3,3 V, choisis une Zener **3V3**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Zener dans le sens direct** : on lit 0,7 V au lieu de 5,1 V.\n- **Pas de résistance série** : la Zener chauffe et grille.\n- **Charge trop gourmande** : au-delà de quelques mA tirés par la charge, la tension chute.\n- **Lire 5,1 V directement sur A0** : on sature à 1023, d'où le pont diviseur.\n- **Confondre « 5V1 » (5,1 V) et 51 V.**\n\n## 📌 À retenir\n\n- Montée à l'envers (cathode au +), elle maintient \\( V_z \\) à ses bornes.\n- Toujours une résistance série : \\( R = (V_e - V_z) / I \\), avec I ≈ 5 à 20 mA.\n- Vérifie \\( P = V_z \\times I \\) avec une marge × 2.\n- « 5V1 » = 5,1 V ; la bague = cathode.\n- Zener pour une référence ou une protection ; régulateur pour alimenter une carte.\n\n## 🏆 Mini-défi\n\nRemplace 470 Ω par **1 kΩ** : quel courant traverse la Zener avec la pile 9 V ? La tension mesurée change-t-elle ?\n\n> ✅ Solution : \\( I = (9 - 5{,}1) / 1000 = 3{,}9\\ \\text{mA} \\). La tension baisse un peu (quelques dixièmes de volt au plus) car la Zener régule moins bien à faible courant. Le compromis habituel : 5 à 10 mA."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Comment monte-t-on une diode Zener pour stabiliser une tension ?",
+    "choix": [
+     "En sens direct, anode au +",
+     "En sens inverse, cathode au +, avec une résistance série",
+     "Sans résistance",
+     "En parallèle sur une LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est en sens inverse qu'elle maintient sa tension Zener ; la résistance limite le courant."
+   },
+   {
+    "question": "Que signifie le marquage « 5V1 » sur une Zener ?",
+    "choix": [
+     "51 V",
+     "5,1 V",
+     "5 V à 1 %",
+     "5 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le V remplace la virgule : 5V1 = 5,1 V."
+   },
+   {
+    "question": "Que lit-on aux bornes d'une Zener 5,1 V montée dans le sens direct ?",
+    "choix": [
+     "≈ 0,7 V",
+     "5,1 V",
+     "9 V",
+     "0 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "En sens direct, elle se comporte comme une diode ordinaire : environ 0,7 V."
+   },
+   {
+    "question": "Quelle résistance série pour obtenir 5,1 V à partir de 9 V avec environ 8 mA ?",
+    "choix": [
+     "47 Ω",
+     "470 Ω",
+     "4,7 kΩ",
+     "47 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "R = (9 − 5,1) / 0,008 ≈ 488 Ω : on prend 470 Ω (≈ 8,3 mA)."
+   },
+   {
+    "question": "Quelle puissance dissipe une Zener 5,1 V traversée par 8,3 mA ?",
+    "choix": [
+     "≈ 4 mW",
+     "≈ 42 mW",
+     "≈ 420 mW",
+     "≈ 4 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "P = 5,1 × 0,0083 ≈ 0,042 W = 42 mW, bien sous les 0,5 W."
+   },
+   {
+    "question": "Pourquoi utilise-t-on un pont 10 kΩ / 10 kΩ pour mesurer la Zener avec A0 ?",
+    "choix": [
+     "Pour augmenter la précision",
+     "Parce que 5,1 V dépasse la limite de 5 V de A0",
+     "Pour protéger la pile",
+     "Pour faire clignoter la LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "A0 ne mesure que de 0 à 5 V ; le pont divise par 2 (≈ 2,55 V) et le code multiplie par 2."
+   },
+   {
+    "question": "Avec une pile neuve (9,5 V) puis usée (7 V), que devient la tension aux bornes de la Zener ?",
+    "choix": [
+     "Elle passe de 9,5 V à 7 V",
+     "Elle reste proche de 5,1 V",
+     "Elle tombe à 0 V",
+     "Elle double"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est tout l'intérêt de la Zener : l'excédent de tension est absorbé par la résistance série."
+   },
+   {
+    "question": "Pour protéger une entrée 3,3 V d'ESP32, quelle Zener choisir ?",
+    "choix": [
+     "5V1",
+     "3V3",
+     "12 V",
+     "Aucune Zener ne convient"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La Zener doit écrêter à la tension maximale admise par l'entrée : 3,3 V."
+   },
+   {
+    "question": "Pour alimenter une carte qui consomme 200 mA en 5 V, que choisir ?",
+    "choix": [
+     "Une Zener 5,1 V et une résistance",
+     "Un régulateur de tension comme le 7805",
+     "Une diode 1N4148",
+     "Une LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La Zener convient pour quelques mA ; au-delà, un régulateur est bien plus adapté."
+   },
+   {
+    "question": "Qu'arrive-t-il à une Zener sans résistance série branchée sur 9 V ?",
+    "choix": [
+     "Elle donne 5,1 V parfaitement",
+     "Le courant n'est pas limité : elle chauffe et grille",
+     "Elle ne conduit pas",
+     "Elle devient une LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Rien ne limite le courant une fois Vz atteinte : la puissance explose."
+   },
+   {
+    "question": "Combien de courant au maximum peut supporter une Zener 0,5 W de 5,1 V ?",
+    "choix": [
+     "≈ 10 mA",
+     "≈ 98 mA",
+     "≈ 500 mA",
+     "≈ 2,5 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Imax = P / Vz = 0,5 / 5,1 ≈ 0,098 A. En pratique, on vise 5 à 20 mA."
+   }
+  ]
+ },
+ {
+  "id": "2.3",
+  "titre": "La LED",
+  "resume": "Une diode qui s'allume : elle transforme le courant en lumière, sans chauffer. Tu apprends sa tension de seuil selon la couleur, le calcul de sa résistance et la variation de luminosité en PWM.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "2.3-photo.jpg",
+   "legende": "Deux LED 5 mm (verte et rouge) sur une breadboard, chacune avec sa résistance, commandées par un Arduino.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "LED 5 mm de plusieurs couleurs : rouge, jaune, verte, bleue ou blanche",
+   "Résistances : 220 Ω (× 2), 330 Ω, 1 kΩ",
+   "1 × multimètre (mode diode et ampèremètre)",
+   "4 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Reconnaître l'anode et la cathode : patte longue, méplat du boîtier, test au multimètre.\n2. La même LED avec 220 Ω, 330 Ω et 1 kΩ : la luminosité et le courant mesuré.\n3. Le programme : 3 clignotements puis un allumage progressif en PWM.\n4. Les couleurs : pourquoi une LED bleue demande moins de résistance qu'une rouge.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLa **LED** (*Light-Emitting Diode*, diode électroluminescente) est partout : voyants, écrans, éclairage, télécommandes. C'est une diode, avec une tension de seuil plus grande, qui émet de la lumière quand elle conduit.\n\nÀ la fin de cette leçon, tu sauras :\n\n- repérer l'anode et la cathode d'une LED ;\n- connaître la tension de seuil \\( V_f \\) selon la couleur ;\n- calculer la résistance de protection et la puissance ;\n- faire varier la luminosité en PWM avec `analogWrite()`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Une diode qui éclaire\n\n- **Anode (+)** : la patte **longue**.\n- **Cathode (−)** : la patte **courte**, du côté **plat** du boîtier.\n\nComme toute diode, elle ne conduit que de l'anode vers la cathode. Sa **tension de seuil** \\( V_f \\) (*forward voltage*) dépend de la couleur, donc du matériau semi-conducteur :\n\n| Couleur | \\( V_f \\) typique | R sous 5 V (≈ 15 mA) | R sous 3,3 V (≈ 10 mA) |\n|---|---|---|---|\n| Rouge | ≈ 1,8 à 2,0 V | 220 Ω | 150 Ω |\n| Jaune, orange | ≈ 2,0 à 2,1 V | 220 Ω | 130 → 150 Ω |\n| Verte (classique) | ≈ 2,1 à 2,2 V | 220 Ω | 120 Ω |\n| Bleue, blanche, verte vive | ≈ 3,0 à 3,3 V | 150 Ω | 33 Ω (très juste) |\n| Infrarouge | ≈ 1,2 à 1,5 V | 270 Ω | 220 Ω |\n\n> ⚠️ Au-delà de \\( V_f \\), le courant monte **très vite** : quelques dixièmes de volt de plus suffisent à le multiplier par 20. Sans résistance, une LED grille en une seconde. On vise **5 à 20 mA**."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.3-courbes-led.svg",
+    "legende": "Courant en fonction de la tension pour quatre couleurs de LED : la zone utile (5 à 20 mA) tient dans une plage de tension minuscule. C'est la résistance qui fixe le courant, pas la tension."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Calculer la résistance\n\n$$R = \\frac{U_{alim} - V_f}{I}$$\n\npuis on arrondit à la **valeur normalisée juste au-dessus** (série E12).\n\n### Exemple : LED rouge sur l'Uno\n\n$$R = \\frac{5 - 2}{0{,}015} = 200\\ \\Omega \\;\\rightarrow\\; 220\\ \\Omega \\qquad I = \\frac{3}{220} \\approx 13{,}6\\ \\text{mA}$$\n\nPuissances : dans la résistance \\( P_R = R \\times I^2 = 220 \\times 0{,}0136^2 \\approx 41\\ \\text{mW} \\) ; dans la LED \\( P_{LED} = V_f \\times I = 2 \\times 0{,}0136 \\approx 27\\ \\text{mW} \\).\n\n### Même résistance, autre couleur\n\nUne LED bleue (\\( V_f \\approx 3\\ \\text{V} \\)) avec 220 Ω : \\( I = 2 / 220 \\approx 9\\ \\text{mA} \\). Elle reste bien visible : une LED est déjà lumineuse dès **5 mA**.\n\n### Une LED sur 12 V\n\n$$R = \\frac{12 - 2}{0{,}015} \\approx 667\\ \\Omega \\;\\rightarrow\\; 680\\ \\Omega \\qquad P_R = \\frac{10^2}{680} \\approx 0{,}15\\ \\text{W}$$\n\nUne ¼ W convient, mais elle tiédit. Pour commander une LED en 12 V depuis l'Arduino, on passe par un transistor (leçon 2.5)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les différents types\n\n| Type | Description | Usage |\n|---|---|---|\n| LED 5 mm | la classique des kits, 20 mA max | voyants, montages Arduino |\n| LED 3 mm | plus petite, même usage | voyants de façade et de cartes |\n| LED CMS (0805, 5050…) | soudée en surface | cartes, rubans, écrans |\n| LED de puissance (1 à 10 W) | sur radiateur | éclairage, avec un **driver à courant constant** (pas une simple résistance) |\n| LED RGB | trois puces dans un boîtier | toutes les couleurs (leçon 2.4) |\n\n> 💡 La LED « L » de l'Uno est câblée sur **D13** : la constante `LED_BUILTIN` permet de tester un programme sans aucun câblage."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : faire clignoter puis varier une LED\n\nEn PWM (leçon 0.2), la broche D9 s'allume et s'éteint environ 490 fois par seconde. L'œil voit la moyenne : la luminosité se règle de 0 à 255 avec `analogWrite()`.\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. **D9** → résistance **220 Ω** → **anode** (patte longue) de la LED rouge.\n3. **Cathode** (patte courte) → **GND**.\n4. Téléverse le programme : trois clignotements, puis un allumage progressif."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.3-schema-led-d9.svg",
+    "legende": "La LED rouge et sa résistance de 220 Ω sur D9, une broche PWM (~) : D9 → R1 → LED1 → GND."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.3 — clignoter puis varier la luminosité d'une LED\nconst int LED = 9;   // broche PWM (repère ~)\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  for (int i = 0; i < 3; i++) {        // 3 clignotements\n    digitalWrite(LED, HIGH); delay(300);\n    digitalWrite(LED, LOW);  delay(300);\n  }\n  for (int v = 0; v <= 255; v++) {     // allumage progressif\n    analogWrite(LED, v);               // rapport cyclique v / 255\n    delay(8);                          // 256 × 8 ms ≈ 2 s\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\nMesure le courant (multimètre en série, calibre 200 mA) avec `digitalWrite(LED, HIGH)` fixe, pour chaque résistance :\n\n| Résistance | Courant calculé (LED rouge) | Ta mesure | Luminosité |\n|---|---|---|---|\n| 220 Ω | ≈ 13,6 mA | … | forte |\n| 330 Ω | ≈ 9,1 mA | … | moyenne |\n| 1 kΩ | ≈ 3 mA | … | faible mais visible |\n\n> 📌 **Et avec un ESP32 ?** En 3,3 V : \\( R = (3{,}3 - 2) / 0{,}01 = 130\\ \\Omega \\rightarrow 150\\ \\Omega \\). `analogWrite()` fonctionne avec les versions récentes du core ESP32 (sinon `ledcWrite`), et presque toutes les GPIO de sortie acceptent le PWM. Une LED bleue ou blanche (3 V) éclaire peu en 3,3 V : prends 33 à 47 Ω, ou commande-la par un transistor depuis le 5 V.\n\n### Pattes coupées ?\n\nLe côté plat du boîtier indique la cathode. Sinon, teste au multimètre en mode diode : dans le bon sens, la LED s'allume faiblement."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **LED à l'envers** : elle reste éteinte (sans danger, retourne-la).\n- **Pas de résistance** : la LED ou la broche grille.\n- **analogWrite sur une broche sans « ~ »** : seulement allumé ou éteint.\n- **Plusieurs LED sur une seule résistance** : luminosités inégales ; une résistance par LED.\n- **Plus de 20 mA par broche** (40 mA = maximum absolu, à ne jamais atteindre).\n\n## 📌 À retenir\n\n- Patte longue = anode (+) ; patte courte, côté plat = cathode (−).\n- Toujours une résistance : \\( R = (U_{alim} - V_f) / I \\), arrondie au-dessus.\n- \\( V_f \\) ≈ 2 V (rouge, jaune, vert) à 3 V (bleu, blanc) ; courant 5 à 20 mA.\n- `analogWrite()` sur une broche ~ pour faire varier la luminosité.\n\n## 🏆 Mini-défi\n\nFais **« respirer »** la LED : allumage puis extinction progressifs, en boucle, **2 secondes par cycle**. Quelle valeur de `delay()` faut-il ?"
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : une LED qui « respire » (2 s par cycle)\n// 256 pas pour monter + 256 pas pour descendre = 512 pas ; 2000 ms / 512 ≈ 4 ms par pas\nconst int LED = 9;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  for (int v = 0; v <= 255; v++)  { analogWrite(LED, v); delay(4); }\n  for (int v = 255; v >= 0; v--)  { analogWrite(LED, v); delay(4); }\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Comment reconnaître l'anode d'une LED neuve ?",
+    "choix": [
+     "C'est la patte la plus courte",
+     "C'est la patte la plus longue",
+     "Elle est du côté plat",
+     "Elle est toujours à gauche"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Patte longue = anode (+). La cathode est la patte courte, du côté plat du boîtier."
+   },
+   {
+    "question": "Quelle est la tension de seuil typique d'une LED rouge ?",
+    "choix": [
+     "≈ 0,7 V",
+     "≈ 2 V",
+     "≈ 3,3 V",
+     "≈ 5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une LED rouge commence à conduire vers 1,8 à 2 V ; une bleue ou blanche vers 3 V."
+   },
+   {
+    "question": "Quelle résistance pour une LED rouge (2 V, 15 mA) sur 5 V ?",
+    "choix": [
+     "22 Ω",
+     "220 Ω",
+     "2,2 kΩ",
+     "22 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "R = (5 − 2) / 0,015 = 200 Ω, arrondie à la valeur normalisée au-dessus : 220 Ω."
+   },
+   {
+    "question": "Une LED bleue (Vf ≈ 3 V) avec 220 Ω sur 5 V : quel courant ?",
+    "choix": [
+     "≈ 2 mA",
+     "≈ 9 mA",
+     "≈ 14 mA",
+     "≈ 23 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = (5 − 3) / 220 ≈ 0,009 A = 9 mA : elle reste bien visible."
+   },
+   {
+    "question": "Pourquoi une LED a-t-elle toujours besoin d'une résistance ?",
+    "choix": [
+     "Pour changer sa couleur",
+     "Parce qu'au-delà de son seuil, le courant monte très vite et la détruit",
+     "Pour qu'elle clignote",
+     "Ce n'est pas nécessaire en 5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une petite hausse de tension multiplie le courant : seule la résistance le fixe à une valeur sûre."
+   },
+   {
+    "question": "Sur quelles broches de l'Uno peut-on faire varier la luminosité avec analogWrite() ?",
+    "choix": [
+     "Toutes",
+     "Seulement celles marquées ~ (3, 5, 6, 9, 10, 11)",
+     "Seulement A0 à A5",
+     "Seulement D13"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Seules les broches PWM (~) produisent un signal à rapport cyclique variable."
+   },
+   {
+    "question": "Quelle résistance pour une LED rouge (2 V, 15 mA) alimentée en 12 V ?",
+    "choix": [
+     "220 Ω",
+     "470 Ω",
+     "680 Ω",
+     "10 kΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "R = (12 − 2) / 0,015 ≈ 667 Ω, arrondie à 680 Ω (≈ 0,15 W dissipés)."
+   },
+   {
+    "question": "Quel courant maximal faut-il éviter de dépasser sur une broche d'Arduino Uno en fonctionnement normal ?",
+    "choix": [
+     "2 mA",
+     "20 mA",
+     "200 mA",
+     "2 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "20 mA en fonctionnement normal ; 40 mA est le maximum absolu, à ne jamais atteindre."
+   },
+   {
+    "question": "Combien de temps dure l'allumage progressif de 0 à 255 avec delay(8) à chaque pas ?",
+    "choix": [
+     "≈ 0,26 s",
+     "≈ 2 s",
+     "≈ 8 s",
+     "≈ 26 s"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "256 pas × 8 ms = 2 048 ms ≈ 2 s."
+   },
+   {
+    "question": "Que se passe-t-il si on branche une LED à l'envers avec sa résistance ?",
+    "choix": [
+     "Elle grille immédiatement",
+     "Elle reste éteinte, sans danger",
+     "Elle s'allume en bleu",
+     "L'Arduino s'éteint"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "En sens inverse, la LED bloque le courant (sous 5 V, sans dommage) : il suffit de la retourner."
+   },
+   {
+    "question": "Pourquoi éviter une seule résistance commune pour plusieurs LED en parallèle ?",
+    "choix": [
+     "Les luminosités deviennent inégales",
+     "Les LED changent de couleur",
+     "Le programme ne compile plus",
+     "C'est interdit par la loi"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Les LED n'ont jamais exactement le même seuil : celle qui a le plus bas prend la plus grosse part du courant."
+   },
+   {
+    "question": "Sur un ESP32 (3,3 V), quelle résistance pour une LED rouge à environ 10 mA ?",
+    "choix": [
+     "15 Ω",
+     "150 Ω",
+     "1,5 kΩ",
+     "15 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "R = (3,3 − 2) / 0,010 = 130 Ω → 150 Ω."
+   }
+  ]
+ },
+ {
+  "id": "2.4",
+  "titre": "La LED RGB",
+  "resume": "Trois LED (rouge, verte, bleue) dans un seul boîtier : toutes les couleurs. Tu apprends à identifier une cathode ou une anode commune, à mélanger les couleurs en PWM et à afficher un état en couleur.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "2.4-photo.jpg",
+   "legende": "Une LED RGB 5 mm à cathode commune : la patte la plus longue est la commune ; les trois autres commandent le rouge, le vert et le bleu.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × LED RGB 5 mm à cathode commune, boîtier diffusé (laiteux) de préférence",
+   "3 × résistances 220 Ω",
+   "5 × câbles Dupont mâle-mâle",
+   "Facultatif : une balle de ping-pong pour diffuser la lumière ; un capteur LM35 pour le mini-défi"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le test pour savoir si la LED est à cathode commune ou à anode commune.\n2. Le câblage des trois couleurs, chacune avec sa résistance.\n3. Le mélange des couleurs : rouge + vert = jaune, les trois = blanc, et le réglage d'un blanc équilibré.\n4. Une LED RGB qui affiche un état : vert = OK, orange = attention, rouge = erreur.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne LED RGB contient **trois puces** : rouge (*Red*), verte (*Green*) et bleue (*Blue*). En dosant chacune en PWM, l'œil mélange les trois lumières et voit des millions de couleurs.\n\nÀ la fin de cette leçon, tu sauras :\n\n- identifier les 4 pattes et le type (cathode ou anode commune) ;\n- calculer la résistance de chaque couleur ;\n- mélanger les couleurs avec trois sorties PWM ;\n- écrire une fonction `couleur(r, v, b)` réutilisable."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Quatre pattes, trois couleurs\n\nL'ordre habituel des pattes est **R – commune – V – B**, la **commune** étant la **plus longue**. Il existe deux versions :\n\n| Type | Patte commune | Pour allumer une couleur | Code |\n|---|---|---|---|\n| Cathode commune | au **GND** | mettre sa broche à l'état haut | `analogWrite(broche, 255)` = à fond |\n| Anode commune | au **+5 V** | mettre sa broche à l'état bas | `analogWrite(broche, 0)` = à fond (logique inversée) |\n\n### Identifier sa LED\n\n1. Patte longue au **GND**, puis **+5 V à travers 220 Ω** sur une autre patte : elle s'allume ? **Cathode commune.**\n2. Rien ? Patte longue au **+5 V**, et l'autre patte au **GND** à travers 220 Ω : elle s'allume ? **Anode commune.**\n\n> 💡 Choisis un boîtier **diffusé** (laiteux) pour bien mélanger les couleurs. Un boîtier clair montre trois points colorés séparés."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.4-melange-couleurs.svg",
+    "legende": "La synthèse additive : rouge + vert = jaune, vert + bleu = cyan, rouge + bleu = magenta, et les trois ensemble donnent du blanc."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les calculs\n\n### Une résistance par couleur\n\nLes trois puces n'ont pas la même tension de seuil :\n\n$$R = \\frac{5 - V_f}{I}$$\n\n| Couleur | \\( V_f \\) | Courant avec 220 Ω |\n|---|---|---|\n| Rouge | ≈ 2 V | \\( (5 - 2) / 220 \\approx 14\\ \\text{mA} \\) |\n| Vert | ≈ 3 V | \\( (5 - 3) / 220 \\approx 9\\ \\text{mA} \\) |\n| Bleu | ≈ 3 V | \\( (5 - 3) / 220 \\approx 9\\ \\text{mA} \\) |\n\nTotal ≈ 32 mA quand les trois sont à fond : bien sous la limite de la carte (≈ 200 mA pour l'ensemble des broches).\n\n### Combien de couleurs ?\n\nChaque couleur prend 256 niveaux (0 à 255) :\n\n$$256 \\times 256 \\times 256 = 256^{3} = 16\\,777\\,216 \\approx 16{,}7\\ \\text{millions}$$\n\nC'est le même codage que les couleurs d'un écran ou du web : `#FF8800` = rouge 255, vert 136, bleu 0 (leçon 0.7)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les différents modèles\n\n| Modèle | Description |\n|---|---|\n| Cathode commune | patte longue au GND, `analogWrite(255)` = couleur à fond |\n| Anode commune | patte longue au +5 V, logique inversée : 0 = à fond, 255 = éteint |\n| Module RGB (KY-016) | LED et résistances déjà sur un petit circuit : 4 broches à brancher |\n| LED adressable (WS2812B) | un seul fil de données pour des centaines de LED (fiche 9.4) |\n\n## 4. Expérience : mélanger les couleurs en PWM\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. Place la LED RGB : chaque patte dans sa propre colonne.\n3. **Patte commune** (la plus longue) → **GND**.\n4. **D9** → 220 Ω → patte **R** ; **D10** → 220 Ω → patte **V** ; **D11** → 220 Ω → patte **B**.\n5. Téléverse le programme : rouge, vert, orange, blanc, en boucle."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.4-schema-rgb.svg",
+    "legende": "Les trois puces de la LED RGB, chacune avec sa résistance de 220 Ω, sur les sorties PWM D9 (rouge), D10 (vert) et D11 (bleu). La patte commune (cathode) va au GND."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.4 — afficher des couleurs avec une LED RGB à cathode commune\nconst int ROUGE = 9, VERT = 10, BLEU = 11;   // broches PWM (~)\n\nvoid couleur(int r, int v, int b) {\n  analogWrite(ROUGE, r);   // 0 à 255\n  analogWrite(VERT, v);\n  analogWrite(BLEU, b);\n}\n\nvoid setup() {\n  for (int p = 9; p <= 11; p++) pinMode(p, OUTPUT);\n}\n\nvoid loop() {\n  couleur(255, 0, 0);     delay(1000);   // rouge\n  couleur(0, 255, 0);     delay(1000);   // vert\n  couleur(255, 120, 0);   delay(1000);   // orange\n  couleur(255, 255, 255); delay(1000);   // blanc\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Quelques couleurs à essayer\n\n| Couleur | r | v | b |\n|---|---|---|---|\n| Jaune | 255 | 255 | 0 |\n| Cyan | 0 | 255 | 255 |\n| Magenta | 255 | 0 | 255 |\n| Orange | 255 | 120 | 0 |\n| Violet | 128 | 0 | 255 |\n| Blanc équilibré | 255 | 150 | 200 (à régler à l'œil) |\n\n> 💡 **Blanc équilibré** : les trois puces n'éclairent pas autant. Le vert paraît souvent plus fort : on le baisse (150 au lieu de 255). Règle chaque valeur à l'œil.\n\n> 💡 **Anode commune ?** Patte longue au +5 V et valeurs inversées : `analogWrite(broche, 255 - valeur)` donne la même couleur.\n\n> 📌 **Et avec un ESP32 ?** GPIO **25, 26 et 27** par exemple, avec `analogWrite` (versions récentes du core) ou `ledcWrite`. En 3,3 V, le vert et le bleu (\\( V_f \\approx 3\\ \\text{V} \\)) éclairent peu : prends **68 Ω** pour ces deux couleurs (\\( (3{,}3 - 3) / 68 \\approx 4{,}4\\ \\text{mA} \\)) et 150 Ω pour le rouge."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Anode commune câblée comme une cathode commune** : rien ne s'allume.\n- **Une seule résistance sur la patte commune** : les couleurs se « volent » le courant.\n- **Broche sans ~** (par exemple D7) : couleur tout ou rien.\n- **Pattes dans le désordre** : vérifie R, commune, V, B.\n- **Oublier la logique inversée** de l'anode commune.\n\n## 📌 À retenir\n\n- 4 pattes : R, commune (la plus longue), V, B.\n- Une résistance par couleur : \\( R = (5 - V_f) / I \\).\n- 3 broches PWM (~), de 0 à 255 chacune : \\( 256^3 \\approx 16{,}7 \\) millions de couleurs.\n- Rouge + vert = jaune, vert + bleu = cyan, rouge + bleu = magenta, les trois = blanc.\n- Anode commune = logique inversée (255 − valeur).\n\n## 🏆 Mini-défi\n\nAffiche la température d'un **LM35** (fiche 7.4) en couleur : **bleu** sous 20 °C, **vert** de 20 à 26 °C, **rouge** au-dessus. Bonus : un dégradé progressif avec `map()`."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : la température d'un LM35 (sur A0) en couleur\nconst int ROUGE = 9, VERT = 10, BLEU = 11;\n\nvoid couleur(int r, int v, int b) {\n  analogWrite(ROUGE, r); analogWrite(VERT, v); analogWrite(BLEU, b);\n}\n\nvoid setup() {\n  for (int p = 9; p <= 11; p++) pinMode(p, OUTPUT);\n}\n\nvoid loop() {\n  float t = analogRead(A0) * 5.0 / 1023 * 100;   // LM35 : 10 mV par °C\n  if (t < 20)        couleur(0, 0, 255);           // froid : bleu\n  else if (t <= 26)  couleur(0, 255, 0);           // confortable : vert\n  else               couleur(255, 0, 0);           // chaud : rouge\n  delay(500);\n}\n// Bonus dégradé de 15 à 35 °C : int r = constrain(map(t, 15, 35, 0, 255), 0, 255); couleur(r, 0, 255 - r);"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien de pattes a une LED RGB classique ?",
+    "choix": [
+     "2",
+     "3",
+     "4",
+     "6"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Une patte par couleur (R, V, B) et une patte commune."
+   },
+   {
+    "question": "Comment reconnaître la patte commune ?",
+    "choix": [
+     "C'est la plus courte",
+     "C'est la plus longue",
+     "Elle est rouge",
+     "Elle est au milieu à droite"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La patte commune est la plus longue des quatre."
+   },
+   {
+    "question": "Sur une LED à cathode commune, où va la patte commune ?",
+    "choix": [
+     "Au +5 V",
+     "Au GND",
+     "Sur D9",
+     "Nulle part"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Cathode commune = la commune au GND ; on allume chaque couleur en mettant sa broche à l'état haut."
+   },
+   {
+    "question": "Sur une LED à anode commune, que fait analogWrite(broche, 0) ?",
+    "choix": [
+     "Éteint la couleur",
+     "Allume la couleur à fond",
+     "Ne fait rien",
+     "Inverse les couleurs"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La logique est inversée : la broche à 0 V laisse passer le courant depuis l'anode commune au +5 V."
+   },
+   {
+    "question": "Quelle couleur obtient-on avec couleur(255, 255, 0) ?",
+    "choix": [
+     "Blanc",
+     "Jaune",
+     "Cyan",
+     "Magenta"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Rouge + vert = jaune en synthèse additive."
+   },
+   {
+    "question": "Et avec couleur(0, 255, 255) ?",
+    "choix": [
+     "Cyan",
+     "Jaune",
+     "Violet",
+     "Orange"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Vert + bleu = cyan."
+   },
+   {
+    "question": "Combien de couleurs différentes peut-on obtenir avec 256 niveaux par couleur ?",
+    "choix": [
+     "768",
+     "65 536",
+     "≈ 16,7 millions",
+     "≈ 4 milliards"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "256 × 256 × 256 = 16 777 216."
+   },
+   {
+    "question": "Pourquoi faut-il une résistance par couleur plutôt qu'une seule sur la patte commune ?",
+    "choix": [
+     "Parce que les couleurs se « voleraient » le courant",
+     "Pour aller plus vite",
+     "Parce que la commune ne supporte pas de résistance",
+     "Ce n'est pas nécessaire"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Les puces ont des seuils différents : avec une seule résistance, la rouge (seuil le plus bas) prendrait presque tout le courant."
+   },
+   {
+    "question": "Quel courant traverse la puce verte (Vf ≈ 3 V) avec 220 Ω sous 5 V ?",
+    "choix": [
+     "≈ 3 mA",
+     "≈ 9 mA",
+     "≈ 14 mA",
+     "≈ 23 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = (5 − 3) / 220 ≈ 0,009 A = 9 mA."
+   },
+   {
+    "question": "Sur un Uno, quelles broches conviennent pour piloter les trois couleurs en dégradé ?",
+    "choix": [
+     "D9, D10, D11",
+     "D2, D4, D7",
+     "A0, A1, A2 en analogRead",
+     "D0, D1, D2"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Il faut trois broches PWM (~) : 9, 10 et 11 conviennent (ou 3, 5, 6)."
+   },
+   {
+    "question": "Pourquoi préférer un boîtier diffusé (laiteux) ?",
+    "choix": [
+     "Il éclaire plus fort",
+     "Il mélange mieux les trois couleurs",
+     "Il consomme moins",
+     "Il est moins cher"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un boîtier clair montre trois points de couleur ; un boîtier diffusé les fond en une seule couleur."
+   },
+   {
+    "question": "Avec une LED à anode commune, comment obtenir la même couleur que couleur(255, 120, 0) en cathode commune ?",
+    "choix": [
+     "couleur(255, 120, 0)",
+     "couleur(0, 135, 255)",
+     "couleur(0, 120, 255)",
+     "couleur(255, 255, 255)"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "On inverse chaque valeur : 255 − 255 = 0, 255 − 120 = 135, 255 − 0 = 255."
+   }
+  ]
+ },
+ {
+  "id": "2.5",
+  "titre": "Le transistor NPN",
+  "resume": "Un interrupteur commandé : un petit courant de base pilote un grand courant. Tu apprends Ic = β × Ib, le calcul de la résistance de base et la saturation, puis tu commandes une charge 9 V et un relais.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "2.5-photo.jpg",
+   "legende": "Des transistors en boîtier TO-92 : trois pattes C, B, E, dont l'ordre dépend de la référence.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × transistor NPN BC547 (ou 2N2222A)",
+   "1 × résistance 1 kΩ et 1 × résistance 470 Ω",
+   "1 × LED et 1 × pile 9 V avec son clip",
+   "Pour le relais (facultatif) : 1 × relais 5 V, 1 × diode 1N4007",
+   "1 × multimètre, 6 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le transistor comme un robinet : un petit courant sur la base ouvre un grand passage entre collecteur et émetteur.\n2. Lire le brochage : BC547 et 2N2222A n'ont pas le même ordre de pattes.\n3. Une LED alimentée par une pile 9 V, commandée par une broche 5 V de l'Arduino.\n4. Le relais qui claque, et le calcul qui prouve que le transistor est bien saturé.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne broche d'Arduino fournit au plus 20 mA sous 5 V. Pour commander un relais, un moteur, un ruban de LED ou un circuit en 12 V, on passe par un **transistor** : un petit courant de commande pilote un courant bien plus grand.\n\nÀ la fin de cette leçon, tu sauras :\n\n- identifier le collecteur, la base et l'émetteur ;\n- utiliser la relation \\( I_C = \\beta \\times I_B \\) ;\n- calculer la résistance de base pour **saturer** le transistor ;\n- commander une charge alimentée par une autre source (9 V, 12 V) ;\n- choisir entre BC547, 2N2222A, TIP120 et MOSFET."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Trois pattes : collecteur, base, émetteur\n\nDans un transistor **NPN**, le courant principal entre par le **collecteur (C)** et sort par l'**émetteur (E)**. La **base (B)** commande ce passage :\n\n- pas de courant de base → le transistor est **bloqué** (interrupteur ouvert) ;\n- un petit courant de base → il laisse passer un courant **β fois plus grand** ;\n- assez de courant de base → il est **saturé** : il se comporte comme un interrupteur fermé (\\( V_{CE} \\approx 0{,}2\\ \\text{V} \\)).\n\nSur un schéma, on le repère **Q1** ou **T1**. La flèche sur l'émetteur indique le sens du courant : vers l'extérieur pour un NPN, vers la base pour un PNP (BC557)."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.5-brochage-to92.svg",
+    "legende": "Deux transistors NPN très courants, face plate devant et pattes en bas : le BC547 se lit C-B-E, le 2N2222A se lit E-B-C. En cas de doute, la fiche technique fait foi."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les formules clés\n\n### Le gain\n\n$$I_C = \\beta \\times I_B$$\n\n\\( \\beta \\) (noté aussi \\( h_{FE} \\)) vaut environ **100 à 300** selon le modèle et le transistor.\n\n### Le courant de base\n\nLa jonction base-émetteur se comporte comme une diode (≈ 0,7 V). Avec une résistance de base \\( R_B \\) :\n\n$$I_B = \\frac{U_{broche} - 0{,}7}{R_B}$$\n\n### Saturer le transistor\n\nEn commutation, on veut être **sûr** de saturer, quel que soit le β réel. La règle pratique : viser \\( I_B \\approx I_C / 10 \\), ou au minimum plusieurs fois \\( I_C / \\beta_{min} \\).\n\n### Exemple : une bobine de relais (70 mA)\n\n$$I_{B\\,min} = \\frac{I_C}{\\beta} = \\frac{70}{100} = 0{,}7\\ \\text{mA} \\qquad I_B = \\frac{5 - 0{,}7}{1000} \\approx 4{,}3\\ \\text{mA}$$\n\n4,3 mA, c'est **6 fois** le minimum : la saturation est assurée. Le transistor ne dissipe presque rien :\n\n$$P = V_{CE} \\times I_C \\approx 0{,}2 \\times 0{,}07 = 14\\ \\text{mW}$$"
+   },
+   {
+    "type": "schema",
+    "fichier": "2.5-saturation.svg",
+    "legende": "Courant collecteur en fonction du courant de base : il augmente avec Ib (zone linéaire), puis plafonne quand la charge ne peut pas demander plus (saturation). Avec 1 kΩ, on est largement dans la zone verte."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les modèles courants\n\n| Modèle | Type | Limites | Usage |\n|---|---|---|---|\n| BC547 | NPN, TO-92 | 45 V, 100 mA | LED, buzzer, signaux |\n| 2N2222A | NPN, TO-92 ou métal | 40 V, 600 mA | relais, petits moteurs |\n| TIP120 | Darlington NPN, TO-220 | 60 V, 5 A | moteurs, rubans LED 12 V (chauffe : ≈ 1 V de chute) |\n| BC557 | PNP, TO-92 | 45 V, 100 mA | commander le côté + d'une alimentation |\n\n### Choisir un transistor\n\n- \\( I_{C\\,max} \\) au moins **2 fois** le courant de la charge.\n- \\( V_{CE\\,max} \\) supérieure à la tension d'alimentation de la charge.\n- Au-delà de **500 mA**, préfère un **MOSFET logique** (leçon 2.6) : il chauffe beaucoup moins."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : commander une LED alimentée en 9 V\n\nLe transistor permet à une broche 5 V de commander un circuit alimenté par une **autre source**, ici une pile 9 V. Les deux circuits partagent seulement la **masse**.\n\n$$I_{LED} = \\frac{9 - 2 - 0{,}2}{470} \\approx 14{,}5\\ \\text{mA} \\qquad I_B = \\frac{5 - 0{,}7}{1000} = 4{,}3\\ \\text{mA}$$\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino et la pile.\n2. Place le **BC547** (face plate devant : C, B, E).\n3. **+9 V** → résistance **470 Ω** → anode de la **LED** ; cathode → **collecteur**.\n4. **Émetteur** → **−** de la pile **et** GND de l'Arduino (masse commune).\n5. **D7** → résistance **1 kΩ** → **base**.\n6. Branche la pile, téléverse le programme : la LED clignote au rythme de D7."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.5-schema-led-9v.svg",
+    "legende": "D7 commande la base de Q1 (BC547) à travers 1 kΩ. Le transistor ferme le circuit de la LED, alimentée par la pile 9 V. Le − de la pile et le GND de l'Arduino sont reliés."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.5 — un transistor NPN commandé par D7\nconst int BASE = 7;   // vers la base à travers 1 kΩ\n\nvoid setup() {\n  pinMode(BASE, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  digitalWrite(BASE, HIGH);   // Ib ≈ 4,3 mA : transistor saturé, la charge est alimentée\n  Serial.println(\"Transistor : passant\");\n  delay(2000);\n  digitalWrite(BASE, LOW);    // Ib = 0 : transistor bloqué\n  Serial.println(\"Transistor : bloqué\");\n  delay(2000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois mesurer\n\n| Mesure (D7 à l'état haut) | Valeur attendue | Ta mesure |\n|---|---|---|\n| Tension base-émetteur \\( V_{BE} \\) | ≈ 0,7 V | … |\n| Tension collecteur-émetteur \\( V_{CE} \\) | ≈ 0,1 à 0,2 V (saturé) | … |\n| Courant dans la LED | ≈ 14 mA | … |\n\nAvec D7 à l'état bas : \\( V_{CE} \\approx 9 - 2 = 7\\ \\text{V} \\) environ et la LED est éteinte.\n\n## 5. Le même montage avec un relais\n\nC'est l'expérience du livre : remplace la LED et sa résistance par la **bobine d'un relais 5 V** alimentée par le 5V de l'Arduino, **sans oublier la diode 1N4007** en parallèle (bague côté +5 V). Le montage, le calcul de saturation et la diode de roue libre sont détaillés dans la leçon 1.4 : le code reste le même.\n\n> 📌 **Et avec un ESP32 ?** Sortie 3,3 V : \\( I_B = (3{,}3 - 0{,}7) / R_B \\). Avec **470 Ω**, \\( I_B \\approx 5{,}5\\ \\text{mA} \\) : la saturation reste assurée. Utilise par exemple la **GPIO 26** et garde la masse commune avec l'alimentation de la charge."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Pas de résistance de base** : la broche et la jonction base-émetteur chauffent, l'Arduino peut être abîmé.\n- **C et E inversés** : le gain s'effondre, la charge est mal alimentée.\n- **Oublier la diode de roue libre** sur un relais ou un moteur : le transistor finit par claquer.\n- **Oublier la masse commune** entre l'Arduino et l'alimentation de la charge : rien ne se passe.\n- **Charge trop gourmande** (plus de 100 mA sur un BC547) : il chauffe et meurt.\n\n## 📌 À retenir\n\n- NPN : le courant entre par C et sort par E, la base commande.\n- \\( I_C = \\beta \\times I_B \\) ; \\( I_B = (U - 0{,}7) / R_B \\).\n- En commutation : saturer, avec \\( I_B \\) plusieurs fois supérieur à \\( I_C / \\beta \\) (1 kΩ en 5 V convient souvent).\n- Brochage : BC547 = C-B-E, 2N2222A = E-B-C ; toujours vérifier la fiche technique.\n- Au-delà de 500 mA : MOSFET logique.\n\n## 🏆 Mini-défi\n\nTon relais consomme **90 mA** et ton transistor a un β minimal de **100**. Quelle résistance de base maximale peux-tu utiliser pour garder une marge × 5 ?\n\n> ✅ Solution : \\( I_{B\\,min} = 90 / 100 = 0{,}9\\ \\text{mA} \\), avec une marge × 5 : 4,5 mA. \\( R_B = (5 - 0{,}7) / 0{,}0045 \\approx 956\\ \\Omega \\) : une résistance de **820 Ω ou 1 kΩ** convient (1 kΩ donne 4,3 mA, marge × 4,8)."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Comment s'appellent les trois pattes d'un transistor bipolaire ?",
+    "choix": [
+     "Anode, cathode, grille",
+     "Collecteur, base, émetteur",
+     "Drain, grille, source",
+     "Entrée, masse, sortie"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Collecteur (C), base (B) et émetteur (E). Drain, grille, source sont les pattes d'un MOSFET."
+   },
+   {
+    "question": "Dans un NPN, par où entre le courant principal ?",
+    "choix": [
+     "Par l'émetteur",
+     "Par le collecteur",
+     "Par la base",
+     "Par la masse"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le courant principal entre par le collecteur et sort par l'émetteur ; la base commande."
+   },
+   {
+    "question": "Que vaut Ic si Ib = 1 mA et β = 150 (zone linéaire) ?",
+    "choix": [
+     "1,5 mA",
+     "15 mA",
+     "150 mA",
+     "1,5 A"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Ic = β × Ib = 150 × 1 mA = 150 mA."
+   },
+   {
+    "question": "Quel courant de base donne une résistance de 1 kΩ sur une broche 5 V ?",
+    "choix": [
+     "≈ 0,43 mA",
+     "≈ 4,3 mA",
+     "≈ 43 mA",
+     "≈ 5 mA exactement"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Ib = (5 − 0,7) / 1 000 ≈ 4,3 mA."
+   },
+   {
+    "question": "Que signifie « saturer » un transistor ?",
+    "choix": [
+     "Le faire chauffer au maximum",
+     "Lui donner assez de courant de base pour qu'il se comporte comme un interrupteur fermé",
+     "Le bloquer complètement",
+     "Inverser son brochage"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Saturé, il laisse passer tout le courant que demande la charge, avec seulement ≈ 0,2 V entre C et E."
+   },
+   {
+    "question": "Quel est le brochage du BC547, face plate devant, pattes en bas ?",
+    "choix": [
+     "C, B, E",
+     "E, B, C",
+     "B, C, E",
+     "G, D, S"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "BC547 = C-B-E ; le 2N2222A est inversé : E-B-C."
+   },
+   {
+    "question": "Une bobine de relais demande 70 mA, β minimal = 100. Quel courant de base minimal ?",
+    "choix": [
+     "0,07 mA",
+     "0,7 mA",
+     "7 mA",
+     "70 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Ib min = Ic / β = 70 / 100 = 0,7 mA. On prend une marge (4,3 mA avec 1 kΩ)."
+   },
+   {
+    "question": "Pourquoi relier le − de la pile 9 V au GND de l'Arduino ?",
+    "choix": [
+     "Pour charger la pile",
+     "Pour que le courant de base puisse revenir et que les tensions aient une référence commune",
+     "Pour augmenter la tension",
+     "Ce n'est pas nécessaire"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le courant de base sort par l'émetteur vers le GND de l'Arduino : sans masse commune, le circuit de commande n'est pas fermé."
+   },
+   {
+    "question": "Quel composant choisir pour commander une charge de 3 A ?",
+    "choix": [
+     "BC547",
+     "2N2222A",
+     "Un MOSFET logique comme l'IRLZ44N",
+     "Une diode 1N4148"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Au-delà de 500 mA, un MOSFET logique chauffe beaucoup moins qu'un transistor bipolaire."
+   },
+   {
+    "question": "Quel est le rôle de la diode 1N4007 placée sur la bobine d'un relais commandé par transistor ?",
+    "choix": [
+     "Allumer un voyant",
+     "Protéger le transistor de la surtension à la coupure",
+     "Redresser le courant",
+     "Augmenter le gain"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est la diode de roue libre (leçon 1.4)."
+   },
+   {
+    "question": "Que se passe-t-il sans résistance de base ?",
+    "choix": [
+     "Le transistor ne fonctionne pas du tout",
+     "La broche fournit un courant excessif : la broche et la jonction B-E risquent d'être abîmées",
+     "Le gain double",
+     "Rien de particulier"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La jonction base-émetteur est une diode : sans résistance, rien ne limite le courant."
+   },
+   {
+    "question": "Quelle tension mesure-t-on entre collecteur et émetteur d'un transistor saturé ?",
+    "choix": [
+     "≈ 0,2 V",
+     "≈ 0,7 V",
+     "≈ 5 V",
+     "≈ 9 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Saturé, VCE ≈ 0,1 à 0,2 V : il se comporte presque comme un fil."
+   }
+  ]
+ },
+ {
+  "id": "2.6",
+  "titre": "Le MOSFET",
+  "resume": "Un interrupteur électronique commandé en tension, pour les fortes charges. Tu apprends le rôle de la grille, du drain et de la source, le choix d'un MOSFET logique et tu fais varier un ruban LED 12 V en PWM.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "2.6-photo.jpg",
+   "legende": "Des MOSFET de puissance en boîtier CMS sur une carte graphique, entourés de bobines et de condensateurs.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × MOSFET canal N logique IRLZ44N (TO-220)",
+   "1 × résistance 220 Ω et 1 × résistance 10 kΩ",
+   "1 × ruban LED 12 V (ou une lampe 12 V, ou un petit moteur 12 V avec une diode 1N4007)",
+   "1 × alimentation 12 V adaptée au ruban (par exemple 12 V 3 A) avec un adaptateur jack-bornier",
+   "Des fils de bonne section pour le circuit 12 V (pas de fils Dupont fins pour plusieurs ampères)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. MOSFET contre transistor bipolaire : commandé en tension, presque sans courant de grille.\n2. Le brochage G-D-S de l'IRLZ44N et le « L » qui signifie « logique ».\n3. Le câblage du ruban LED 12 V : résistance de grille, pull-down et masse commune.\n4. La variation de luminosité en PWM, puis la vérification : le MOSFET reste à peine tiède.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nPour commander plusieurs ampères (ruban LED, moteur, pompe, électrovanne), le transistor bipolaire chauffe trop. Le **MOSFET** fait le même travail d'interrupteur, mais il se commande en **tension** et ne perd presque rien quand il conduit.\n\nÀ la fin de cette leçon, tu sauras :\n\n- identifier la grille (G), le drain (D) et la source (S) ;\n- choisir un MOSFET **logique** commandable en 5 V ou 3,3 V ;\n- calculer la chaleur dissipée avec \\( P = I^2 \\times R_{DS(on)} \\) ;\n- câbler la résistance de grille et la résistance de pull-down ;\n- faire varier la puissance d'une charge 12 V en PWM."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Commandé en tension\n\n- La **grille (G)** est **isolée** : elle ne consomme presque aucun courant en régime établi.\n- Quand la tension grille-source \\( V_{GS} \\) dépasse le **seuil** \\( V_{GS(th)} \\) (≈ 1 à 2 V), un canal s'ouvre entre **drain (D)** et **source (S)**.\n- Complètement passant, le MOSFET se comporte comme une toute petite résistance, \\( R_{DS(on)} \\), de quelques **milliohms**.\n\n| | Transistor bipolaire (2.5) | MOSFET |\n|---|---|---|\n| Commandé par | un **courant** de base | une **tension** de grille |\n| Pattes | C, B, E | D, G, S |\n| Chute quand il conduit | \\( V_{CE} \\approx 0{,}2\\ \\text{V} \\) (fixe) | \\( R_{DS(on)} \\times I \\) (très faible) |\n| Domaine idéal | jusqu'à quelques centaines de mA | de 0,5 A à plusieurs dizaines d'ampères |\n\nSur un schéma : **Q1** ou **M1**. Canal N (IRLZ44N) pour couper le côté masse ; canal P (IRF9540) pour couper le côté +."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les formules clés\n\n### La chaleur dans le MOSFET\n\n$$P = I^{2} \\times R_{DS(on)}$$\n\n### Exemple : 2 m de ruban LED 5050\n\nUn ruban 5050 consomme environ **14,4 W par mètre** en 12 V :\n\n$$P_{ruban} = 2 \\times 14{,}4 = 28{,}8\\ \\text{W} \\qquad I = \\frac{P}{U} = \\frac{28{,}8}{12} = 2{,}4\\ \\text{A}$$\n\nIRLZ44N à \\( V_{GS} = 5\\ \\text{V} \\) : \\( R_{DS(on)} \\approx 0{,}025\\ \\Omega \\).\n\n$$P = 2{,}4^{2} \\times 0{,}025 \\approx 0{,}15\\ \\text{W}$$\n\n0,15 W : le MOSFET reste tiède, **pas besoin de radiateur**. Un transistor bipolaire Darlington (TIP120, ≈ 1 V de chute) dissiperait environ \\( 1 \\times 2{,}4 = 2{,}4\\ \\text{W} \\), seize fois plus.\n\n### En PWM\n\nAvec `analogWrite(9, v)`, la puissance moyenne envoyée au ruban vaut \\( P_{moy} = \\frac{v}{255} \\times P_{ruban} \\) (leçon 0.2) : à 50 %, environ 14,4 W."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.6-brochage-to220.svg",
+    "legende": "L'IRLZ44N en boîtier TO-220, face avant et pattes en bas : grille, drain, source. La languette métallique est reliée au drain."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Logique ou pas logique ?\n\nC'est **le** piège des débutants : beaucoup de MOSFET ne sont complètement passants qu'avec **10 V** sur la grille. Commandés en 5 V, ils conduisent mal et chauffent.\n\n| Modèle | Boîtier | Limites | Commande |\n|---|---|---|---|\n| IRLZ44N | TO-220 | 55 V, 47 A | **logique** : passant dès 5 V. Le meilleur choix pour l'Arduino |\n| IRF520 | TO-220 | 100 V, 9 A | **non logique** : il lui faut ≈ 10 V ; en 5 V, il chauffe |\n| 2N7000 | TO-92 | 60 V, 200 mA | petits signaux, adaptation de niveau |\n| AO3400 | CMS SOT-23 | 30 V, 5,7 A | logique, très utilisé sur les modules |\n\n### Choisir un MOSFET\n\n- \\( V_{DS\\,max} \\) supérieure à la tension de la charge.\n- \\( I_{D\\,max} \\) au moins **2 fois** le courant de la charge.\n- \\( R_{DS(on)} \\) donnée **à \\( V_{GS} = 4{,}5\\ \\text{V} \\) ou 5 V** (et à 2,5 V pour un ESP32). Le **L** d'IRLZ44N signale un modèle logique."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : varier un ruban LED 12 V en PWM\n\nDeux résistances accompagnent toujours la grille :\n\n- **220 Ω en série** : la grille se comporte comme un petit condensateur ; la résistance limite le pic de courant à chaque commutation.\n- **10 kΩ entre grille et source** (pull-down) : au démarrage de l'Arduino, la broche est « en l'air » ; sans cette résistance, le ruban pourrait s'allumer au hasard.\n\n### Le montage pas à pas\n\n1. Débranche tout.\n2. **Source** de l'IRLZ44N → **−** de l'alimentation 12 V **et** GND de l'Arduino (masse commune).\n3. **+12 V** → **+** du ruban ; **−** du ruban → **drain**.\n4. **D9** → **220 Ω** → **grille** ; **10 kΩ** entre **grille** et **source**.\n5. Utilise des fils épais pour le circuit 12 V. Branche l'alimentation, puis téléverse le programme."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.6-schema-mosfet-ruban.svg",
+    "legende": "D9 pilote la grille de l'IRLZ44N à travers 220 Ω ; le 10 kΩ maintient la grille à 0 V au démarrage. Le MOSFET relie le − du ruban à la masse. Les masses de l'Arduino et de l'alimentation 12 V sont reliées."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.6 — allumage et extinction progressifs d'un ruban LED 12 V\nconst int GRILLE = 9;   // sortie PWM vers la grille (à travers 220 Ω)\n\nvoid setup() {\n  pinMode(GRILLE, OUTPUT);\n}\n\nvoid loop() {\n  for (int v = 0; v <= 255; v += 5) {   // montée : 52 pas × 30 ms ≈ 1,5 s\n    analogWrite(GRILLE, v);\n    delay(30);\n  }\n  for (int v = 255; v >= 0; v -= 5) {   // descente\n    analogWrite(GRILLE, v);\n    delay(30);\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Valeur PWM | Rapport cyclique | Puissance moyenne (2 m de ruban) |\n|---|---|---|\n| 0 | 0 % | 0 W |\n| 64 | 25 % | ≈ 7,2 W |\n| 128 | 50 % | ≈ 14,4 W |\n| 255 | 100 % | ≈ 28,8 W |\n\nAprès quelques minutes à 100 %, touche le MOSFET : il doit être à peine tiède.\n\n> 🔒 Une alimentation 12 V de plusieurs ampères peut faire fondre un fil fin en cas de court-circuit. Vérifie le câblage avant de brancher, utilise des fils adaptés et un bornier, et ne touche pas les pistes sous tension.\n\n> 📌 **Et avec un ESP32 ?** Sa sortie ne donne que **3,3 V** : il faut un MOSFET dont la \\( R_{DS(on)} \\) est garantie à \\( V_{GS} = 2{,}5\\ \\text{V} \\) (comme l'AO3400) ; l'IRLZ44N conduit encore à 3,3 V mais chauffe davantage, limite-toi alors à 1 ou 2 A, ou un petit transistor qui commande la grille en 12 V. PWM sur **GPIO 25** avec `analogWrite` (core récent) ou `ledcWrite`.\n\n### Pour un moteur ou une électrovanne\n\nMême montage, mais **ajoute une diode de roue libre** (1N4007 ou Schottky) en parallèle sur la charge, bague côté +12 V (leçon 1.4)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **IRF520 commandé en 5 V** : il chauffe et le ruban éclaire mal. Prends un modèle logique (IRLZ44N).\n- **Pas de pull-down** : le ruban s'allume au hasard au démarrage.\n- **Oublier la masse commune** : la grille n'a pas de référence, rien ne se passe.\n- **Charge inductive sans diode** (moteur, électrovanne) : la surtension détruit le MOSFET.\n- **Fils Dupont pour 3 A** : ils chauffent ; utilise des fils de section adaptée.\n\n## 📌 À retenir\n\n- MOSFET : commandé en tension, grille isolée ; G, D, S.\n- Passant, c'est une petite résistance : \\( P = I^2 \\times R_{DS(on)} \\).\n- Sur Arduino, uniquement un MOSFET **logique** (IRLZ44N, AO3400).\n- 220 Ω en série sur la grille, 10 kΩ de pull-down, masse commune.\n- En PWM : \\( P_{moy} = (v / 255) \\times P \\).\n\n## 🏆 Mini-défi\n\nTon ruban fait maintenant **5 m** (14,4 W/m). Quel courant ? Quelle puissance dans l'IRLZ44N ? Faut-il un radiateur ?\n\n> ✅ Solution : \\( P = 5 \\times 14{,}4 = 72\\ \\text{W} \\), \\( I = 72 / 12 = 6\\ \\text{A} \\). \\( P_{MOSFET} = 6^2 \\times 0{,}025 = 0{,}9\\ \\text{W} \\) : il devient chaud ; un petit radiateur est conseillé, et il faut une alimentation 12 V d'au moins 7 à 8 A et des fils épais."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Comment s'appellent les trois pattes d'un MOSFET ?",
+    "choix": [
+     "Collecteur, base, émetteur",
+     "Grille, drain, source",
+     "Anode, cathode, gâchette",
+     "IN, GND, OUT"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Grille (G), drain (D), source (S)."
+   },
+   {
+    "question": "Qu'est-ce qui commande un MOSFET ?",
+    "choix": [
+     "Le courant de base",
+     "La tension entre grille et source",
+     "La lumière",
+     "La température"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La grille est isolée : c'est la tension VGS qui ouvre le canal entre drain et source."
+   },
+   {
+    "question": "Que signifie le « L » dans IRLZ44N ?",
+    "choix": [
+     "Large",
+     "Logique : il est passant dès 5 V sur la grille",
+     "Lent",
+     "Lumineux"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un MOSFET logique est complètement passant avec une tension de grille de 4,5 à 5 V."
+   },
+   {
+    "question": "Pourquoi un IRF520 fonctionne-t-il mal avec un Arduino en 5 V ?",
+    "choix": [
+     "Il est trop rapide",
+     "Il lui faut environ 10 V sur la grille pour être pleinement passant",
+     "Il est de type P",
+     "Il ne supporte pas le PWM"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Commandé en 5 V, il reste à moitié passant : sa résistance est élevée et il chauffe."
+   },
+   {
+    "question": "Quelle puissance dissipe un IRLZ44N (RDS(on) = 0,025 Ω) traversé par 2,4 A ?",
+    "choix": [
+     "≈ 0,06 W",
+     "≈ 0,15 W",
+     "≈ 1,5 W",
+     "≈ 6 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "P = I² × RDS(on) = 2,4² × 0,025 = 5,76 × 0,025 ≈ 0,14 W."
+   },
+   {
+    "question": "Quel courant consomment 2 m de ruban LED 14,4 W/m en 12 V ?",
+    "choix": [
+     "0,24 A",
+     "1,2 A",
+     "2,4 A",
+     "28,8 A"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "P = 28,8 W ; I = P / U = 28,8 / 12 = 2,4 A."
+   },
+   {
+    "question": "À quoi sert la résistance de 10 kΩ entre la grille et la source ?",
+    "choix": [
+     "À limiter le courant du ruban",
+     "À garder le MOSFET bloqué quand la broche est en l'air (au démarrage)",
+     "À augmenter la luminosité",
+     "À protéger contre l'inversion de polarité"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est une résistance de pull-down : elle impose 0 V sur la grille tant que l'Arduino ne la commande pas."
+   },
+   {
+    "question": "À quoi sert la résistance de 220 Ω en série avec la grille ?",
+    "choix": [
+     "À limiter le pic de courant de charge de la grille à chaque commutation",
+     "À diviser la tension par deux",
+     "À allumer le ruban",
+     "À rien"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "La grille se comporte comme un petit condensateur : la résistance protège la broche de l'Arduino."
+   },
+   {
+    "question": "Avec analogWrite(9, 128), quelle puissance moyenne reçoit un ruban de 28,8 W ?",
+    "choix": [
+     "≈ 7,2 W",
+     "≈ 14,4 W",
+     "≈ 28,8 W",
+     "≈ 128 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "128 / 255 ≈ 50 % : 0,5 × 28,8 ≈ 14,4 W."
+   },
+   {
+    "question": "Que faut-il ajouter si la charge est un moteur ?",
+    "choix": [
+     "Une LED",
+     "Une diode de roue libre en parallèle sur le moteur",
+     "Un quartz",
+     "Rien de plus"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un moteur est une bobine : à la coupure, il produit une surtension qui détruirait le MOSFET."
+   },
+   {
+    "question": "À quoi est reliée la languette métallique d'un IRLZ44N en TO-220 ?",
+    "choix": [
+     "À la grille",
+     "Au drain",
+     "À la source",
+     "À rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La languette est reliée au drain : attention en la fixant sur un radiateur commun à d'autres composants."
+   },
+   {
+    "question": "Quels avantages a un MOSFET logique sur un transistor bipolaire pour une charge de plusieurs ampères ?",
+    "choix": [
+     "Il chauffe beaucoup moins",
+     "Sa grille ne consomme presque aucun courant",
+     "Il n'a pas besoin de masse commune",
+     "Il fonctionne sans alimentation"
+    ],
+    "bonnes": [
+     "A",
+     "B"
+    ],
+    "explication": "Faible RDS(on) et grille isolée ; la masse commune reste indispensable."
+   }
+  ]
+ },
+ {
+  "id": "2.7",
+  "titre": "L'optocoupleur",
+  "resume": "Une LED et un phototransistor dans un boîtier : la lumière relie deux circuits sans fil commun. Tu apprends le brochage du PC817, le CTR et tu lis un signal 12 V en toute sécurité.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "2.7-photo.jpg",
+   "legende": "Des circuits intégrés en boîtiers DIP et CMS sur une carte : un optocoupleur PC817 ressemble à une petite puce DIP à 4 broches.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × optocoupleur PC817 (DIP-4)",
+   "1 × résistance 1 kΩ",
+   "1 × bouton poussoir ou interrupteur (le « contact » à surveiller)",
+   "1 × alimentation 12 V (ou une pile 9 V pour l'essai : la résistance reste correcte)",
+   "1 × multimètre, 5 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Pourquoi isoler : un moteur, un automate 24 V ou un long câble peuvent envoyer des parasites dans l'Arduino.\n2. Le PC817 : repérer la broche 1 et comprendre l'intérieur (LED + phototransistor).\n3. Le montage : un contact sur un circuit 12 V, lu par D2 sans aucun fil commun.\n4. Vérification au multimètre en continuité : aucune liaison entre les deux masses.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nParfois, l'Arduino doit lire ou commander un circuit **dangereux ou bruyant** : un automate en 24 V, un moteur, un compteur électrique. L'**optocoupleur** transmet l'information par la **lumière** : aucun fil ne relie les deux circuits.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer le principe de l'isolation optique ;\n- repérer les 4 broches d'un PC817 ;\n- calculer la résistance de la LED interne ;\n- utiliser le CTR pour savoir quel courant est disponible en sortie ;\n- lire un signal 12 V avec une entrée en `INPUT_PULLUP`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Deux circuits, un rayon de lumière\n\nLe boîtier contient :\n\n- une **LED infrarouge** (broches 1 = anode, 2 = cathode) ;\n- un **phototransistor** (broches 4 = collecteur, 3 = émetteur), qui devient passant quand il reçoit de la lumière.\n\nLe courant qui traverse la LED l'allume ; la lumière rend le phototransistor passant. **Seule la lumière franchit la barrière** : l'isolation atteint **5 000 V** pour un PC817.\n\n### Repérer la broche 1\n\nLe **point** gravé ou l'**encoche** marque la broche 1. Vue de dessus, on compte ensuite dans le sens **inverse des aiguilles d'une montre** : 1 et 2 d'un côté (LED), 3 et 4 de l'autre (sortie). Sur un schéma : **U1**, **OK1** ou **ISO1**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les formules clés\n\n### La résistance de la LED interne\n\nLa LED infrarouge du PC817 a une tension de seuil d'environ **1,2 V** et fonctionne entre **5 et 20 mA** (50 mA maximum) :\n\n$$R = \\frac{V_e - 1{,}2}{I_F}$$\n\n### Le CTR : combien de courant en sortie ?\n\nLe **CTR** (*Current Transfer Ratio*) indique quelle part du courant de LED se retrouve en sortie :\n\n$$I_C \\approx CTR \\times I_F$$\n\nPour le PC817, CTR = 50 à 600 % selon la version. Avec le minimum (50 %) et 10 mA dans la LED, on dispose d'au moins 5 mA en sortie, largement assez pour tirer une entrée d'Arduino à 0 V.\n\n### Exemple : un contact sur 12 V\n\n$$I_F = \\frac{12 - 1{,}2}{1000} \\approx 10{,}8\\ \\text{mA} \\qquad I_C \\geq 0{,}5 \\times 10{,}8 \\approx 5{,}4\\ \\text{mA}$$\n\nLe pull-up interne de l'Arduino (≈ 30 à 50 kΩ) ne demande que \\( 5 / 30\\,000 \\approx 0{,}17\\ \\text{mA} \\) : le phototransistor tire facilement la broche à 0 V.\n\n| Tension côté contact | Résistance conseillée | Courant de LED |\n|---|---|---|\n| 5 V | 330 Ω | ≈ 11,5 mA |\n| 12 V | 1 kΩ | ≈ 10,8 mA |\n| 24 V (automate) | 2,2 kΩ (≥ ¼ W) | ≈ 10,4 mA |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les modèles courants\n\n| Modèle | Boîtier | Particularité | Usage |\n|---|---|---|---|\n| PC817 | DIP-4 | sortie transistor, 5 kV, le moins cher | signaux lents, entrées isolées |\n| 4N35 | DIP-6 | base accessible, CTR ≥ 100 % | entrées isolées, plus de courant |\n| 6N137 | DIP-8 | rapide (10 Mbit/s), sortie logique | liaisons série, MIDI |\n| MOC3021 | DIP-6 | opto-triac | commande d'un triac sur le 230 V (experts uniquement) |\n\n### Choisir un optocoupleur\n\n- La **vitesse** : PC817 pour des signaux lents (boutons, contacts), 6N137 pour une liaison série.\n- La **tension d'isolation** nécessaire.\n- Un **CTR** suffisant pour le courant de sortie voulu."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : lire un signal 12 V en sécurité\n\nUn contact (bouton) ferme un circuit 12 V. Ce circuit allume la LED du PC817 ; côté Arduino, le phototransistor tire D2 à 0 V.\n\n### Le montage pas à pas\n\n1. Débranche tout. Place le PC817 à cheval sur la rainure, **point (broche 1) en haut à gauche**.\n2. **Côté 12 V** : **+12 V** → **contact** → **1 kΩ** → **broche 1** ; **broche 2** → **−** de l'alimentation 12 V.\n3. **Côté Arduino** : **broche 4** (collecteur) → **D2** ; **broche 3** (émetteur) → **GND** de l'Arduino.\n4. **Ne relie pas** les deux masses : c'est tout l'intérêt de l'isolation.\n5. Téléverse le programme, ouvre le moniteur série et appuie sur le contact."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.7-schema-optocoupleur.svg",
+    "legende": "À gauche, le circuit 12 V : le contact alimente la LED du PC817 à travers 1 kΩ. À droite, le phototransistor tire D2 à 0 V. Les deux masses restent séparées : seule la lumière passe."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.7 — détecter un signal 12 V à travers un optocoupleur PC817\nconst int OPTO = 2;   // collecteur du PC817 (broche 4)\n\nvoid setup() {\n  pinMode(OPTO, INPUT_PULLUP);   // pull-up interne : HIGH au repos\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  if (digitalRead(OPTO) == LOW) {          // phototransistor passant\n    Serial.println(\"Signal 12 V présent\");\n  } else {\n    Serial.println(\"Pas de signal\");\n  }\n  delay(300);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Contact | LED du PC817 | Phototransistor | D2 lit | Message |\n|---|---|---|---|---|\n| ouvert | éteinte | bloqué | HIGH (pull-up) | « Pas de signal » |\n| fermé | allumée (≈ 11 mA) | passant | LOW | « Signal 12 V présent » |\n\nAu multimètre en mode continuité, vérifie qu'il n'y a **aucune liaison** entre le − du 12 V et le GND de l'Arduino.\n\n> 💡 **Logique inversée** : le signal présent donne LOW. Si tu préfères l'inverse dans le code : `bool present = (digitalRead(OPTO) == LOW);`.\n\n> 📌 **Et avec un ESP32 ?** Même montage côté 12 V. Côté ESP32 : collecteur sur une GPIO comme **4**, en `INPUT_PULLUP` (attention : les GPIO 34 à 39 n'ont pas de pull-up interne), émetteur au GND de l'ESP32. L'entrée ne voit jamais plus de 3,3 V.\n\n> 🔒 Le MOC3021 permet de commander le 230 V, mais ce montage est **réservé aux personnes formées** : boîtier isolé, distances d'isolement sur le circuit imprimé, protections. Il n'est pas traité ici."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **LED montée à l'envers** : rien ne se passe (le point repère la broche 1, l'anode).\n- **Pas de résistance côté 12 V** : la LED interne grille instantanément.\n- **Relier les deux masses** « pour que ça marche » : l'isolation disparaît.\n- **Oublier le pull-up** (`INPUT` au lieu de `INPUT_PULLUP`) : l'entrée flotte quand le phototransistor est bloqué.\n- **PC817 pour une liaison rapide** : il est trop lent au-delà de quelques kHz ; prends un 6N137.\n\n## 📌 À retenir\n\n- Une LED et un phototransistor dans un boîtier : seule la lumière passe (jusqu'à 5 000 V d'isolation).\n- PC817 : 1 = anode, 2 = cathode, 3 = émetteur, 4 = collecteur ; le point marque la broche 1.\n- \\( R = (V_e - 1{,}2) / I_F \\) avec \\( I_F \\) ≈ 10 mA ; \\( I_C \\approx CTR \\times I_F \\).\n- Côté Arduino : `INPUT_PULLUP`, signal présent = LOW.\n- Deux masses séparées, toujours.\n\n## 🏆 Mini-défi\n\nTu veux lire la sortie d'un automate industriel en **24 V**. Quelle résistance mettre devant la LED du PC817 pour environ 10 mA ? Quelle puissance dissipe-t-elle ?\n\n> ✅ Solution : \\( R = (24 - 1{,}2) / 0{,}010 = 2\\,280\\ \\Omega \\rightarrow 2{,}2\\ \\text{k}\\Omega \\) (≈ 10,4 mA). \\( P = R \\times I^2 = 2200 \\times 0{,}0104^2 \\approx 0{,}24\\ \\text{W} \\) : prends une résistance **½ W** pour garder de la marge."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Qu'y a-t-il à l'intérieur d'un optocoupleur PC817 ?",
+    "choix": [
+     "Une résistance et un condensateur",
+     "Une LED infrarouge et un phototransistor",
+     "Un quartz",
+     "Un relais mécanique"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La LED éclaire le phototransistor : la lumière transmet le signal entre les deux circuits."
+   },
+   {
+    "question": "Quel est le principal intérêt d'un optocoupleur ?",
+    "choix": [
+     "Augmenter la tension",
+     "Isoler électriquement deux circuits",
+     "Stocker de l'énergie",
+     "Mesurer la température"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Aucun fil ne relie les deux côtés : une surtension côté 12 V ou 24 V n'atteint pas l'Arduino."
+   },
+   {
+    "question": "Comment repère-t-on la broche 1 d'un PC817 ?",
+    "choix": [
+     "C'est la plus longue",
+     "Par le point gravé ou l'encoche",
+     "Elle est rouge",
+     "Elle est toujours en bas à droite"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le point ou l'encoche marque la broche 1 ; on compte ensuite dans le sens inverse des aiguilles d'une montre."
+   },
+   {
+    "question": "Quelles broches du PC817 correspondent à la LED ?",
+    "choix": [
+     "1 et 2",
+     "3 et 4",
+     "1 et 4",
+     "2 et 3"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "1 = anode, 2 = cathode ; 3 = émetteur et 4 = collecteur du phototransistor."
+   },
+   {
+    "question": "Quelle résistance pour environ 11 mA dans la LED d'un PC817 alimentée en 12 V ?",
+    "choix": [
+     "100 Ω",
+     "1 kΩ",
+     "10 kΩ",
+     "100 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "R = (12 − 1,2) / 0,011 ≈ 980 Ω : 1 kΩ donne environ 10,8 mA."
+   },
+   {
+    "question": "Avec un CTR de 50 % et 10 mA dans la LED, quel courant minimal est disponible en sortie ?",
+    "choix": [
+     "0,5 mA",
+     "5 mA",
+     "20 mA",
+     "50 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Ic ≈ CTR × IF = 0,5 × 10 mA = 5 mA."
+   },
+   {
+    "question": "Dans l'expérience, que lit D2 quand le contact 12 V est fermé ?",
+    "choix": [
+     "HIGH",
+     "LOW",
+     "Une valeur au hasard",
+     "12 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le phototransistor devient passant et tire D2 à 0 V : la logique est inversée."
+   },
+   {
+    "question": "Faut-il relier le − de l'alimentation 12 V au GND de l'Arduino ?",
+    "choix": [
+     "Oui, toujours",
+     "Non : les masses doivent rester séparées pour garder l'isolation",
+     "Seulement si le montage ne marche pas",
+     "Peu importe"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Relier les masses supprimerait l'isolation, qui est la raison d'être de l'optocoupleur."
+   },
+   {
+    "question": "Pourquoi utiliser INPUT_PULLUP sur la broche reliée au collecteur ?",
+    "choix": [
+     "Pour alimenter la LED interne",
+     "Pour que l'entrée soit à HIGH quand le phototransistor est bloqué",
+     "Pour augmenter le CTR",
+     "Pour aller plus vite"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sans pull-up, l'entrée flotterait quand le phototransistor ne conduit pas."
+   },
+   {
+    "question": "Quel optocoupleur choisir pour une liaison série rapide (MIDI, plusieurs centaines de kbit/s) ?",
+    "choix": [
+     "PC817",
+     "6N137",
+     "MOC3021",
+     "4N35"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le 6N137 est rapide (jusqu'à 10 Mbit/s) ; le PC817 est réservé aux signaux lents."
+   },
+   {
+    "question": "Quelle tension d'isolation offre typiquement un PC817 ?",
+    "choix": [
+     "5 V",
+     "50 V",
+     "500 V",
+     "5 000 V"
+    ],
+    "bonnes": [
+     "D"
+    ],
+    "explication": "Environ 5 000 V entre l'entrée et la sortie."
+   },
+   {
+    "question": "Quelle résistance pour lire un signal d'automate 24 V avec environ 10 mA ?",
+    "choix": [
+     "220 Ω",
+     "1 kΩ",
+     "2,2 kΩ",
+     "22 kΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "R = (24 − 1,2) / 0,010 ≈ 2 280 Ω : 2,2 kΩ (½ W conseillé)."
+   }
+  ]
+ },
+ {
+  "id": "2.8",
+  "titre": "Les régulateurs de tension",
+  "resume": "7805 et AMS1117 : ils transforment une tension variable en 5 V ou 3,3 V stables. Tu apprends la marge de tension, le calcul de la chaleur dissipée et tu fabriques du 5 V à partir d'une pile 9 V.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "2.8-photo.jpg",
+   "legende": "Un Arduino Uno en montage : son régulateur 5 V, près du jack, transforme la tension de l'alimentation externe en 5 V stables.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × régulateur 7805 (TO-220)",
+   "1 × condensateur 0,33 µF (code 334) et 1 × condensateur 0,1 µF (code 104)",
+   "2 × résistances 10 kΩ",
+   "1 × pile 9 V avec son clip",
+   "1 × multimètre, 6 × câbles Dupont",
+   "Facultatif : 1 × AMS1117-3.3 sur module, 1 × LM317 et deux résistances (240 Ω, 390 Ω)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Où se trouvent les régulateurs : sur l'Uno près du jack, sur le Nano, sur une carte ESP32.\n2. Le brochage du 7805 (IN, GND, OUT) et de l'AMS1117 (GND, OUT, IN).\n3. Le montage : pile 9 V → 7805 → 5 V stables, mesurés au multimètre puis par l'Arduino.\n4. Le calcul de la chaleur : pourquoi le 7805 chauffe avec 12 V et 500 mA, et quand passer à un convertisseur à découpage.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne pile se décharge, un bloc secteur fournit 12 V, un panneau solaire varie avec le soleil… Tes cartes, elles, veulent **5 V** ou **3,3 V** bien stables. C'est le rôle du **régulateur de tension**.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire le brochage d'un 7805 et d'un AMS1117 ;\n- respecter la marge de tension minimale (*dropout*) ;\n- calculer la chaleur dissipée avec \\( P = (V_e - V_s) \\times I \\) ;\n- placer les condensateurs d'entrée et de sortie ;\n- choisir entre régulateur linéaire et convertisseur à découpage."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Une résistance automatique\n\nUn **régulateur linéaire** se comporte comme une résistance qui s'ajuste toute seule : il « brûle » l'excédent de tension pour garder la sortie fixe. Il a trois broches : **IN** (entrée), **GND** (masse commune) et **OUT** (sortie stable).\n\n### La marge de tension\n\nIl lui faut une entrée **plus haute** que la sortie :\n\n$$V_e \\geq V_s + 2\\ \\text{V (7805)} \\qquad V_e \\geq V_s + 1{,}1 \\text{ à } 1{,}3\\ \\text{V (AMS1117)}$$\n\nPour le 7805 : au moins **7 V** en entrée pour obtenir 5 V. En dessous, la sortie chute.\n\n### La chaleur dissipée\n\nTout l'excédent de tension, multiplié par le courant, devient de la chaleur :\n\n$$P = (V_e - V_s) \\times I$$\n\n| Entrée | Courant | Chaleur dans le 7805 | Verdict |\n|---|---|---|---|\n| 9 V | 100 mA | \\( 4 \\times 0{,}1 = 0{,}4\\ \\text{W} \\) | tiède |\n| 12 V | 100 mA | \\( 7 \\times 0{,}1 = 0{,}7\\ \\text{W} \\) | chaud |\n| 12 V | 500 mA | \\( 7 \\times 0{,}5 = 3{,}5\\ \\text{W} \\) | radiateur obligatoire |\n| 9 V | 1 A | \\( 4 \\times 1 = 4\\ \\text{W} \\) | radiateur, ou mieux : un convertisseur à découpage |\n\n> 💡 Au-delà d'environ **1 W**, un radiateur est indispensable sur le boîtier TO-220 du 7805. Au-delà de 1 à 2 W, préfère un **convertisseur à découpage** (LM2596, fiche 5.4) : son rendement dépasse souvent 85 %, il chauffe beaucoup moins."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.8-courbes-7805.svg",
+    "legende": "À gauche : la sortie du 7805 reste à 5 V tant que l'entrée dépasse 7 V. À droite : la chaleur dissipée augmente avec la tension d'entrée et le courant consommé ; au-delà d'environ 1 W, il faut un radiateur."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les modèles courants\n\n| Modèle | Boîtier | Sortie | Courant | Brochage |\n|---|---|---|---|---|\n| 7805 | TO-220 | 5 V | 1 A (1,5 A sur radiateur) | IN, GND, OUT (face avant, pattes en bas) |\n| 78L05 | TO-92 | 5 V | 100 mA | OUT, GND, IN (face plate devant) |\n| AMS1117 | CMS SOT-223 | 3,3 V ou 5 V | 1 A | GND, OUT, IN ; languette = OUT |\n| LM317 | TO-220 | réglable 1,25 à 37 V | 1,5 A | ADJ, OUT, IN |\n\n> ⚠️ Les brochages **ne sont pas les mêmes** d'un modèle à l'autre : vérifie toujours la fiche technique. IN et OUT inversés, le régulateur chauffe ou meurt.\n\n### Le LM317 réglable\n\nAvec deux résistances, il fournit la tension de ton choix :\n\n$$V_s = 1{,}25 \\times \\left(1 + \\frac{R_2}{R_1}\\right)$$\n\nAvec \\( R_1 = 240\\ \\Omega \\) et \\( R_2 = 390\\ \\Omega \\) : \\( V_s = 1{,}25 \\times (1 + 1{,}625) \\approx 3{,}28\\ \\text{V} \\).\n\n### Sur tes cartes\n\n- **Arduino Uno** : un régulateur 5 V près du jack (entrée conseillée 7 à 12 V) et un régulateur 3,3 V.\n- **Arduino Nano**, **cartes ESP32** : un AMS1117 (ou équivalent) qui fournit le 3,3 V depuis l'USB 5 V."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : créer du 5 V à partir d'une pile 9 V\n\nLe montage type du 7805 : un condensateur **à l'entrée** (0,33 µF) et un **à la sortie** (0,1 µF), au plus près des broches. Ils évitent les oscillations et absorbent les pointes de courant. Un pont 2 × 10 kΩ permet à A0 de lire la moitié de la sortie.\n\n### Le montage pas à pas\n\n1. Débranche tout. Place le 7805, face avant (inscriptions) vers toi : **IN – GND – OUT** de gauche à droite.\n2. **+9 V** de la pile → **IN** ; **0,33 µF** entre IN et GND.\n3. **−** de la pile → **GND** du 7805 → **GND** de l'Arduino (masse commune).\n4. **OUT** → **0,1 µF** vers GND ; puis pont **10 kΩ / 10 kΩ** entre OUT et GND, point milieu → **A0**.\n5. Mesure d'abord OUT au multimètre (≈ 5,0 V), puis téléverse le programme."
+   },
+   {
+    "type": "schema",
+    "fichier": "2.8-schema-7805.svg",
+    "legende": "La pile 9 V alimente le 7805 ; C1 (0,33 µF) et C2 (0,1 µF) stabilisent l'entrée et la sortie. Le pont 2 × 10 kΩ divise la sortie par deux pour A0. Toutes les masses sont communes."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 2.8 — surveiller la sortie 5 V d'un régulateur 7805\nconst float K_PONT = 2.0;   // pont 10 k / 10 k sur A0\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  float vA0 = analogRead(A0) * 5.0 / 1023;\n  float vs = vA0 * K_PONT;               // sortie du 7805\n  Serial.print(\"Sortie du régulateur : \");\n  Serial.print(vs, 2);\n  Serial.println(\" V\");\n  if (vs < 4.75) Serial.println(\"Pile trop faible !\");   // tolérance de 5 %\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Pile | Sortie attendue | Chaleur à 100 mA | Ta mesure |\n|---|---|---|---|\n| neuve (≈ 9,5 V) | 5,0 V | ≈ 0,45 W | … |\n| usée (≈ 7,5 V) | 5,0 V | ≈ 0,25 W | … |\n| très usée (≈ 6,5 V) | ≈ 4,5 V : la marge manque | — | … |\n\n> 💡 Le programme mesure la sortie avec la référence 5 V de l'Arduino (alimenté par l'USB) : la mesure est approchée. Pour vérifier, compare avec le multimètre.\n\n> 📌 **Et avec un ESP32 ?** Il lui faut du **3,3 V** : un **AMS1117-3.3** alimenté en 5 V (USB ou 7805) convient (\\( 5 - 3{,}3 = 1{,}7\\ \\text{V} \\) de marge). Pointes de Wi-Fi jusqu'à environ 500 mA : ajoute 10 à 100 µF en sortie. Pour mesurer sur GPIO 34 (3,3 V maximum), garde le pont ÷ 2 et remplace `5.0 / 1023` par `3.3 / 4095`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **IN et OUT inversés** : le régulateur chauffe ou meurt.\n- **Pas de condensateurs** : la sortie oscille, le montage se comporte bizarrement.\n- **Entrée trop basse** (moins de 7 V pour un 7805) : la sortie chute.\n- **Trop de puissance sans radiateur** : le régulateur se coupe en surchauffe (protection thermique), puis redémarre, en boucle.\n- **Brochage supposé identique** entre 7805, 78L05 et AMS1117 : il ne l'est pas.\n\n## 📌 À retenir\n\n- Régulateur linéaire : IN → OUT stable, GND commun, un condensateur de chaque côté.\n- Marge : \\( V_e \\geq V_s + 2\\ \\text{V} \\) pour le 7805.\n- Chaleur : \\( P = (V_e - V_s) \\times I \\) ; radiateur au-delà d'environ 1 W.\n- 7805 = IN, GND, OUT ; AMS1117 = GND, OUT, IN.\n- Grosses différences de tension ou forts courants : convertisseur à découpage.\n\n## 🏆 Mini-défi\n\nTon montage consomme **300 mA** et tu l'alimentes avec un bloc **12 V** à travers un 7805. Quelle puissance le régulateur dissipe-t-il ? Faut-il un radiateur ? Quelle solution serait meilleure ?\n\n> ✅ Solution : \\( P = (12 - 5) \\times 0{,}3 = 2{,}1\\ \\text{W} \\) : radiateur obligatoire. Mieux : un module à découpage (LM2596) réglé sur 5 V, qui ne dissiperait qu'environ 0,3 W, ou un bloc d'alimentation 5 V directement."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelles sont les trois broches d'un régulateur 7805 ?",
+    "choix": [
+     "Grille, drain, source",
+     "IN, GND, OUT",
+     "Anode, cathode, gâchette",
+     "C, B, E"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Entrée, masse commune et sortie stable ; face avant, pattes en bas : IN, GND, OUT."
+   },
+   {
+    "question": "Quelle tension d'entrée minimale faut-il à un 7805 pour fournir 5 V ?",
+    "choix": [
+     "5 V",
+     "5,7 V",
+     "7 V",
+     "12 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Il lui faut environ 2 V de marge : 5 + 2 = 7 V."
+   },
+   {
+    "question": "Quelle puissance dissipe un 7805 alimenté en 9 V qui fournit 100 mA ?",
+    "choix": [
+     "0,04 W",
+     "0,4 W",
+     "0,9 W",
+     "4 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "P = (9 − 5) × 0,1 = 0,4 W."
+   },
+   {
+    "question": "Et alimenté en 12 V pour 500 mA ?",
+    "choix": [
+     "0,35 W",
+     "2,5 W",
+     "3,5 W",
+     "6 W"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "P = (12 − 5) × 0,5 = 3,5 W : radiateur obligatoire."
+   },
+   {
+    "question": "À partir de quelle puissance environ faut-il un radiateur sur un 7805 en TO-220 ?",
+    "choix": [
+     "0,1 W",
+     "1 W",
+     "10 W",
+     "Jamais"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Au-delà d'environ 1 W, le boîtier seul ne suffit plus à évacuer la chaleur."
+   },
+   {
+    "question": "Quel est le brochage d'un AMS1117 (SOT-223) ?",
+    "choix": [
+     "IN, GND, OUT",
+     "GND, OUT, IN, languette = OUT",
+     "OUT, IN, GND",
+     "G, D, S"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Attention : il est différent du 7805. GND, OUT, IN, et la languette est reliée à OUT."
+   },
+   {
+    "question": "Pourquoi place-t-on des condensateurs à l'entrée et à la sortie du régulateur ?",
+    "choix": [
+     "Pour augmenter la tension",
+     "Pour éviter les oscillations et absorber les pointes de courant",
+     "Pour mesurer le courant",
+     "Pour inverser la polarité"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La fiche technique du 7805 recommande 0,33 µF en entrée et 0,1 µF en sortie."
+   },
+   {
+    "question": "Que se passe-t-il si la pile descend à 6,5 V avec un 7805 ?",
+    "choix": [
+     "La sortie reste à 5 V",
+     "La sortie chute (environ 4,5 V)",
+     "La sortie monte à 6,5 V",
+     "Le 7805 explose"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La marge de 2 V n'est plus respectée : la sortie suit l'entrée moins environ 2 V."
+   },
+   {
+    "question": "Quel régulateur choisir pour obtenir 3,3 V pour un ESP32 à partir de l'USB 5 V ?",
+    "choix": [
+     "7805",
+     "AMS1117-3.3",
+     "78L05",
+     "Une Zener 5,1 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'AMS1117-3.3 a une faible marge (≈ 1,1 à 1,3 V) et supporte 1 A."
+   },
+   {
+    "question": "Quelle tension donne un LM317 avec R1 = 240 Ω et R2 = 390 Ω ?",
+    "choix": [
+     "≈ 1,25 V",
+     "≈ 2,0 V",
+     "≈ 3,3 V",
+     "≈ 5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Vs = 1,25 × (1 + 390/240) = 1,25 × 2,625 ≈ 3,28 V."
+   },
+   {
+    "question": "Pour alimenter 1 A en 5 V depuis 12 V, quelle solution chauffe le moins ?",
+    "choix": [
+     "Un 7805 sans radiateur",
+     "Un 7805 avec radiateur",
+     "Un convertisseur à découpage (LM2596)",
+     "Une diode Zener"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le 7805 dissiperait 7 W ; un convertisseur à découpage a un rendement souvent supérieur à 85 %."
+   },
+   {
+    "question": "Que fait un 7805 en surchauffe ?",
+    "choix": [
+     "Il augmente sa tension de sortie",
+     "Il se coupe grâce à sa protection thermique",
+     "Il passe en 3,3 V",
+     "Rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il se protège en coupant sa sortie, puis redémarre en refroidissant : le montage s'éteint et se rallume en boucle."
+   }
+  ]
+ }
+]
