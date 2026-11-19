@@ -23,7 +23,8 @@ def can_read_lesson(user, lesson):
     except AcademyBookLesson.DoesNotExist:
         return True
     if not entry.published:
-        return False
+        # Brouillon : visible seulement par l'équipe (relecture avant publication).
+        return bool(user and user.is_authenticated and user.is_staff)
     return can_read_book_chapter(user, entry.chapter_number)
 
 

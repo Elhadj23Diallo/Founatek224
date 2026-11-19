@@ -1,0 +1,232 @@
+[
+ {
+  "id": "0.1",
+  "titre": "Tension, courant, résistance : la loi d'Ohm",
+  "resume": "La tension pousse, le courant circule, la résistance freine : U = R × I. Tu apprends à calculer un courant, une résistance et une puissance, puis à protéger une LED.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "0.1-photo.jpg",
+   "legende": "Le multimètre numérique : l'outil qui mesure la tension U, le courant I et la résistance R (voir la fiche 0.6).",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard (plaque d'essai) 400 ou 830 points",
+   "1 × LED rouge 5 mm",
+   "1 × résistance 220 Ω (anneaux rouge-rouge-marron)",
+   "1 × résistance 1 kΩ (anneaux marron-noir-rouge)",
+   "1 × multimètre numérique avec ses deux cordons",
+   "4 × câbles Dupont mâle-mâle",
+   "Facultatif : 1 × pile 9 V avec son clip"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. L'analogie de l'eau : la tension est la pression, le courant le débit, la résistance un tuyau étroit.\n2. La loi d'Ohm en direct : une pile, une résistance de 1 kΩ, le multimètre en voltmètre puis en ampèremètre.\n3. Le calcul de la résistance d'une LED, puis le montage sur la breadboard avec l'Arduino.\n4. Les deux erreurs à ne jamais faire : une LED sans résistance, un ampèremètre branché en parallèle.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nTout montage électronique repose sur trois grandeurs : **la tension**, **le courant** et **la résistance**. Une seule formule les relie : la **loi d'Ohm**. Quand tu la maîtrises, tu sais pourquoi une LED grille, quelle résistance choisir et quelle alimentation acheter.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer ce que sont la tension U, le courant I, la résistance R et la puissance P ;\n- calculer l'une de ces grandeurs quand tu connais les deux autres ;\n- choisir la résistance qui protège une LED ;\n- vérifier tes calculs avec un multimètre."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Les quatre grandeurs à connaître\n\nImagine l'électricité comme de l'eau dans un tuyau :\n\n- la **tension U** est la **pression** qui pousse l'eau ;\n- le **courant I** est le **débit** : la quantité d'eau qui passe chaque seconde ;\n- la **résistance R** est un **rétrécissement** du tuyau qui freine le débit ;\n- la **puissance P** est le **travail** fourni : l'énergie transformée chaque seconde (en lumière, en chaleur…).\n\n| Grandeur | Symbole | Unité | Exemples |\n|---|---|---|---|\n| Tension | U | volt (V) | pile AA 1,5 V ; USB 5 V ; ESP32 3,3 V ; secteur 230 V |\n| Courant | I | ampère (A) | LED 10 à 20 mA ; Arduino Uno ≈ 50 mA ; moteur 0,5 A |\n| Résistance | R | ohm (Ω) | 220 Ω ; 1 kΩ ; 10 kΩ ; 1 MΩ |\n| Puissance | P | watt (W) | résistance ¼ W = 250 mW ; ampoule LED 7 W |\n\n> 💡 La tension se mesure **entre deux points** (on dit « aux bornes » d'un composant). Le courant, lui, **traverse** les composants : il faut que le circuit soit **fermé** pour qu'il circule.\n\n### Les multiples à connaître\n\n| Préfixe | Symbole | Valeur | Exemple |\n|---|---|---|---|\n| milli | m | \\( 10^{-3} \\) | 15 mA = 0,015 A |\n| micro | µ | \\( 10^{-6} \\) | 100 µA = 0,0001 A |\n| kilo | k | \\( 10^{3} \\) | 4,7 kΩ = 4 700 Ω |\n| méga | M | \\( 10^{6} \\) | 1 MΩ = 1 000 000 Ω |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. La loi d'Ohm\n\nDans une résistance, la tension est proportionnelle au courant :\n\n$$U = R \\times I$$\n\navec \\( U \\) en volts (V), \\( R \\) en ohms (Ω) et \\( I \\) en ampères (A). On peut la retourner pour trouver le courant ou la résistance :\n\n$$I = \\frac{U}{R} \\qquad\\qquad R = \\frac{U}{I}$$\n\n> 💡 Astuce : cache avec ton doigt la grandeur que tu cherches dans le triangle U au-dessus de R × I. Ce qui reste te donne la formule.\n\n### Exemple : 5 V sur une résistance de 1 kΩ\n\nOn convertit d'abord en unités de base : 1 kΩ = 1 000 Ω.\n\n$$I = \\frac{U}{R} = \\frac{5\\ \\text{V}}{1000\\ \\Omega} = 0{,}005\\ \\text{A} = 5\\ \\text{mA}$$\n\nSi on double la résistance (2 kΩ), le courant est divisé par deux : 2,5 mA. **Plus R est grande, plus I est faible.**\n\n> ⚠️ L'erreur la plus fréquente : mélanger les unités. Toujours convertir en V, A et Ω avant de calculer (ou utiliser le trio cohérent V, mA et kΩ)."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.1-schema-ohm.svg",
+    "legende": "Schéma 1 — Vérifier la loi d'Ohm : la pile de 5 V fait circuler I = 5 V / 1 kΩ = 5 mA. L'ampèremètre est en série (le courant le traverse), le voltmètre en parallèle (aux bornes de R)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. La puissance : ce qui chauffe\n\nUn composant traversé par un courant transforme de l'énergie. Chaque seconde, il consomme une puissance :\n\n$$P = U \\times I$$\n\nDans une résistance, en remplaçant U par R × I (ou I par U / R), on obtient deux autres formes très utiles :\n\n$$P = R \\times I^{2} \\qquad\\qquad P = \\frac{U^{2}}{R}$$\n\nDans une résistance, toute cette puissance devient de la **chaleur**. Une résistance classique de breadboard supporte **¼ W = 250 mW** : au-delà, elle chauffe trop et brûle.\n\n### Exemple\n\nUne résistance de 1 kΩ sous 5 V :\n\n$$P = \\frac{U^{2}}{R} = \\frac{5^{2}}{1000} = 0{,}025\\ \\text{W} = 25\\ \\text{mW}$$\n\n25 mW est bien inférieur à 250 mW : aucun risque."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Exemple résolu : protéger une LED\n\nUne LED ne se branche **jamais** directement sur une alimentation : sans rien pour limiter le courant, il monte jusqu'à la détruire. On place une **résistance en série**.\n\nLa LED « garde » une tension presque fixe à ses bornes, sa **tension de seuil** \\( U_{LED} \\). La résistance reçoit le reste de la tension :\n\n$$R = \\frac{U_{alim} - U_{LED}}{I}$$\n\n**Données** : alimentation 5 V (Arduino Uno), LED rouge \\( U_{LED} \\approx 2\\ \\text{V} \\), courant voulu 15 mA.\n\n1. Tension aux bornes de la résistance : \\( 5 - 2 = 3\\ \\text{V} \\).\n2. Résistance : \\( R = 3 / 0{,}015 = 200\\ \\Omega \\).\n3. 200 Ω n'existe pas dans les valeurs normalisées : on prend la valeur **juste au-dessus**, **220 Ω**.\n4. Courant réel : \\( I = 3 / 220 \\approx 13{,}6\\ \\text{mA} \\) : la LED éclaire bien et ne risque rien.\n5. Puissance dans la résistance : \\( P = R \\times I^{2} = 220 \\times 0{,}0136^{2} \\approx 41\\ \\text{mW} \\) : une résistance ¼ W suffit.\n\n### Tension de seuil selon la couleur (valeurs typiques)\n\n| Couleur | \\( U_{LED} \\) | R sous 5 V (≈ 15 mA) | R sous 3,3 V (≈ 10 mA) |\n|---|---|---|---|\n| Rouge | ≈ 2,0 V | 220 Ω | 150 Ω |\n| Jaune / orange | ≈ 2,1 V | 220 Ω | 120 Ω |\n| Vert classique | ≈ 2,2 V | 220 Ω | 120 Ω |\n| Bleu, blanc, vert vif | ≈ 3,0 V | 150 Ω | 33 Ω |\n\n> 💡 Les valeurs normalisées les plus courantes (série E12) : 10, 12, 15, 18, 22, 27, 33, 39, 47, 56, 68, 82, puis leurs multiples (100, 120, 150… 1 k, 1,2 k…)."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.1-schema-led.svg",
+    "legende": "Schéma 2 — Une LED rouge protégée par une résistance de 220 Ω, commandée par la broche D9 de l'Arduino Uno."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Le montage pas à pas\n\n1. Débranche l'Arduino du câble USB avant de câbler.\n2. Place la LED sur la breadboard. Repère ses pattes : la **plus longue** est l'**anode (+)**, le côté **plat** du boîtier est la **cathode (−)**.\n3. Relie la broche **D9** à une patte de la résistance de **220 Ω**, et l'autre patte de la résistance à l'**anode** de la LED.\n4. Relie la **cathode** de la LED à une broche **GND** de l'Arduino.\n5. Vérifie le câblage avec le schéma 2, rebranche l'USB et téléverse le programme ci-dessous : la LED clignote."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.1 — LED protégée par une résistance de 220 Ω sur la broche D9\nconst int BROCHE_LED = 9;\n\nvoid setup() {\n  pinMode(BROCHE_LED, OUTPUT);   // la broche D9 devient une sortie\n}\n\nvoid loop() {\n  digitalWrite(BROCHE_LED, HIGH); // D9 à 5 V : I ≈ (5 - 2) / 220 ≈ 13,6 mA, la LED s'allume\n  delay(1000);                    // attendre 1 seconde\n  digitalWrite(BROCHE_LED, LOW);  // D9 à 0 V : plus de courant, la LED s'éteint\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "> 📌 **Et avec un ESP32 ?** Ses broches donnent 3,3 V au lieu de 5 V. Pour une LED rouge à 10 mA : \\( R = (3{,}3 - 2) / 0{,}010 = 130\\ \\Omega \\) → on prend **150 Ω**. Utilise par exemple la broche GPIO 2 et remplace `9` par `2` dans le programme.\n\n## 6. Mesurer pour vérifier\n\nRemplace le programme par un simple `digitalWrite(9, HIGH);` dans `setup()` pour que la LED reste allumée, puis :\n\n1. **Tension** : multimètre sur V⎓ (continu), pointes **aux bornes** de la résistance (en parallèle). Tu dois lire environ 3 V.\n2. **Courant** : multimètre sur mA, cordon rouge dans la borne mA. **Ouvre** le circuit (retire le fil entre D9 et la résistance) et place le multimètre **dans le trou** (en série). Tu dois lire environ 13 à 14 mA.\n3. **Compare** avec le calcul : \\( I = U_R / R = 3 / 220 \\approx 13{,}6\\ \\text{mA} \\). Les petites différences viennent de la tolérance de la résistance (± 5 %) et de la tension réelle de la LED.\n\n| Mesure | Valeur attendue | Ta mesure |\n|---|---|---|\n| U aux bornes de R | ≈ 3,0 V | … |\n| U aux bornes de la LED | ≈ 2,0 V | … |\n| I dans le circuit | ≈ 13,6 mA | … |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **LED sans résistance** : le courant n'est plus limité, la LED (et parfois la broche de la carte) est détruite.\n- **Ampèremètre en parallèle** : il se comporte comme un fil, c'est un court-circuit. Le fusible du multimètre saute.\n- **Mélanger mA et A** : 15 mA = 0,015 A, pas 15 A.\n- **Mesurer une résistance sous tension** : l'ohmmètre se branche toujours sur un circuit **éteint**.\n- **Trop de courant sur une broche** : vise 20 mA au maximum par broche d'Arduino ou d'ESP32.\n\n> 🔒 Sécurité : ces expériences se font en très basse tension (pile, USB). Ne travaille **jamais** sur le secteur 230 V.\n\n## 📌 À retenir\n\n- \\( U = R \\times I \\), \\( I = U / R \\), \\( R = U / I \\) : toujours en V, A et Ω.\n- \\( P = U \\times I \\) : la puissance, en watts, devient de la chaleur dans une résistance.\n- Résistance d'une LED : \\( R = (U_{alim} - U_{LED}) / I \\), puis la valeur normalisée juste au-dessus.\n- Le voltmètre se branche en **parallèle**, l'ampèremètre en **série**."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "En quelle unité s'exprime le courant électrique ?",
+    "choix": [
+     "Le volt (V)",
+     "L'ampère (A)",
+     "L'ohm (Ω)",
+     "Le watt (W)"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le courant I se mesure en ampères (A), souvent en milliampères (mA) en électronique."
+   },
+   {
+    "question": "Une résistance de 3 kΩ est soumise à une tension de 9 V. Quel courant la traverse ?",
+    "choix": [
+     "3 A",
+     "27 mA",
+     "3 mA",
+     "0,3 mA"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "I = U / R = 9 V / 3 000 Ω = 0,003 A = 3 mA."
+   },
+   {
+    "question": "Quelle formule donne la résistance à placer en série avec une LED ?",
+    "choix": [
+     "R = U_alim × I",
+     "R = (U_alim − U_LED) / I",
+     "R = (U_alim + U_LED) / I",
+     "R = I / U_alim"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La résistance reçoit la tension qui reste une fois la tension de seuil de la LED retirée : (U_alim − U_LED), divisée par le courant voulu."
+   },
+   {
+    "question": "Sous 5 V, une LED rouge (≈ 2 V) doit être traversée par environ 15 mA. Quelle résistance normalisée choisis-tu ?",
+    "choix": [
+     "100 Ω",
+     "180 Ω",
+     "220 Ω",
+     "10 kΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "R = (5 − 2) / 0,015 = 200 Ω, qui n'existe pas : on prend la valeur normalisée juste au-dessus, 220 Ω (13,6 mA)."
+   },
+   {
+    "question": "Comment branche-t-on un voltmètre pour mesurer la tension aux bornes d'une résistance ?",
+    "choix": [
+     "En série avec la résistance",
+     "En parallèle, aux bornes de la résistance",
+     "À la place de la résistance",
+     "Entre la résistance et la masse, circuit ouvert"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une tension se mesure entre deux points : le voltmètre se place en parallèle, une pointe de chaque côté du composant."
+   },
+   {
+    "question": "Que se passe-t-il si on branche un ampèremètre en parallèle sur une alimentation ?",
+    "choix": [
+     "Il mesure la tension",
+     "Rien de particulier",
+     "Il crée un court-circuit et son fusible peut sauter",
+     "Il mesure la résistance"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Un ampèremètre a une résistance presque nulle : en parallèle, il agit comme un fil et court-circuite l'alimentation."
+   },
+   {
+    "question": "À tension constante, on double la valeur de la résistance. Que devient le courant ?",
+    "choix": [
+     "Il double",
+     "Il est divisé par deux",
+     "Il ne change pas",
+     "Il est multiplié par quatre"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = U / R : si R double et U ne change pas, I est divisé par deux."
+   },
+   {
+    "question": "Quelle puissance dissipe une résistance de 1 kΩ sous 5 V ?",
+    "choix": [
+     "5 mW",
+     "25 mW",
+     "250 mW",
+     "5 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "P = U² / R = 25 / 1 000 = 0,025 W = 25 mW, bien en dessous des 250 mW d'une résistance ¼ W."
+   },
+   {
+    "question": "Quelles affirmations sur la tension sont vraies ? (plusieurs réponses)",
+    "choix": [
+     "Elle se mesure en volts",
+     "Elle se mesure entre deux points du circuit",
+     "Elle se mesure en branchant le multimètre en série",
+     "C'est le débit d'électrons dans le fil"
+    ],
+    "bonnes": [
+     "A",
+     "B"
+    ],
+    "explication": "La tension (en volts) est une différence entre deux points ; le débit d'électrons, c'est le courant, qui se mesure en série."
+   },
+   {
+    "question": "Combien vaut 4,7 kΩ en ohms ?",
+    "choix": [
+     "47 Ω",
+     "470 Ω",
+     "4 700 Ω",
+     "47 000 Ω"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "k = × 1 000 : 4,7 × 1 000 = 4 700 Ω."
+   },
+   {
+    "question": "Avec un ESP32 (3,3 V), quelle résistance donne environ 10 mA dans une LED rouge (≈ 2 V) ?",
+    "choix": [
+     "15 Ω",
+     "150 Ω",
+     "1,5 kΩ",
+     "15 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "R = (3,3 − 2) / 0,010 = 130 Ω ; la valeur normalisée juste au-dessus est 150 Ω (≈ 8,7 mA)."
+   },
+   {
+    "question": "Pourquoi ne faut-il jamais brancher une LED directement sur une alimentation de 5 V ?",
+    "choix": [
+     "Parce qu'elle s'allumerait trop faiblement",
+     "Parce que rien ne limiterait le courant et elle serait détruite",
+     "Parce que la LED ne fonctionne qu'en alternatif",
+     "Parce que la tension serait inversée"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Au-delà de sa tension de seuil, le courant dans une LED augmente très vite : sans résistance, il dépasse largement les 20 mA tolérés."
+   }
+  ]
+ }
+]

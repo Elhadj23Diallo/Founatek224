@@ -388,6 +388,9 @@ class AcademyBookLesson(models.Model):
     lecon = models.OneToOneField(Lecon, on_delete=models.CASCADE, related_name="academy_book_entry")
     chapter_number = models.CharField(max_length=2)
     published = models.BooleanField(default=False)
+    # Empreinte de la source enrichie importée (import_academy_book_v2) : une
+    # leçon déjà à jour n'est pas reconstruite.
+    content_hash = models.CharField(max_length=64, blank=True, default="")
 
     def __str__(self):
         return f"Livre 1 / {self.chapter_number} / {self.lecon_id}"

@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
 from django.conf import settings
@@ -565,11 +566,19 @@ def lire_lecon(request, lecon_id):
 
     lecon = get_object_or_404(Lecon, id=lecon_id)
 
+    # Vue HTML : on redirige avec un message plutôt que de lever l'exception DRF
+    # (non gérée par Django, elle produisait une erreur 500).
     if not can_read_lesson(request.user, lecon):
-        raise PermissionDenied("Cette leçon nécessite un accès Academy actif.")
+        if hasattr(lecon, "academy_book_entry"):
+            messages.info(request, "Cette leçon fait partie du pack « Livre 1 » de la FOUNATEK Academy.")
+            return redirect("iot:academy_book_home")
+        messages.warning(request, "Cette leçon nécessite un accès Academy actif.")
+        return redirect("iot:liste_lecons", parcours_id=lecon.parcours_id)
 
-    if not lecon_est_debloquee(request.user, lecon):
-        raise PermissionDenied("Vous devez valider la leçon précédente.")
+    # L'équipe peut relire n'importe quelle leçon sans valider les précédentes.
+    if not request.user.is_staff and not lecon_est_debloquee(request.user, lecon):
+        messages.warning(request, "Valide d'abord la leçon précédente pour débloquer celle-ci.")
+        return redirect("iot:liste_lecons", parcours_id=lecon.parcours_id)
 
     blocs = lecon.blocs.all().order_by("ordre")
     quizzes = lecon.quizzes.all()
@@ -966,7 +975,7 @@ def lecon_create(request):
         if form.is_valid():
             lecon = form.save(commit=False)
             if lecon.parcours.organisation != request.user.formateur_profile.organisation:
-                raise PermissionDenied("Accès interdit")
+                raise DjangoPermissionDenied("Accès interdit")
             lecon.save()
             messages.success(request, "Leçon créée ✅")
             return redirect("iot:formateur_lecon_list")
@@ -1042,7 +1051,7 @@ def bloc_create(request):
             bloc = form.save(commit=False)
 
             if bloc.lecon.parcours.organisation != org:
-                raise PermissionDenied("Accès interdit")
+                raise DjangoPermissionDenied("Accès interdit")
 
             bloc.save()
             messages.success(request, "Bloc créé ✅")
@@ -1138,7 +1147,7 @@ def quiz_create(request):
             quiz = form.save(commit=False)
 
             if quiz.lecon.parcours.organisation != org:
-                raise PermissionDenied("Accès interdit")
+                raise DjangoPermissionDenied("Accès interdit")
 
             quiz.save()
             messages.success(request, "Quiz créé ✅")
@@ -1221,7 +1230,7 @@ def project_create(request):
             project = form.save(commit=False)
 
             if project.parcours.organisation != org:
-                raise PermissionDenied("Accès interdit")
+                raise DjangoPermissionDenied("Accès interdit")
 
             project.save()
             messages.success(request, "Projet créé ✅")

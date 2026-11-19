@@ -1,0 +1,165 @@
+"""Leçons enrichies du Livre 1 : rendu Markdown, import v2, brouillons visibles par l'équipe."""
+import json
+import shutil
+import tempfile
+from io import StringIO
+from pathlib import Path
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.test import TestCase, override_settings
+
+from .academy_access import can_read_lesson
+from .book_catalog import BOOK_SLUG
+from .models import AcademyBookLesson, BlocPedagogique, Lecon, Parcours, Quiz
+from .templatetags.lesson_extras import markdown_lite
+
+PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00"
+       b"\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82")
+
+
+def lesson(**overrides):
+    data = {
+        "id": "0.9", "titre": "Leçon de test", "resume": "Résumé", "duree_minutes": 30,
+        "photo": {"fichier": "photo.png", "legende": "Une photo", "credit": "Pixabay"},
+        "materiel": ["1 × LED", "1 × résistance 220 Ω"],
+        "video": "Plan de la vidéo",
+        "blocs": [
+            {"type": "texte", "contenu": "## 🎯 Objectifs\n\n- comprendre"},
+            {"type": "schema", "fichier": "schema.svg", "legende": "Le schéma"},
+            {"type": "code", "language": "cpp", "code": "void setup() {}"},
+        ],
+        "quiz": [
+            {"question": "Q1 ?", "choix": ["a", "b", "c", "d"], "bonnes": ["B"], "explication": "car b"},
+            {"question": "Q2 ?", "choix": ["a", "b", "c"], "bonnes": ["A", "C"], "explication": "a et c"},
+        ],
+    }
+    data.update(overrides)
+    return data
+
+
+class MarkdownLiteTests(TestCase):
+    def test_rich_blocks(self):
+        html = markdown_lite(
+            "## Titre\n\n- un\n- deux\n\n1. premier\n2. second\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n"
+            "> 💡 astuce **forte**\n\n$$U = R \\times I$$\n\nTexte avec `code` et \\( I = U/R \\)."
+        )
+        self.assertIn('<h4 class="lesson-h">Titre</h4>', html)
+        self.assertIn("<ul", html)
+        self.assertIn("<ol", html)
+        self.assertIn("<th>A</th>", html)
+        self.assertIn("lesson-callout-tip", html)
+        self.assertIn("<strong>forte</strong>", html)
+        self.assertIn('<div class="academy-formula">$$U = R \\times I$$</div>', html)
+        self.assertIn("<code>code</code>", html)
+        self.assertIn("\\( I = U/R \\)", html)
+
+    def test_html_is_escaped(self):
+        html = markdown_lite("<script>alert(1)</script>\n\n## <b>x</b>")
+        self.assertNotIn("<script>", html)
+        self.assertNotIn("<b>", html)
+
+    def test_plain_text_keeps_old_behaviour(self):
+        self.assertEqual(markdown_lite("ligne 1\nligne 2\n\nparagraphe"), "<p>ligne 1<br>ligne 2</p><p>paragraphe</p>")
+
+
+class ImportV2Tests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.staff = User.objects.create_user(username="equipe", password="p", is_staff=True)
+        self.learner = User.objects.create_user(username="eleve", password="p")
+        from .models import Organisation
+        self.parcours = Parcours.objects.create(
+            organisation=Organisation.objects.create(nom="FOUNATEK"), created_by=self.staff,
+            titre="Livre 1", slug=BOOK_SLUG, description="Livre 1",
+        )
+        self.tmp = Path(tempfile.mkdtemp())
+        self.media = tempfile.mkdtemp()
+        (self.tmp / "assets").mkdir()
+        (self.tmp / "assets" / "photo.png").write_bytes(PNG)
+        (self.tmp / "assets" / "schema.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>')
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.addCleanup(shutil.rmtree, self.media, True)
+        for p in (
+            patch("iot.management.commands.import_academy_book_v2.SOURCE", self.tmp),
+            patch("iot.management.commands.import_academy_book_v2.ASSETS", self.tmp / "assets"),
+        ):
+            p.start()
+            self.addCleanup(p.stop)
+        media = override_settings(MEDIA_ROOT=self.media)
+        media.enable()
+        self.addCleanup(media.disable)
+
+    def write(self, *lessons):
+        (self.tmp / "chapter_00.json").write_text(json.dumps(list(lessons), ensure_ascii=False), encoding="utf-8")
+
+    def run_import(self, *args):
+        out = StringIO()
+        call_command("import_academy_book_v2", *args, stdout=out)
+        return out.getvalue()
+
+    def test_dry_run_writes_nothing(self):
+        self.write(lesson())
+        self.assertIn("Simulation", self.run_import())
+        self.assertFalse(Lecon.objects.exists())
+
+    def test_import_builds_lesson_as_draft(self):
+        self.write(lesson())
+        self.run_import("--apply")
+        lecon = Lecon.objects.get()
+        self.assertEqual(lecon.titre, "0.9 — Leçon de test")
+        self.assertEqual(lecon.ordre, 9)
+        self.assertFalse(lecon.academy_book_entry.published)
+        types = list(lecon.blocs.order_by("ordre").values_list("type", flat=True))
+        self.assertEqual(types, ["image", "texte", "texte", "video", "image", "code"])
+        self.assertIn("Matériel nécessaire", lecon.blocs.get(ordre=3).contenu)
+        self.assertEqual(lecon.blocs.get(ordre=5).language, "schema")
+        quizzes = list(Quiz.objects.filter(lecon=lecon).order_by("id"))
+        self.assertEqual(len(quizzes), 2)
+        self.assertEqual((quizzes[1].bonne_reponse, quizzes[1].plusieurs_reponses, quizzes[1].choix_d), ("A,C", True, None))
+
+    def test_second_run_is_noop_and_changes_rebuild_keeping_video(self):
+        self.write(lesson())
+        self.run_import("--apply")
+        self.assertIn("1 inchangées", self.run_import("--apply"))
+        video = BlocPedagogique.objects.get(type="video")
+        video.media_file = "videos/ma-video.mp4"
+        video.save()
+        self.write(lesson(resume="Nouveau résumé"))
+        self.assertIn("1 mises à jour", self.run_import("--apply"))
+        lecon = Lecon.objects.get()
+        self.assertEqual(lecon.resume, "Nouveau résumé")
+        self.assertEqual(lecon.blocs.get(type="video").media_file.name, "videos/ma-video.mp4")
+
+    def test_existing_draft_with_same_number_is_updated_not_duplicated(self):
+        old = Lecon.objects.create(parcours=self.parcours, titre="0.9 — Ancien titre", ordre=9)
+        AcademyBookLesson.objects.create(lecon=old, chapter_number="00", published=True)
+        self.write(lesson())
+        self.run_import("--apply")
+        self.assertEqual(Lecon.objects.count(), 1)
+        old.refresh_from_db()
+        self.assertEqual(old.titre, "0.9 — Leçon de test")
+        self.assertTrue(old.academy_book_entry.published, "l'état publié n'est jamais modifié")
+
+    def test_invalid_source_is_refused(self):
+        self.write(lesson(quiz=[{"question": "?", "choix": ["a", "b"], "bonnes": ["D"]}]))
+        from django.core.management.base import CommandError
+        with self.assertRaises(CommandError):
+            self.run_import("--apply")
+        self.assertFalse(Lecon.objects.exists())
+
+    def test_draft_visible_to_staff_only(self):
+        self.write(lesson())
+        self.run_import("--apply")
+        lecon = Lecon.objects.get()
+        self.assertTrue(can_read_lesson(self.staff, lecon))
+        self.assertFalse(can_read_lesson(self.learner, lecon))
+        self.client.force_login(self.staff)
+        resp = self.client.get(f"/lecon/{lecon.id}/")
+        self.assertContains(resp, "Brouillon")
+        self.assertContains(resp, "Vidéo de la leçon : bientôt disponible")
+        self.assertContains(resp, "academy-schematic")
+        self.client.force_login(self.learner)
+        resp = self.client.get(f"/lecon/{lecon.id}/")
+        self.assertRedirects(resp, "/academy/livre-1/", fetch_redirect_response=False)
