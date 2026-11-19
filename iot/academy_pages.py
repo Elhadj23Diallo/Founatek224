@@ -15,7 +15,8 @@ def academy_book_home(request):
     drafts = {}
     admin_parcours = None
     if is_admin:
-        for row in AcademyBookLesson.objects.filter(published=False).values_list("chapter_number", flat=True):
+        for row in (AcademyBookLesson.objects.filter(published=False).exclude(content_hash="")
+                    .values_list("chapter_number", flat=True)):
             drafts[row] = drafts.get(row, 0) + 1
         admin_parcours = Parcours.objects.filter(slug=BOOK_SLUG).first()
     chapters = [

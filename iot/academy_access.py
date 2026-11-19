@@ -14,6 +14,18 @@ def has_full_access(user):
     return bool(user and user.is_authenticated and (user.is_superuser or user.is_staff))
 
 
+def raw_book_draft_q():
+    """Fiche brute extraite de Canva (ancien import), jamais enrichie : non publiée
+    et sans empreinte import_academy_book_v2. On ne l'affiche à personne."""
+    from django.db.models import Q
+    return Q(academy_book_entry__published=False, academy_book_entry__content_hash="")
+
+
+def is_raw_book_draft(lesson):
+    entry = getattr(lesson, "academy_book_entry", None)
+    return bool(entry and not entry.published and not entry.content_hash)
+
+
 def can_read_book_chapter(user, chapter_number):
     if chapter_is_free(chapter_number):
         return True

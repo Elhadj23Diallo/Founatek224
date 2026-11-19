@@ -212,3 +212,35 @@ class AdminFullAccessTests(TestCase):
         self.assertContains(resp, f"/parcours/{self.parcours.id}/")
         self.client.force_login(self.learner)
         self.assertNotContains(self.client.get("/academy/livre-1/"), "Vue administrateur")
+
+
+class RawCanvaDraftTests(TestCase):
+    """Les fiches brutes de l'ancien import Canva restent masquées, même pour l'admin."""
+    write = ImportV2Tests.write
+    run_import = ImportV2Tests.run_import
+
+    def setUp(self):
+        ImportV2Tests.setUp(self)
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(username="admin", password="p", email="a@example.com")
+        self.raw = Lecon.objects.create(parcours=self.parcours, titre="7.1 — Version brute", ordre=701)
+        AcademyBookLesson.objects.create(lecon=self.raw, chapter_number="07", published=False)
+        self.write(lesson())
+        self.run_import("--apply")
+
+    def test_raw_draft_hidden_from_admin_list_and_page(self):
+        self.client.force_login(self.admin)
+        liste = self.client.get(f"/parcours/{self.parcours.id}/")
+        self.assertNotContains(liste, "Version brute")
+        self.assertContains(liste, "fiche brute du livre Canva masquée")
+        self.assertContains(liste, "Leçon de test")
+        resp = self.client.get(f"/lecon/{self.raw.id}/")
+        self.assertRedirects(resp, f"/parcours/{self.parcours.id}/", fetch_redirect_response=False)
+
+    def test_reimport_v2_makes_it_visible(self):
+        self.write(lesson(id="7.1", titre="Les DHT11 et DHT22"))
+        self.run_import("--apply")
+        self.raw.refresh_from_db()
+        self.assertTrue(self.raw.titre.startswith("7.1 — Les DHT11"))
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(f"/lecon/{self.raw.id}/").status_code, 200)

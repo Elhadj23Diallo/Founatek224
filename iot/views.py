@@ -50,7 +50,7 @@ from .serializers import (
     ProgressionSerializer, ProjectSerializer
 )
 
-from .academy_access import can_read_lesson, filter_readable_lessons, has_full_access
+from .academy_access import can_read_lesson, filter_readable_lessons, has_full_access, is_raw_book_draft, raw_book_draft_q
 from .utils.pedagogy import lecon_est_debloquee, valider_lecon
 from .utils.certification import parcours_est_certifiable, calculer_score_parcours
 from .utils.pdf import generer_certificat_pdf
@@ -201,7 +201,7 @@ class LeconViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         # Administrateur → toutes les leçons, parcours non publiés compris
         if has_full_access(self.request.user):
-            return Lecon.objects.all().select_related("parcours")
+            return Lecon.objects.exclude(raw_book_draft_q()).select_related("parcours")
         return filter_readable_lessons(Lecon.objects.filter(
             parcours__is_published=True
         ), self.request.user).select_related("parcours")
@@ -557,6 +557,12 @@ def liste_lecons(request, parcours_id):
     from .book_catalog import BOOK_SLUG
     is_book = parcours.slug == BOOK_SLUG
 
+    # Les fiches brutes de Canva (pas encore enrichies) ne s'affichent pas.
+    raw_hidden = 0
+    if is_book:
+        raw_hidden = lecons.filter(raw_book_draft_q()).count()
+        lecons = lecons.exclude(raw_book_draft_q())
+
     for lecon in lecons:
         progression = progressions.get(lecon.id)
         numero = f"{lecon.ordre // 100}.{lecon.ordre % 100}" if is_book else lecon.ordre
@@ -576,6 +582,7 @@ def liste_lecons(request, parcours_id):
         "parcours": parcours,
         "lecons_data": lecons_data,
         "is_following": is_following,
+        "raw_hidden": raw_hidden if has_full_access(request.user) else 0,
     })
 
 
@@ -583,6 +590,10 @@ def liste_lecons(request, parcours_id):
 def lire_lecon(request, lecon_id):
 
     lecon = get_object_or_404(Lecon, id=lecon_id)
+
+    if is_raw_book_draft(lecon):
+        messages.info(request, "Cette fiche est encore la version brute du livre Canva : elle sera visible une fois enrichie.")
+        return redirect("iot:liste_lecons", parcours_id=lecon.parcours_id)
 
     # Vue HTML : on redirige avec un message plutôt que de lever l'exception DRF
     # (non gérée par Django, elle produisait une erreur 500).
