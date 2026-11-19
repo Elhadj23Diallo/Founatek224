@@ -1,0 +1,1610 @@
+[
+ {
+  "id": "4.1",
+  "titre": "L'Arduino Uno",
+  "resume": "La carte la plus célèbre pour débuter : on la branche en USB et on programme. Tu découvres son brochage, son cerveau ATmega328P, setup() et loop(), et tu fais clignoter ta première LED en écrivant sur le PC.",
+  "duree_minutes": 45,
+  "photo": {
+   "fichier": "4.1-photo.jpg",
+   "legende": "Un Arduino Uno R3 : à gauche le port USB-B, au centre la puce ATmega328P en boîtier DIP-28, en haut les broches numériques D0 à D13.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno R3 (officielle ou clone CH340)",
+   "1 × câble USB A-B qui transmet les données (pas un câble « charge seule »)",
+   "1 × ordinateur avec l'Arduino IDE (gratuit, arduino.cc)",
+   "1 × breadboard",
+   "1 × LED rouge",
+   "1 × résistance 220 Ω (rouge, rouge, marron)",
+   "2 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le tour de la carte : USB, jack, ATmega328P, les broches numériques, analogiques et d'alimentation.\n2. L'installation de l'Arduino IDE, le choix de la carte et du port.\n3. Le câblage de la LED sur D13 et le téléversement du programme Blink.\n4. Le moniteur série qui compte les clignotements, puis le mini-défi SOS.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nL'**Arduino Uno** est la carte de référence de ce livre : solide, bon marché, en logique 5 V, avec des milliers d'exemples en ligne. On écrit un programme sur l'ordinateur, on l'envoie par USB, et la carte l'exécute toute seule.\n\nÀ la fin de cette leçon, tu sauras :\n\n- repérer les broches numériques, PWM, analogiques et d'alimentation ;\n- connaître les limites électriques de la carte (5 V, 20 mA par broche) ;\n- expliquer le rôle de `setup()` et `loop()` ;\n- téléverser un programme et lire le **moniteur série** ;\n- calculer la résistance d'une LED branchée sur une sortie."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Le tour de la carte\n\n| Zone | Ce qu'on y trouve | À retenir |\n|---|---|---|\n| USB-B | programmation, alimentation 5 V, moniteur série | 500 mA au plus |\n| Jack | alimentation externe | 7 à 12 V conseillés |\n| D0 à D13 | 14 entrées / sorties numériques | D0 et D1 servent à l'USB |\n| `~` (3, 5, 6, 9, 10, 11) | sorties PWM | `analogWrite()` |\n| A0 à A5 | 6 entrées analogiques 10 bits | 0 à 5 V → 0 à 1023 |\n| 5V, 3V3, GND, VIN | alimentation des modules | 3V3 : 50 mA au plus |\n| LED « L » | soudée sur la carte, reliée à D13 | test idéal d'une carte neuve |\n\n### Les caractéristiques\n\n| Élément | Valeur |\n|---|---|\n| Microcontrôleur | ATmega328P, 8 bits, 16 MHz |\n| Mémoire Flash (programme) | 32 Ko, dont 0,5 Ko pour le chargeur |\n| RAM (variables) | 2 Ko |\n| EEPROM (données gardées hors tension) | 1 Ko |\n| Logique | 5 V |\n| Courant par broche | 20 mA conseillés, 40 mA maximum absolu |\n| Courant total des broches | 200 mA au plus |"
+   },
+   {
+    "type": "schema",
+    "fichier": "4.1-brochage-uno.svg",
+    "legende": "Le brochage de l'Uno, vue de dessus. En vert les entrées / sorties numériques (« ~ » = PWM), en violet les entrées analogiques, en rouge et orange les alimentations, en noir les masses. Les broches de l'expérience (D13 et GND) sont entourées de jaune."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les nombres de la carte\n\n### L'horloge\n\nLe quartz cadence le microcontrôleur à 16 MHz. Une période d'horloge dure :\n\n$$T = \\frac{1}{f} = \\frac{1}{16 \\times 10^{6}} = 62{,}5\\ \\text{ns}$$\n\nLa plupart des instructions s'exécutent en une ou deux périodes : environ 16 millions d'opérations simples par seconde.\n\n### Les entrées analogiques\n\nLe convertisseur 10 bits (leçon 3.4) donne un nombre N entre 0 et 1023 :\n\n$$N = U \\times \\frac{1023}{5} \\qquad U = N \\times \\frac{5}{1023} \\qquad q = \\frac{5}{1024} \\approx 4{,}9\\ \\text{mV}$$\n\n### Les sorties PWM\n\n`analogWrite(broche, n)` avec n de 0 à 255 règle le rapport cyclique (leçon 0.2). La tension moyenne vaut :\n\n$$U_{moy} = 5 \\times \\frac{n}{255} \\qquad n = 128 \\Rightarrow U_{moy} \\approx 2{,}5\\ \\text{V}$$\n\nFréquence de la PWM : environ 490 Hz (980 Hz sur D5 et D6).\n\n> ⚠️ **Jamais plus de 5 V** sur une broche, **jamais plus de 20 mA** par sortie. Pour un moteur, un relais ou un ruban de LED : un transistor ou un MOSFET (leçons 2.5 et 2.6) et une alimentation séparée, masses reliées."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Comment un programme s'exécute\n\nUn programme Arduino s'appelle un **croquis** (*sketch*). Il contient toujours deux fonctions :\n\n- `setup()` s'exécute **une seule fois** au démarrage : on y règle les broches et le moniteur série ;\n- `loop()` s'exécute ensuite **en boucle, sans fin** : on y lit les capteurs et on commande les sorties.\n\nLe programme est stocké dans la mémoire Flash : il reste en place hors tension et redémarre tout seul."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.1-setup-loop.svg",
+    "legende": "À la mise sous tension (ou après un appui sur RESET), setup() s'exécute une fois, puis loop() tourne en boucle."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Bien démarrer avec l'IDE\n\n1. Installe l'**Arduino IDE** (arduino.cc, gratuit) et branche la carte en USB.\n2. **Outils > Carte** : « Arduino Uno ». **Outils > Port** : celui qui apparaît quand tu branches la carte (COM3, /dev/ttyUSB0…).\n3. Bouton **✓ Vérifier** : compile le programme. Bouton **→ Téléverser** : l'envoie sur la carte.\n4. **Outils > Moniteur série** à **9600 bauds** : affiche ce que la carte écrit avec `Serial.print()`.\n\n> 💡 Un clone avec une puce **CH340** peut demander l'installation de son pilote (leçon 4.2).\n\n## 4. Expérience : faire clignoter une LED (Blink)\n\n### Le calcul de la résistance\n\nUne LED rouge fait chuter environ 2 V (leçon 2.3). Avec 220 Ω sur une sortie à 5 V :\n\n$$I = \\frac{U - U_{LED}}{R} = \\frac{5 - 2}{220} \\approx 13{,}6\\ \\text{mA} < 20\\ \\text{mA}$$\n\nPuissance dissipée par la résistance : \\( P = R \\times I^2 = 220 \\times 0{,}0136^2 \\approx 41\\ \\text{mW} \\) : une résistance de 1/4 W suffit largement.\n\n### Le montage pas à pas\n\n1. Débranche la carte.\n2. Place la LED sur la breadboard : **patte longue (anode)** d'un côté, patte courte (cathode) dans une autre colonne.\n3. **D13** → résistance **220 Ω** → **anode** de la LED.\n4. **Cathode** → **GND** de la carte.\n5. Branche l'USB, téléverse le programme et ouvre le moniteur série."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.1-schema-blink.svg",
+    "legende": "D13 alimente la LED à travers 220 Ω ; la cathode revient à GND. La LED « L » de la carte clignote en même temps."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 4.1 — Blink : clignoter et écrire sur le PC\nconst int LED = 13;   // LED externe + LED « L » de la carte\nint compteur = 0;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  Serial.begin(9600);                      // même vitesse que le moniteur\n  Serial.println(\"Bonjour, ici l'Arduino Uno !\");\n}\n\nvoid loop() {\n  digitalWrite(LED, HIGH);  delay(500);    // allumée 0,5 s\n  digitalWrite(LED, LOW);   delay(500);    // éteinte 0,5 s\n  compteur++;\n  Serial.print(\"Clignotements : \");\n  Serial.println(compteur);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Observation | Valeur attendue |\n|---|---|\n| Période de clignotement | 1 s (0,5 s allumée + 0,5 s éteinte) |\n| Fréquence | \\( f = 1 / T = 1\\ \\text{Hz} \\) |\n| Moniteur série | « Clignotements : 1 », « 2 », « 3 »… |\n| Tension sur D13 (multimètre) | alternativement ≈ 5 V et 0 V |\n\n> 💡 **Deux tâches à la fois** : `delay()` bloque tout le programme. Pour faire clignoter une LED tout en lisant un bouton, on utilise `millis()` (exemple **BlinkWithoutDelay** de l'IDE).\n\n> 📌 **Et avec un ESP32 ?** Même code avec `LED = 2` (LED bleue de nombreuses cartes DevKit) et `Serial.begin(115200)`. En 3,3 V, le courant devient \\( (3{,}3 - 2) / 220 \\approx 6\\ \\text{mA} \\) : la LED éclaire un peu moins.\n\n### Les versions et les cousines\n\n| Carte | Particularité |\n|---|---|\n| Uno R3 | la référence : ATmega328P en DIP, USB-B (celle de ce livre) |\n| Clone CH340 | compatible et moins chère, pilote CH340 parfois nécessaire |\n| Uno R4 Minima / WiFi | puce Renesas 32 bits à 48 MHz, USB-C, toujours en 5 V |\n| Mega 2560 | 54 E/S, 16 entrées analogiques, 256 Ko de Flash |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Mauvais port choisi** : erreur au téléversement (Outils > Port).\n- **LED à l'envers** : la patte longue (anode) va du côté de D13.\n- **Moniteur réglé sur une autre vitesse** que 9600 : caractères bizarres.\n- **Quelque chose branché sur D0 ou D1** : le téléversement échoue (ce sont les lignes RX / TX de l'USB).\n- **Câble USB « charge seule »** : la carte s'allume mais n'est pas vue par l'ordinateur.\n\n## 📌 À retenir\n\n- ATmega328P à 16 MHz, logique 5 V, Flash 32 Ko, RAM 2 Ko.\n- 14 E/S dont 6 PWM, 6 entrées analogiques 10 bits (0 à 1023).\n- `setup()` une fois, `loop()` en boucle.\n- 20 mA conseillés par broche : \\( R = (5 - U_{LED}) / I \\).\n- USB : 5 V et 500 mA au plus ; jack : 7 à 12 V.\n\n## 🏆 Mini-défi\n\nModifie le programme pour envoyer **SOS en morse** (3 éclats courts, 3 longs, 3 courts) et afficher « SOS » dans le moniteur série à chaque cycle."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : SOS en morse sur D13\nconst int LED = 13;\nconst int POINT = 200;   // éclat court (ms)\nconst int TRAIT = 600;   // éclat long = 3 points\n\nvoid eclat(int duree) {\n  digitalWrite(LED, HIGH); delay(duree);\n  digitalWrite(LED, LOW);  delay(POINT);      // pause entre deux éclats\n}\n\nvoid lettre(int duree) {\n  for (int i = 0; i < 3; i++) eclat(duree);   // S = 3 points, O = 3 traits\n  delay(2 * POINT);                           // pause entre deux lettres\n}\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  lettre(POINT); lettre(TRAIT); lettre(POINT);   // S O S\n  Serial.println(\"SOS\");\n  delay(1400);                                    // pause entre deux messages\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quel microcontrôleur équipe l'Arduino Uno R3 ?",
+    "choix": [
+     "ESP32",
+     "ATmega328P",
+     "RP2040",
+     "ATmega2560"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'Uno R3 utilise l'ATmega328P à 16 MHz ; la Mega utilise l'ATmega2560."
+   },
+   {
+    "question": "Combien de temps dure une période de l'horloge à 16 MHz ?",
+    "choix": [
+     "16 µs",
+     "62,5 ns",
+     "1,6 ms",
+     "6,25 µs"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "T = 1 / 16 000 000 = 0,000 000 062 5 s = 62,5 ns."
+   },
+   {
+    "question": "Quelle fonction s'exécute une seule fois au démarrage ?",
+    "choix": [
+     "loop()",
+     "setup()",
+     "main()",
+     "delay()"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "setup() règle les broches et le moniteur série, puis loop() tourne en boucle."
+   },
+   {
+    "question": "Quel courant maximal est conseillé par broche de l'Uno ?",
+    "choix": [
+     "2 mA",
+     "20 mA",
+     "200 mA",
+     "2 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "20 mA conseillés (40 mA maximum absolu, 200 mA pour l'ensemble des broches)."
+   },
+   {
+    "question": "Quelle résistance mettre pour une LED rouge (2 V) sur une sortie 5 V à environ 14 mA ?",
+    "choix": [
+     "22 Ω",
+     "220 Ω",
+     "2,2 kΩ",
+     "22 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "R = (5 − 2) / 0,014 ≈ 214 Ω : on prend la valeur normalisée 220 Ω."
+   },
+   {
+    "question": "Quelles broches sont utilisées par l'USB et ne doivent rien recevoir pendant le téléversement ?",
+    "choix": [
+     "D12 et D13",
+     "D0 et D1",
+     "A4 et A5",
+     "5V et GND"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "D0 (RX) et D1 (TX) forment la liaison série avec l'ordinateur."
+   },
+   {
+    "question": "Que signifie le « ~ » à côté de certaines broches ?",
+    "choix": [
+     "Entrée analogique",
+     "Sortie PWM (analogWrite)",
+     "Broche en 3,3 V",
+     "Broche interdite"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les broches 3, 5, 6, 9, 10 et 11 produisent un signal PWM."
+   },
+   {
+    "question": "analogRead(A0) renvoie 512. Quelle tension est appliquée sur A0 ?",
+    "choix": [
+     "≈ 0,5 V",
+     "≈ 2,5 V",
+     "≈ 5 V",
+     "≈ 512 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = 512 × 5 / 1023 ≈ 2,50 V."
+   },
+   {
+    "question": "Quelle tension d'alimentation est conseillée sur le jack ?",
+    "choix": [
+     "3,3 V",
+     "5 V exactement",
+     "7 à 12 V",
+     "24 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le régulateur de la carte a besoin d'un peu de marge au-dessus de 5 V, sans trop chauffer."
+   },
+   {
+    "question": "Le moniteur série affiche des caractères bizarres. Quelle est la cause la plus probable ?",
+    "choix": [
+     "La LED est à l'envers",
+     "La vitesse du moniteur n'est pas la même que Serial.begin()",
+     "La carte est cassée",
+     "Le câble est trop long"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il faut choisir 9600 bauds dans le moniteur si le programme appelle Serial.begin(9600)."
+   },
+   {
+    "question": "Avec analogWrite(9, 128), quelle est la tension moyenne sur D9 ?",
+    "choix": [
+     "≈ 1,3 V",
+     "≈ 2,5 V",
+     "≈ 5 V",
+     "128 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Umoy = 5 × 128 / 255 ≈ 2,5 V : rapport cyclique de 50 %."
+   },
+   {
+    "question": "Pourquoi éviter delay() quand on veut faire deux choses à la fois ?",
+    "choix": [
+     "Il consomme trop de courant",
+     "Il bloque tout le programme pendant l'attente",
+     "Il efface la mémoire",
+     "Il ne marche pas sur l'Uno"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Pendant un delay(), rien d'autre ne s'exécute ; millis() permet de mesurer le temps sans bloquer."
+   }
+  ]
+ },
+ {
+  "id": "4.2",
+  "titre": "L'Arduino Nano",
+  "resume": "Le même cerveau que l'Uno dans un format mini qui s'enfiche dans une breadboard. Tu apprends à l'installer (pilote CH340, Old Bootloader), à l'alimenter et à lire un potentiomètre qui règle la vitesse d'une LED.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "4.2-photo.jpg",
+   "legende": "Un Arduino Nano (à gauche) à côté d'un Arduino Uno : même microcontrôleur ATmega328P, dans une carte de 18 × 45 mm.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × Arduino Nano (clone CH340, broches soudées)",
+   "1 × câble mini-USB de données",
+   "1 × breadboard 830 points",
+   "1 × potentiomètre 10 kΩ",
+   "Pour le mini-défi : 1 × LED et 1 × résistance 220 Ω",
+   "5 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le Nano à côté de l'Uno : ce qui change, ce qui ne change pas.\n2. L'installation du pilote CH340 et le réglage « ATmega328P (Old Bootloader) ».\n3. Le Nano à cheval sur la rainure et le potentiomètre câblé sur A0.\n4. La tension affichée dans le moniteur et la LED qui clignote plus ou moins vite, puis le mini-défi en PWM.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe **Nano** reprend tout l'Uno (puce, code, bibliothèques) dans une carte de 18 × 45 mm qui se plante directement dans une breadboard. C'est la carte idéale pour passer d'un prototype à un montage définitif.\n\nÀ la fin de cette leçon, tu sauras :\n\n- comparer le Nano et l'Uno ;\n- installer un clone (pilote CH340, Old Bootloader) ;\n- choisir la bonne broche d'alimentation (USB, 5V ou VIN) ;\n- convertir une lecture analogique en tension ;\n- régler une durée ou une luminosité avec un potentiomètre."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Le Nano face à l'Uno\n\n| | Arduino Uno R3 | Arduino Nano V3 |\n|---|---|---|\n| Microcontrôleur | ATmega328P, 16 MHz | ATmega328P, 16 MHz |\n| Taille | 69 × 53 mm | 18 × 45 mm, 7 g |\n| USB | USB-B | mini-USB (clones : puce CH340) |\n| E/S numériques | 14 (6 PWM) | 14 (6 PWM) |\n| Entrées analogiques | 6 (A0 à A5) | **8** (A0 à A7) |\n| Logique | 5 V | 5 V |\n| Programmes | — | **les mêmes**, sans rien changer |\n\n> ⚠️ **A6 et A7 sont seulement analogiques** : `analogRead()` oui, `pinMode()`, `digitalRead()` ou `digitalWrite()` non."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.2-brochage-nano.svg",
+    "legende": "Le brochage du Nano, USB à gauche. Les broches de l'expérience (5V, A0, GND) et celle du mini-défi (D9) sont entourées de jaune."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Installer et alimenter un Nano\n\n### Programmer un clone\n\n1. **Outils > Carte** : « Arduino Nano ».\n2. **Outils > Processeur** : « **ATmega328P (Old Bootloader)** » pour la plupart des clones.\n3. Si aucun port n'apparaît : installer le **pilote CH340** du fabricant WCH (Windows et macOS récents le reconnaissent souvent seuls).\n4. Utiliser un câble mini-USB **de données**.\n\n### Les trois façons de l'alimenter\n\n| Entrée | Tension | Remarque |\n|---|---|---|\n| USB | 5 V | le plus simple, 500 mA au plus |\n| Broche 5V | 5 V **déjà régulés** | jamais 12 V ici ! |\n| Broche VIN | 7 à 12 V | passe par le régulateur de la carte |\n\nLe régulateur linéaire dissipe la différence de tension en chaleur (leçon 2.8). Avec 12 V sur VIN et 100 mA consommés :\n\n$$P = (U_{VIN} - 5) \\times I = (12 - 5) \\times 0{,}1 = 0{,}7\\ \\text{W}$$\n\nC'est beaucoup pour un petit régulateur : il chauffe fort. Avec 9 V, on tombe à 0,4 W.\n\n> 💡 On place le Nano **à cheval sur la rainure centrale** : chaque broche a ainsi sa propre colonne."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Lire un potentiomètre\n\nLe potentiomètre est un pont diviseur réglable (leçon 1.2) : son curseur donne une tension de 0 à 5 V. Le convertisseur 10 bits la transforme en nombre :\n\n$$U = N \\times \\frac{5}{1023}$$\n\n| Position du curseur | N lu | Tension |\n|---|---|---|\n| en bas | 0 | 0,00 V |\n| au quart | ≈ 256 | ≈ 1,25 V |\n| au milieu | ≈ 512 | ≈ 2,50 V |\n| en haut | 1023 | 5,00 V |\n\nLe potentiomètre consomme très peu, ce qui est parfait pour une entrée analogique :\n\n$$I = \\frac{U}{R} = \\frac{5}{10\\,000} = 0{,}5\\ \\text{mA}$$\n\nDans l'expérience, la pause du clignotement vaut `100 + N` millisecondes : de 0,1 s (curseur en bas) à 1,123 s (curseur en haut)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : régler la vitesse d'une LED\n\n### Le montage pas à pas\n\n1. Débranche le Nano. Place-le **à cheval sur la rainure**.\n2. Potentiomètre : une extrémité au **5V**, l'autre au **GND**.\n3. **Curseur** (broche du milieu) → **A0**.\n4. Branche l'USB et téléverse. La LED « L » de la carte (D13) sert d'indicateur."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.2-schema-pot.svg",
+    "legende": "Le potentiomètre P1 entre 5V et GND ; son curseur envoie une tension de 0 à 5 V sur A0."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 4.2 — mesurer un potentiomètre et régler la vitesse de la LED « L »\nconst int POT = A0;     // curseur du potentiomètre\nconst int LED = 13;     // LED « L » soudée sur la carte\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int valeur = analogRead(POT);            // 0 à 1023\n  float tension = valeur * 5.0 / 1023;     // en volts\n  Serial.print(valeur); Serial.print(\"  ->  \");\n  Serial.print(tension, 2); Serial.println(\" V\");\n  digitalWrite(LED, !digitalRead(LED));    // inverse l'état de la LED\n  delay(100 + valeur);                     // pause de 0,1 à 1,1 s\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Curseur | Moniteur série | LED « L » change d'état toutes les… |\n|---|---|---|\n| en bas | 0 -> 0.00 V | 0,1 s : elle clignote très vite |\n| au milieu | ≈ 512 -> 2.50 V | ≈ 0,61 s |\n| en haut | 1023 -> 5.00 V | ≈ 1,12 s |\n\nMesure aussi la tension du curseur au multimètre : elle doit correspondre à l'affichage à quelques centièmes près.\n\n> 📌 **Et avec un ESP32 ?** Curseur sur **GPIO 34** (ADC1), extrémités sur **3V3** et **GND**. Les valeurs vont de 0 à 4095 (12 bits) : `tension = valeur * 3.3 / 4095`. Ne jamais appliquer 5 V sur une entrée de l'ESP32.\n\n### Les versions et les cousines\n\n| Carte | Particularité |\n|---|---|\n| Nano V3 (clone) | ATmega328P + CH340, mini-USB, très bon marché (celle de cette leçon) |\n| Nano Every | ATmega4809 : 48 Ko de Flash, micro-USB, logique 5 V |\n| Nano ESP32 | ESP32-S3 (Wi-Fi, Bluetooth) au format Nano : **logique 3,3 V** |\n| Pro Mini | sans USB, encore plus petite : se programme avec un adaptateur FTDI |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Aucun port COM** : pilote CH340 absent ou câble « charge seule ».\n- **« not in sync » au téléversement** : choisir « ATmega328P (Old Bootloader) ».\n- **Valeur qui change au hasard** : fil du curseur débranché de A0 (entrée « en l'air »).\n- **Curseur relié à 5V ou GND** : en butée, c'est un court-circuit !\n- **Nano posé sans enjamber la rainure** : les broches face à face sont reliées entre elles.\n\n## 📌 À retenir\n\n- Même puce et même code que l'Uno, en 18 × 45 mm.\n- Clones : pilote CH340 et « Old Bootloader ».\n- 8 entrées analogiques ; A6 et A7 analogiques seulement.\n- \\( U = N \\times 5 / 1023 \\) ; VIN de 7 à 12 V, broche 5V uniquement en 5 V.\n- Toujours à cheval sur la rainure de la breadboard.\n\n## 🏆 Mini-défi\n\nBranche une **LED externe sur D9** (avec 220 Ω) et règle sa **luminosité** avec le potentiomètre au lieu de la faire clignoter. Pourquoi faut-il diviser la valeur lue par 4 ?\n\n> ✅ Solution : `analogRead()` renvoie 0 à 1023 mais `analogWrite()` attend 0 à 255. Comme \\( 1023 / 4 \\approx 255 \\), on écrit `analogWrite(9, analogRead(A0) / 4);` dans `loop()` (avec `pinMode(9, OUTPUT)` dans `setup()`). La fonction `map(valeur, 0, 1023, 0, 255)` donne le même résultat."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quel microcontrôleur équipe l'Arduino Nano V3 ?",
+    "choix": [
+     "ATmega328P, comme l'Uno",
+     "ESP8266",
+     "RP2040",
+     "ATmega2560"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Même puce que l'Uno : les programmes fonctionnent sans changement."
+   },
+   {
+    "question": "Combien d'entrées analogiques possède le Nano ?",
+    "choix": [
+     "4",
+     "6",
+     "8",
+     "16"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "A0 à A7, soit 8 entrées ; l'Uno n'en a que 6."
+   },
+   {
+    "question": "Que peut-on faire avec A6 et A7 ?",
+    "choix": [
+     "Seulement analogRead()",
+     "Seulement digitalWrite()",
+     "Tout, comme les autres broches",
+     "Rien"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Ces deux broches sont uniquement reliées au convertisseur analogique."
+   },
+   {
+    "question": "Quel réglage choisir si le téléversement sur un clone affiche « not in sync » ?",
+    "choix": [
+     "Une autre vitesse du moniteur",
+     "Processeur « ATmega328P (Old Bootloader) »",
+     "Une autre résistance",
+     "Carte « Arduino Mega »"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La plupart des clones utilisent l'ancien chargeur de démarrage."
+   },
+   {
+    "question": "Quelle puce USB-série équipe la plupart des clones du Nano ?",
+    "choix": [
+     "CH340",
+     "NE555",
+     "LM358",
+     "CP2102 uniquement"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le CH340 demande parfois l'installation de son pilote (fabricant WCH)."
+   },
+   {
+    "question": "Sur quelle broche peut-on brancher une alimentation de 9 V ?",
+    "choix": [
+     "5V",
+     "VIN",
+     "A0",
+     "D13"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "VIN passe par le régulateur de la carte ; la broche 5V attend 5 V déjà régulés."
+   },
+   {
+    "question": "analogRead(A0) renvoie 256. Quelle est la tension sur A0 ?",
+    "choix": [
+     "≈ 0,25 V",
+     "≈ 1,25 V",
+     "≈ 2,56 V",
+     "≈ 5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = 256 × 5 / 1023 ≈ 1,25 V."
+   },
+   {
+    "question": "Quel courant traverse un potentiomètre de 10 kΩ branché entre 5 V et GND ?",
+    "choix": [
+     "0,05 mA",
+     "0,5 mA",
+     "5 mA",
+     "50 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = 5 / 10 000 = 0,000 5 A = 0,5 mA."
+   },
+   {
+    "question": "Pourquoi place-t-on le Nano à cheval sur la rainure de la breadboard ?",
+    "choix": [
+     "Pour qu'il chauffe moins",
+     "Pour que chaque broche ait sa propre colonne",
+     "Pour le Wi-Fi",
+     "Ce n'est pas utile"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sinon, les broches face à face se retrouvent reliées par les colonnes de la plaque."
+   },
+   {
+    "question": "Pour régler la luminosité d'une LED sur D9 avec un potentiomètre, on écrit :",
+    "choix": [
+     "analogWrite(9, analogRead(A0));",
+     "analogWrite(9, analogRead(A0) / 4);",
+     "digitalWrite(9, analogRead(A0));",
+     "analogRead(9);"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "analogWrite attend 0 à 255 : on divise la lecture (0 à 1023) par 4."
+   },
+   {
+    "question": "Avec 12 V sur VIN et 100 mA consommés, quelle puissance dissipe le régulateur 5 V ?",
+    "choix": [
+     "0,12 W",
+     "0,5 W",
+     "0,7 W",
+     "1,2 W"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "P = (12 − 5) × 0,1 = 0,7 W : le régulateur chauffe beaucoup."
+   },
+   {
+    "question": "Quelle cousine du Nano fonctionne en logique 3,3 V ?",
+    "choix": [
+     "Nano V3",
+     "Nano Every",
+     "Nano ESP32",
+     "Pro Mini 5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le Nano ESP32 utilise un ESP32-S3 : jamais de 5 V sur ses broches."
+   }
+  ]
+ },
+ {
+  "id": "4.3",
+  "titre": "L'ESP8266 (NodeMCU)",
+  "resume": "Le petit microcontrôleur Wi-Fi qui a lancé l'Internet des objets à bas prix. Tu apprends à l'installer dans l'IDE, à ne pas confondre D1 et GPIO1, à te connecter au Wi-Fi et à calculer l'autonomie d'un capteur en sommeil profond.",
+  "duree_minutes": 45,
+  "photo": {
+   "fichier": "4.3-photo.jpg",
+   "legende": "Au centre, un petit module ESP-01 : la puce ESP8266 et son antenne en zigzag gravée sur le circuit. Autour, d'autres modules d'un projet.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte NodeMCU ESP8266 (ESP-12E ou ESP-12F) ou Wemos D1 mini",
+   "1 × câble micro-USB de données",
+   "1 × box ou point d'accès Wi-Fi en **2,4 GHz** (le partage de connexion d'un téléphone convient)",
+   "1 × breadboard",
+   "1 × LED rouge",
+   "1 × résistance 220 Ω",
+   "2 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le NodeMCU : le module ESP-12 et son antenne, la puce USB, les noms D0 à D8.\n2. L'ajout du paquet « esp8266 » dans l'IDE et le choix de la carte.\n3. La connexion au Wi-Fi : les points qui défilent, l'adresse IP, la LED qui s'allume.\n4. La force du signal avec WiFi.RSSI() en s'éloignant de la box.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nL'**ESP8266** réunit dans une seule puce un processeur 32 bits et une **radio Wi-Fi**. Monté sur une carte **NodeMCU**, il se programme comme un Arduino et envoie ses mesures sur Internet pour quelques euros.\n\nÀ la fin de cette leçon, tu sauras :\n\n- installer le paquet de cartes « esp8266 » dans l'IDE ;\n- traduire les noms D0 à D8 en numéros GPIO ;\n- respecter la logique 3,3 V ;\n- te connecter à un réseau Wi-Fi et lire l'adresse IP ;\n- calculer l'autonomie d'un capteur sur pile avec le sommeil profond."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. La carte NodeMCU\n\n| Élément | Valeur |\n|---|---|\n| Puce | ESP8266, 32 bits, 80 MHz (160 MHz possible) |\n| Radio | Wi-Fi 2,4 GHz, normes b/g/n (pas de 5 GHz, pas de Bluetooth) |\n| Mémoire Flash | 4 Mo (module ESP-12) |\n| Logique | **3,3 V** : jamais de 5 V sur une broche |\n| Entrée analogique | une seule, A0 (10 bits) |\n| Courant par broche | ≈ 12 mA conseillés |\n| Consommation | ≈ 70 à 80 mA connecté, pics de ≈ 170 mA en émission |"
+   },
+   {
+    "type": "image",
+    "fichier": "4.3-nodemcu.jpg",
+    "legende": "Le NodeMCU vu de dessus : à droite le module ESP-12 et son antenne dorée, à gauche le connecteur USB. Les noms imprimés (D0 à D8, A0, 3V3, GND, VIN) sont ceux qu'on utilise dans le code.",
+    "credit": "Illustration : Pixabay (licence Pixabay)"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. D1 n'est pas GPIO1\n\nLa carte imprime des noms **D0 à D8**, mais la puce numérote ses broches **GPIO**. Dans le code, on écrit **D1** (le paquet fait la traduction) ou le numéro GPIO correspondant.\n\n| Sur la carte | GPIO | Remarque |\n|---|---|---|\n| D0 | 16 | réveil du sommeil profond (relier à RST) |\n| **D1** | **5** | broche sûre : idéale pour une LED (I2C SCL) |\n| D2 | 4 | broche sûre (I2C SDA) |\n| D3 | 0 | rôle au démarrage : doit être à l'état haut |\n| D4 | 2 | LED bleue de la carte, **allumée à LOW** ; état haut au démarrage |\n| D5 / D6 / D7 | 14 / 12 / 13 | SPI, broches sûres |\n| D8 | 15 | rôle au démarrage : doit être à l'état bas |\n| RX / TX | 3 / 1 | liaison série avec l'USB |\n\n> ⚠️ **D3, D4 et D8** décident du mode de démarrage : si un montage les force dans le mauvais état, la carte ne démarre plus. Garde-les pour la fin ou pour des usages sans risque.\n\n### Installer l'ESP8266 dans l'IDE\n\n1. **Fichier > Préférences** : ajouter l'URL `http://arduino.esp8266.com/stable/package_esp8266com_index.json`.\n2. **Outils > Carte > Gestionnaire de cartes** : installer « **esp8266** ».\n3. **Outils > Carte** : « **NodeMCU 1.0 (ESP-12E Module)** », puis le bon port.\n4. Moniteur série à **115200 bauds**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les calculs d'un objet connecté\n\n### La LED en 3,3 V\n\n$$I = \\frac{3{,}3 - 2}{220} \\approx 5{,}9\\ \\text{mA} < 12\\ \\text{mA}$$\n\n### La force du signal Wi-Fi\n\n`WiFi.RSSI()` donne la puissance reçue en **dBm** (décibels par rapport à 1 mW) :\n\n$$P_{mW} = 10^{\\,dBm / 10} \\qquad -60\\ \\text{dBm} = 10^{-6}\\ \\text{mW} = 1\\ \\text{nW}$$\n\nChaque baisse de 10 dBm divise la puissance par 10.\n\n| RSSI | Qualité |\n|---|---|\n| −30 à −50 dBm | excellente (tout près de la box) |\n| −50 à −67 dBm | bonne |\n| −67 à −80 dBm | faible : coupures possibles |\n| moins de −80 dBm | inutilisable |\n\n### L'autonomie en sommeil profond\n\n`ESP.deepSleep()` fait descendre la consommation à environ 20 µA. Exemple : un capteur qui se réveille 5 s toutes les 10 minutes (600 s), à 80 mA quand il est éveillé :\n\n$$I_{moy} = \\frac{80 \\times 5 + 0{,}02 \\times 595}{600} \\approx 0{,}69\\ \\text{mA}$$\n\n$$\\text{autonomie} = \\frac{C}{I_{moy}} = \\frac{2000\\ \\text{mAh}}{0{,}69\\ \\text{mA}} \\approx 2900\\ \\text{h} \\approx 4\\ \\text{mois}$$\n\nSans sommeil (80 mA en permanence), la même batterie tiendrait seulement \\( 2000 / 80 = 25\\ \\text{h} \\).\n\n> 💡 Pour que la carte se réveille seule, relie **D0 (GPIO16) à RST** — mais seulement après le téléversement."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : se connecter au Wi-Fi\n\nLa LED sur D1 s'allume quand la connexion est établie ; le moniteur série affiche l'adresse IP donnée par la box."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.3-connexion-wifi.svg",
+    "legende": "L'ESP8266 demande à rejoindre le réseau ; la box lui attribue une adresse IP. Quand WiFi.status() vaut WL_CONNECTED, le programme allume la LED."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Le montage pas à pas\n\n1. Débranche la carte. Place le NodeMCU **à cheval sur la rainure** (il est large : il ne laisse qu'une rangée libre d'un côté).\n2. **D1** → résistance **220 Ω** → **anode** de la LED.\n3. **Cathode** → **GND**.\n4. Remplace `MonWiFi` et `motdepasse` par ton réseau (attention aux majuscules), téléverse, ouvre le moniteur à 115200 bauds."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.3-schema-wifi-led.svg",
+    "legende": "D1 (GPIO5) alimente la LED à travers 220 Ω : environ 6 mA sous 3,3 V."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 4.3 — connexion Wi-Fi et adresse IP (carte NodeMCU 1.0)\n#include <ESP8266WiFi.h>   // fournie avec le paquet « esp8266 »\nconst int LED = D1;        // LED externe sur GPIO5\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n  WiFi.mode(WIFI_STA);                    // simple client du réseau\n  WiFi.begin(\"MonWiFi\", \"motdepasse\");   // nom du réseau, clé\n  Serial.print(\"Connexion\");\n  while (WiFi.status() != WL_CONNECTED) {\n    delay(500);\n    Serial.print(\".\");\n  }\n  digitalWrite(LED, HIGH);                 // connecté : LED allumée\n  Serial.print(\"\\nAdresse IP : \");\n  Serial.println(WiFi.localIP());\n}\n\nvoid loop() {\n  Serial.print(\"Signal : \");\n  Serial.print(WiFi.RSSI());               // en dBm\n  Serial.println(\" dBm\");\n  delay(2000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Étape | Moniteur série | LED |\n|---|---|---|\n| Recherche du réseau | Connexion....... | éteinte |\n| Connecté | Adresse IP : 192.168.1.37 (par exemple) | allumée |\n| Ensuite, toutes les 2 s | Signal : −55 dBm | allumée |\n\nÉloigne-toi de la box avec la carte alimentée par une batterie USB : le RSSI baisse.\n\n> 📌 **Et avec un ESP32 ?** Remplace `<ESP8266WiFi.h>` par `<WiFi.h>` et `D1` par une GPIO, par exemple `23`. Le reste est identique : `WiFi.begin()`, `WiFi.status()`, `WiFi.localIP()` et `WiFi.RSSI()` existent aussi.\n\n### Les versions et les cousines\n\n| Carte | Particularité |\n|---|---|\n| NodeMCU | 30 broches, USB (CP2102 ou CH340) : idéale sur breadboard |\n| Wemos D1 mini | 34 × 26 mm, USB, 11 E/S, nombreux shields à empiler |\n| ESP-01 | module 8 broches, 2 GPIO : souvent modem Wi-Fi d'un Arduino |\n| ESP-12F | module nu à souder sur un circuit imprimé |\n\n> 💡 **Alimentation** : à cause des pics de 170 mA, une source trop faible fait redémarrer la carte. Prévois 500 mA."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Box en 5 GHz seulement** : l'ESP8266 ne voit que le 2,4 GHz.\n- **Points sans fin** : nom ou mot de passe faux (majuscules, espaces !).\n- **Caractères bizarres** : moniteur pas réglé sur 115200.\n- **D3, D4 ou D8 forcés** par un montage : la carte ne démarre plus.\n- **5 V envoyé sur une broche** : la puce peut griller.\n\n## 📌 À retenir\n\n- Wi-Fi 2,4 GHz intégré, 80 MHz, logique 3,3 V.\n- Une seule entrée analogique (A0).\n- D1 = GPIO5, D2 = GPIO4, D4 = GPIO2 (LED bleue allumée à LOW).\n- RSSI en dBm : −50 excellent, −80 trop faible.\n- Sommeil profond ≈ 20 µA : \\( I_{moy} \\) et autonomie = capacité / courant moyen.\n\n## 🏆 Mini-défi\n\nFais **clignoter la LED tant que la connexion n'est pas établie**, puis allume-la fixe. Affiche aussi la force du signal en dBm."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : LED clignotante pendant la connexion\n#include <ESP8266WiFi.h>\nconst int LED = D1;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n  WiFi.begin(\"MonWiFi\", \"motdepasse\");\n  while (WiFi.status() != WL_CONNECTED) {\n    digitalWrite(LED, !digitalRead(LED));   // clignote\n    delay(250);\n  }\n  digitalWrite(LED, HIGH);                  // fixe : connecté\n  Serial.println(WiFi.localIP());\n  Serial.print(\"Signal : \"); Serial.print(WiFi.RSSI()); Serial.println(\" dBm\");\n}\n\nvoid loop() { }"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Sur quelle bande Wi-Fi l'ESP8266 fonctionne-t-il ?",
+    "choix": [
+     "2,4 GHz seulement",
+     "5 GHz seulement",
+     "2,4 et 5 GHz",
+     "Bluetooth uniquement"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "L'ESP8266 ne voit que les réseaux 2,4 GHz ; il n'a pas de Bluetooth."
+   },
+   {
+    "question": "Quelle est la tension logique de l'ESP8266 ?",
+    "choix": [
+     "1,8 V",
+     "3,3 V",
+     "5 V",
+     "12 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Jamais de 5 V sur une broche : la puce peut griller."
+   },
+   {
+    "question": "À quel numéro GPIO correspond la broche marquée D1 sur un NodeMCU ?",
+    "choix": [
+     "GPIO1",
+     "GPIO5",
+     "GPIO16",
+     "GPIO2"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "D1 = GPIO5 ; GPIO1 est la broche TX de la liaison série."
+   },
+   {
+    "question": "La LED bleue soudée sur le NodeMCU (D4 = GPIO2) s'allume quand on écrit :",
+    "choix": [
+     "HIGH",
+     "LOW",
+     "analogWrite(255)",
+     "Elle ne se commande pas"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Elle est câblée vers le 3,3 V : elle s'allume quand la broche est à l'état bas."
+   },
+   {
+    "question": "Combien d'entrées analogiques possède l'ESP8266 ?",
+    "choix": [
+     "Aucune",
+     "Une seule (A0)",
+     "Six",
+     "Seize"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une seule entrée A0 ; pour plus de mesures, il faut un ADS1115 (leçon 3.4)."
+   },
+   {
+    "question": "Quel courant traverse une LED rouge (2 V) avec 220 Ω sur une broche à 3,3 V ?",
+    "choix": [
+     "≈ 1,5 mA",
+     "≈ 6 mA",
+     "≈ 15 mA",
+     "≈ 60 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = (3,3 − 2) / 220 ≈ 5,9 mA, sous les 12 mA conseillés."
+   },
+   {
+    "question": "Le moniteur affiche des points sans fin. Quelle cause est la plus probable ?",
+    "choix": [
+     "La LED est à l'envers",
+     "Nom ou mot de passe Wi-Fi faux, ou box en 5 GHz seulement",
+     "Le moniteur est à 9600 bauds",
+     "Il manque une résistance"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La boucle attend WL_CONNECTED, qui n'arrive jamais si le réseau est inaccessible."
+   },
+   {
+    "question": "Quel RSSI indique le meilleur signal ?",
+    "choix": [
+     "−85 dBm",
+     "−70 dBm",
+     "−45 dBm",
+     "−95 dBm"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Plus le nombre est proche de 0, plus le signal est fort."
+   },
+   {
+    "question": "Une baisse de 10 dBm du signal signifie que la puissance reçue est :",
+    "choix": [
+     "Divisée par 2",
+     "Divisée par 10",
+     "Multipliée par 10",
+     "Inchangée"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "P = 10^(dBm/10) : 10 dB de moins = puissance divisée par 10."
+   },
+   {
+    "question": "Un capteur consomme en moyenne 0,69 mA. Combien de temps tient une batterie de 2000 mAh ?",
+    "choix": [
+     "≈ 29 h",
+     "≈ 290 h",
+     "≈ 2900 h",
+     "≈ 29 000 h"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Autonomie = 2000 / 0,69 ≈ 2900 h, soit environ 4 mois."
+   },
+   {
+    "question": "Pourquoi éviter de forcer D3, D4 ou D8 avec un montage ?",
+    "choix": [
+     "Elles sont en 12 V",
+     "Elles décident du mode de démarrage de la puce",
+     "Elles sont reliées au Wi-Fi",
+     "Elles n'existent pas"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "GPIO0, GPIO2 et GPIO15 doivent avoir un état précis au démarrage."
+   },
+   {
+    "question": "Quel module ESP8266 à 8 broches sert souvent de modem Wi-Fi à un Arduino Uno ?",
+    "choix": [
+     "ESP-01",
+     "ESP32-CAM",
+     "Wemos D1 mini",
+     "Pico W"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "L'ESP-01 n'a que 2 GPIO mais dialogue avec l'Uno par liaison série."
+   }
+  ]
+ },
+ {
+  "id": "4.4",
+  "titre": "L'ESP32",
+  "resume": "Deux cœurs, le Wi-Fi et le Bluetooth : la carte reine des objets connectés. Tu apprends à choisir les bonnes broches (ADC1, ADC2, démarrage), à convertir ses mesures 12 bits et à créer un mini serveur web qui allume une LED depuis ton téléphone.",
+  "duree_minutes": 50,
+  "photo": {
+   "fichier": "4.4-photo.jpg",
+   "legende": "Une carte ESP32 DevKit 30 broches : le module ESP-WROOM-32 et son antenne à gauche, la puce USB-série, les boutons EN et BOOT et le micro-USB à droite.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte ESP32 DevKit (30 ou 38 broches, module WROOM-32)",
+   "1 × câble micro-USB de données",
+   "1 × box Wi-Fi 2,4 GHz et un téléphone sur le même réseau",
+   "1 × breadboard (ou deux, côte à côte : la DevKit est large)",
+   "1 × LED rouge et 1 × résistance 220 Ω",
+   "Pour le mini-défi : 1 × potentiomètre 10 kΩ",
+   "6 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. La DevKit en gros plan : module WROOM-32, antenne, boutons EN et BOOT.\n2. L'installation du paquet « esp32 » et le choix « ESP32 Dev Module ».\n3. Le brochage : ADC1, ADC2, broches de démarrage, broches interdites.\n4. Le mini serveur web : taper /on et /off sur le téléphone et voir la LED réagir.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nL'**ESP32** réunit deux cœurs de calcul, le **Wi-Fi** et le **Bluetooth** dans une seule puce. C'est la carte des objets connectés complets : capteurs, serveur web, envoi de données vers Internet, sans module supplémentaire. C'est aussi la carte des projets FOUNATEK NEXUS.\n\nÀ la fin de cette leçon, tu sauras :\n\n- installer et programmer une DevKit dans l'Arduino IDE ;\n- choisir les bonnes broches (ADC1, ADC2, démarrage, flash) ;\n- convertir une lecture 12 bits en tension, et créer une tension avec le DAC ;\n- créer un mini **serveur web** qui commande une LED depuis un téléphone."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Les caractéristiques\n\n| Élément | Valeur |\n|---|---|\n| Processeur | 2 cœurs Xtensa à 240 MHz |\n| Mémoire | 520 Ko de RAM, 4 Mo de Flash |\n| Radio | Wi-Fi 2,4 GHz + Bluetooth (classique et BLE) |\n| Logique | **3,3 V**, jamais de 5 V sur une broche |\n| Convertisseur analogique | 12 bits (0 à 4095), 18 entrées |\n| Sorties analogiques vraies | 2 DAC 8 bits (GPIO 25 et 26) |\n| Autres | 10 entrées tactiles, PWM sur presque toutes les broches |\n\n### Comparer avec l'Uno\n\n$$\\frac{240\\ \\text{MHz}}{16\\ \\text{MHz}} = 15 \\qquad \\frac{520\\ \\text{Ko}}{2\\ \\text{Ko}} = 260$$\n\nUne horloge 15 fois plus rapide, deux cœurs, 32 bits au lieu de 8 et 260 fois plus de RAM : l'ESP32 peut gérer un écran, du son, une page web et des capteurs en même temps."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.4-brochage-esp32.svg",
+    "legende": "Le brochage de la DevKit 30 broches. Violet : ADC1, utilisable avec le Wi-Fi. Orange : ADC2, inutilisable quand le Wi-Fi est actif. Rose : broches qui jouent un rôle au démarrage. Les broches de l'expérience (GPIO 23, GND) et du mini-défi (GPIO 34, 3V3) sont entourées de jaune."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Bien choisir ses broches\n\n| Broches | Règle |\n|---|---|\n| GPIO 32 à 39 (ADC1) | capteurs analogiques : **fonctionnent avec le Wi-Fi** |\n| GPIO 0, 2, 4, 12 à 15, 25 à 27 (ADC2) | mesures fausses quand le Wi-Fi est actif |\n| GPIO 34, 35, 36, 39 | **entrées seules** : pas de `digitalWrite()` |\n| GPIO 6 à 11 | **interdites** : reliées à la mémoire Flash |\n| GPIO 0, 2, 5, 12, 15 | rôle au démarrage : à éviter pour les boutons |\n| GPIO 16 à 19, 21 à 23, 25 à 27, 32, 33 | broches sûres pour LED, relais, capteurs numériques |\n| GPIO 21 (SDA) et 22 (SCL) | bus I2C par défaut |\n\n## 3. Les conversions\n\n### L'entrée analogique (12 bits)\n\n$$U = N \\times \\frac{3{,}3}{4095} \\qquad q = \\frac{3{,}3}{4096} \\approx 0{,}8\\ \\text{mV}$$\n\nExemple : `analogRead(34)` renvoie 2048 → \\( U = 2048 \\times 3{,}3 / 4095 \\approx 1{,}65\\ \\text{V} \\).\n\n> ⚠️ Le convertisseur de l'ESP32 est **peu précis aux extrémités** (sous 0,1 V et au-dessus de 3,1 V environ). `analogReadMilliVolts()` donne une tension mieux corrigée ; pour des mesures précises, un ADS1115 (leçon 3.4).\n\n### La sortie DAC (8 bits)\n\n$$U = n \\times \\frac{3{,}3}{255} \\qquad \\texttt{dacWrite(25, 128)} \\Rightarrow U \\approx 1{,}65\\ \\text{V}$$\n\n### La LED\n\n$$I = \\frac{3{,}3 - 2}{220} \\approx 6\\ \\text{mA}$$\n\n### Installer l'ESP32 dans l'IDE\n\n1. **Gestionnaire de cartes** : installer « **esp32** » d'Espressif.\n2. **Outils > Carte** : « **ESP32 Dev Module** », puis le port (puce USB CP2102 ou CH340).\n3. Moniteur série à **115200 bauds**.\n4. Si le téléversement reste bloqué sur « Connecting… » : **maintenir BOOT** jusqu'à ce que l'écriture commence."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : allumer une LED depuis le téléphone\n\nL'ESP32 devient un petit **serveur web** : chaque adresse (`/on`, `/off`) déclenche une action."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.4-serveur-web.svg",
+    "legende": "Le téléphone envoie une requête http://192.168.1.42/on ; la fonction associée allume la GPIO 23 et répond « LED ON »."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Le montage pas à pas\n\n1. Débranche la carte. Place la DevKit à cheval sur deux breadboards, ou sur une seule en laissant une rangée libre d'un côté.\n2. **GPIO 23** (marquée D23) → **220 Ω** → **anode** de la LED.\n3. **Cathode** → **GND**.\n4. Remplace le nom et le mot de passe du réseau, téléverse, puis lis l'adresse IP dans le moniteur série.\n5. Sur le téléphone (même réseau Wi-Fi), tape `http://adresse/on` puis `http://adresse/off`."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.4-schema-esp32.svg",
+    "legende": "LED sur GPIO 23 à travers 220 Ω. Le potentiomètre P1 sert au mini-défi : extrémités sur 3V3 et GND, curseur sur GPIO 34 (ADC1)."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 4.4 — un mini serveur web qui commande une LED (ESP32 Dev Module)\n#include <WiFi.h>\n#include <WebServer.h>      // fournie avec le paquet « esp32 »\n\nconst int LED = 23;\nWebServer serveur(80);      // serveur web sur le port 80\n\nvoid allumer()  { digitalWrite(LED, HIGH); serveur.send(200, \"text/plain\", \"LED ON\"); }\nvoid eteindre() { digitalWrite(LED, LOW);  serveur.send(200, \"text/plain\", \"LED OFF\"); }\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  Serial.begin(115200);\n  WiFi.begin(\"MonWiFi\", \"motdepasse\");\n  while (WiFi.status() != WL_CONNECTED) delay(500);\n  Serial.print(\"Ouvre http://\");\n  Serial.println(WiFi.localIP());          // adresse à taper sur le téléphone\n  serveur.on(\"/on\", allumer);\n  serveur.on(\"/off\", eteindre);\n  serveur.begin();\n}\n\nvoid loop() {\n  serveur.handleClient();                  // traite les requêtes reçues\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Action sur le téléphone | Page affichée | LED |\n|---|---|---|\n| http://192.168.1.42/on | LED ON | allumée |\n| http://192.168.1.42/off | LED OFF | éteinte |\n| http://192.168.1.42/ | erreur « Not found » | inchangée (page pas encore créée : c'est le mini-défi) |\n\n> 💡 **Le Bluetooth** : sur l'ESP32 classique, la bibliothèque `BluetoothSerial` (fournie) dialogue avec une appli « terminal Bluetooth » Android.\n\n> 💡 **Deux cœurs** : le Wi-Fi tourne sur le cœur 0, `loop()` sur le cœur 1. `xTaskCreatePinnedToCore()` lance une tâche en parallèle.\n\n> 💡 **Tactile** : `touchRead(T0)` (GPIO 4) baisse nettement quand un doigt touche le fil : un bouton sans pièce mobile.\n\n### Les versions et les cousines\n\n| Carte | Particularité |\n|---|---|\n| ESP32 DevKit | la classique : WROOM-32, 30 ou 38 broches (celle de cette leçon) |\n| ESP32-S3 | plus puissante, USB natif, accélère l'IA : idéale avec écran ou caméra |\n| ESP32-C3 | un seul cœur RISC-V, Wi-Fi + Bluetooth LE : petite et très bon marché |\n| ESP32-CAM | ESP32 avec caméra OV2640 et lecteur microSD (leçon 4.5) |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Box en 5 GHz seulement** : l'ESP32 ne voit que le 2,4 GHz.\n- **Téléversement bloqué sur « Connecting… »** : maintenir BOOT appuyé.\n- **Téléphone en données mobiles** : il ne trouve pas la carte, il doit être sur le même Wi-Fi.\n- **`analogRead()` sur l'ADC2 avec le Wi-Fi** : valeur fausse ; utiliser GPIO 32 à 39.\n- **Câble « charge seule » ou pilote CP2102 / CH340 absent** : aucun port.\n\n## 📌 À retenir\n\n- 2 cœurs à 240 MHz, Wi-Fi + Bluetooth, 520 Ko de RAM.\n- Logique 3,3 V : jamais de 5 V sur les broches.\n- Capteurs analogiques sur l'ADC1 (GPIO 32 à 39) ; GPIO 6 à 11 interdites.\n- \\( U = N \\times 3{,}3 / 4095 \\) ; DAC : \\( U = n \\times 3{,}3 / 255 \\).\n- BOOT appuyé si le téléversement bloque.\n\n## 🏆 Mini-défi\n\nAjoute une **page d'accueil « / »** avec deux liens ON et OFF, et affiche la **tension d'un potentiomètre** branché sur GPIO 34."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : page d'accueil avec liens et mesure du potentiomètre\n#include <WiFi.h>\n#include <WebServer.h>\n\nconst int LED = 23, POT = 34;   // GPIO 34 : ADC1, fonctionne avec le Wi-Fi\nWebServer serveur(80);\n\nvoid accueil() {\n  float u = analogRead(POT) * 3.3 / 4095;\n  String page = \"<h1>ESP32 FOUNATEK</h1>\";\n  page += \"<p>Potentiometre : \" + String(u, 2) + \" V</p>\";\n  page += \"<p><a href='/on'>ON</a> | <a href='/off'>OFF</a></p>\";\n  serveur.send(200, \"text/html\", page);\n}\nvoid allumer()  { digitalWrite(LED, HIGH); accueil(); }\nvoid eteindre() { digitalWrite(LED, LOW);  accueil(); }\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  Serial.begin(115200);\n  WiFi.begin(\"MonWiFi\", \"motdepasse\");\n  while (WiFi.status() != WL_CONNECTED) delay(500);\n  Serial.println(WiFi.localIP());\n  serveur.on(\"/\", accueil);\n  serveur.on(\"/on\", allumer);\n  serveur.on(\"/off\", eteindre);\n  serveur.begin();\n}\n\nvoid loop() { serveur.handleClient(); }"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien de cœurs de calcul possède l'ESP32 classique ?",
+    "choix": [
+     "1",
+     "2",
+     "4",
+     "8"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Deux cœurs Xtensa à 240 MHz ; l'ESP32-C3 n'en a qu'un."
+   },
+   {
+    "question": "Quelles communications sans fil l'ESP32 intègre-t-il ?",
+    "choix": [
+     "Wi-Fi seulement",
+     "Wi-Fi et Bluetooth",
+     "Bluetooth seulement",
+     "4G"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Wi-Fi 2,4 GHz et Bluetooth (classique et basse consommation)."
+   },
+   {
+    "question": "Sur quelles broches brancher un capteur analogique quand le Wi-Fi est actif ?",
+    "choix": [
+     "GPIO 0 à 4",
+     "GPIO 25 à 27 (ADC2)",
+     "GPIO 32 à 39 (ADC1)",
+     "GPIO 6 à 11"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "L'ADC2 est partagé avec la radio Wi-Fi ; l'ADC1 reste disponible."
+   },
+   {
+    "question": "Pourquoi ne faut-il jamais utiliser GPIO 6 à 11 ?",
+    "choix": [
+     "Elles sont en 5 V",
+     "Elles sont reliées à la mémoire Flash de la carte",
+     "Elles commandent le Bluetooth",
+     "Elles n'existent pas"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les utiliser fait planter la carte, qui lit son programme par ces broches."
+   },
+   {
+    "question": "analogRead(34) renvoie 4095 sur un ESP32. Quelle est la tension ?",
+    "choix": [
+     "≈ 1,65 V",
+     "≈ 3,3 V",
+     "5 V",
+     "4,095 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = 4095 × 3,3 / 4095 = 3,3 V, le maximum mesurable."
+   },
+   {
+    "question": "Quel est le pas de quantification du convertisseur 12 bits de l'ESP32 ?",
+    "choix": [
+     "≈ 0,8 mV",
+     "≈ 4,9 mV",
+     "≈ 13 mV",
+     "≈ 0,8 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "q = 3,3 / 4096 ≈ 0,000 8 V = 0,8 mV."
+   },
+   {
+    "question": "Que donne dacWrite(25, 128) ?",
+    "choix": [
+     "≈ 0,5 V",
+     "≈ 1,65 V",
+     "≈ 3,3 V",
+     "Un signal PWM"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = 128 × 3,3 / 255 ≈ 1,66 V : une vraie tension continue."
+   },
+   {
+    "question": "Le téléversement reste bloqué sur « Connecting… ». Que faire ?",
+    "choix": [
+     "Changer de résistance",
+     "Maintenir le bouton BOOT jusqu'au début de l'écriture",
+     "Débrancher la LED",
+     "Passer le moniteur à 9600"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "BOOT force la puce en mode programmation."
+   },
+   {
+    "question": "Le téléphone n'arrive pas à ouvrir la page de l'ESP32. Quelle cause est la plus probable ?",
+    "choix": [
+     "La LED est trop puissante",
+     "Le téléphone est en données mobiles, pas sur le même Wi-Fi",
+     "Le serveur est sur le port 80",
+     "La carte est en 3,3 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'adresse 192.168.x.x n'existe que sur le réseau local."
+   },
+   {
+    "question": "Quelle fonction doit être appelée sans cesse dans loop() pour que le serveur réponde ?",
+    "choix": [
+     "serveur.begin()",
+     "serveur.handleClient()",
+     "WiFi.begin()",
+     "delay(1000)"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "handleClient() regarde si une requête est arrivée et appelle la bonne fonction."
+   },
+   {
+    "question": "Combien de fois l'horloge de l'ESP32 (240 MHz) est-elle plus rapide que celle de l'Uno (16 MHz) ?",
+    "choix": [
+     "5 fois",
+     "15 fois",
+     "24 fois",
+     "240 fois"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "240 / 16 = 15, sans compter le second cœur et les calculs en 32 bits."
+   },
+   {
+    "question": "Peut-on écrire digitalWrite(34, HIGH) sur un ESP32 ?",
+    "choix": [
+     "Oui",
+     "Non : GPIO 34 à 39 sont des entrées seules",
+     "Seulement avec le Wi-Fi",
+     "Seulement en 5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "GPIO 34, 35, 36 et 39 ne peuvent que lire."
+   }
+  ]
+ },
+ {
+  "id": "4.5",
+  "titre": "L'ESP32-CAM",
+  "resume": "Un ESP32 avec une caméra : la base d'une caméra de surveillance Wi-Fi. Tu apprends à la programmer avec un adaptateur FTDI, à lancer l'exemple CameraWebServer et à calculer la taille et le débit des images.",
+  "duree_minutes": 50,
+  "photo": {
+   "fichier": "4.5-photo.jpg",
+   "legende": "La carte ESP32-CAM AI-Thinker (27 × 40 mm) : caméra OV2640 à gauche, module ESP32 au centre, lecteur microSD à droite. Elle n'a pas de port USB.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte ESP32-CAM AI-Thinker avec sa caméra OV2640",
+   "1 × adaptateur USB-série FTDI (FT232RL) réglable sur 5 V, **ou** une carte ESP32-CAM-MB qui se clipse dessous",
+   "5 × câbles Dupont femelle-femelle (avec un FTDI)",
+   "1 × alimentation 5 V solide (1 A conseillé)",
+   "1 × carte microSD de 4 à 32 Go formatée en FAT32 (pour le mini-défi)",
+   "Pour le mini-défi : 1 × détecteur de mouvement PIR HC-SR501",
+   "1 × box Wi-Fi 2,4 GHz"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. La carte de près : caméra, nappe, module ESP32, microSD, LED flash.\n2. Le câblage avec le FTDI : TX vers U0R, RX vers U0T, le cavalier IO0 – GND.\n3. Le téléversement de CameraWebServer, puis le retrait du cavalier et le RESET.\n4. Le flux vidéo dans le navigateur, le changement de résolution, puis la photo déclenchée par un PIR.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nL'**ESP32-CAM** réunit un ESP32, une **caméra de 2 mégapixels**, 4 Mo de mémoire PSRAM pour les images et un **lecteur microSD**. C'est le cœur du module caméra du projet **FOUNATEK NEXUS** : capture, envoi vers un serveur, affichage à distance.\n\nÀ la fin de cette leçon, tu sauras :\n\n- brancher un adaptateur FTDI et passer la carte en mode programmation ;\n- lancer l'exemple **CameraWebServer** et voir l'image en direct ;\n- calculer la taille d'une image et le débit d'un flux vidéo ;\n- comprendre et éviter l'erreur « Brownout detector was triggered »."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. La carte\n\n| Élément | Valeur |\n|---|---|\n| Processeur | ESP32, 2 cœurs à 240 MHz, Wi-Fi + Bluetooth |\n| Mémoire | 520 Ko de RAM + **4 Mo de PSRAM** + 4 Mo de Flash |\n| Caméra | OV2640, 2 Mpx (1600 × 1200 au maximum), sortie JPEG |\n| Stockage | lecteur microSD |\n| LED flash | blanche, sur GPIO 4 |\n| Alimentation | **5 V solide** (1 A conseillé) |\n| USB | **aucun** : adaptateur FTDI ou carte ESP32-CAM-MB |\n\n> 📌 La caméra et la microSD utilisent presque toutes les broches. Il reste surtout **GPIO 12, 13, 14, 15, 2 et 4**, elles-mêmes partagées avec la microSD."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.5-brochage-esp32cam.svg",
+    "legende": "Le brochage de l'ESP32-CAM AI-Thinker. Les broches entourées de jaune servent à la programmation : 5V, GND, U0R, U0T et IO0."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les nombres d'une image\n\n### Le nombre de pixels\n\n$$1600 \\times 1200 = 1\\,920\\,000\\ \\text{pixels} \\approx 2\\ \\text{Mpx}$$\n\n### La taille brute d'une image\n\nEn couleur brute (RGB565), chaque pixel occupe 2 octets :\n\n$$\\text{taille} = \\text{largeur} \\times \\text{hauteur} \\times \\text{octets par pixel}$$\n\n$$640 \\times 480 \\times 2 = 614\\,400\\ \\text{octets} \\approx 600\\ \\text{Ko} > 520\\ \\text{Ko de RAM}$$\n\nUne seule image VGA brute ne tient pas dans la RAM de l'ESP32 : c'est pour cela que la carte a 4 Mo de PSRAM et que la caméra compresse en **JPEG**, souvent 15 à 30 fois plus petit (environ 20 à 40 Ko pour une image VGA).\n\n### Le débit d'un flux vidéo\n\n$$\\text{débit} = \\text{taille d'une image} \\times \\text{images par seconde}$$\n\n$$30\\ \\text{Ko} \\times 10\\ \\text{img/s} = 300\\ \\text{Ko/s} = 2{,}4\\ \\text{Mbit/s}$$\n\nC'est à la portée du Wi-Fi, mais une box éloignée fait chuter la fluidité.\n\n### Le stockage\n\n$$\\frac{8\\ \\text{Go}}{30\\ \\text{Ko}} = \\frac{8 \\times 10^{9}}{30 \\times 10^{3}} \\approx 266\\,000\\ \\text{photos}$$\n\n| Résolution | Pixels | Usage |\n|---|---|---|\n| QVGA 320 × 240 | 76 800 | flux très fluide, détection de mouvement |\n| VGA 640 × 480 | 307 200 | bon compromis pour la vidéosurveillance |\n| SVGA 800 × 600 | 480 000 | image plus nette, flux plus lent |\n| UXGA 1600 × 1200 | 1 920 000 | photo de qualité, flux saccadé |\n\n### La puissance\n\nEn streaming, la carte consomme environ 200 à 300 mA, avec des pics plus forts quand le Wi-Fi émet :\n\n$$P = U \\times I = 5 \\times 0{,}3 = 1{,}5\\ \\text{W}$$\n\nSi l'alimentation ne suit pas les pics, la tension chute et l'ESP32 redémarre avec le message **« Brownout detector was triggered »**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : programmer l'ESP32-CAM avec un FTDI\n\n### Le montage pas à pas\n\n1. Règle le cavalier du FTDI sur **5 V**.\n2. **5V** du FTDI → **5V** de la carte ; **GND** → **GND**.\n3. **TX** du FTDI → **U0R** ; **RX** du FTDI → **U0T** : on relie toujours une émission à une réception.\n4. Pour flasher : un fil (cavalier) entre **IO0** et **GND**, puis appui sur **RESET** (sous la carte).\n5. Après le téléversement : **retire le fil IO0 – GND** et appuie de nouveau sur RESET.\n\n> 💡 Avec la carte **ESP32-CAM-MB**, aucun fil : on enfiche l'ESP32-CAM dessus et on branche l'USB. Elle gère IO0 et RESET toute seule."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.5-schema-ftdi.svg",
+    "legende": "Câblage de programmation : 5 V et GND en direct, TX vers U0R et RX vers U0T. Le cavalier IO0 – GND n'est fermé que pendant le téléversement."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 4.5 — l'exemple CameraWebServer, à adapter en 3 lignes\n// Fichier > Exemples > ESP32 > Camera > CameraWebServer\n\n// 1) Dans l'onglet principal, un seul modèle actif :\n#define CAMERA_MODEL_AI_THINKER      // carte AI-Thinker\n\n// 2) Ton réseau Wi-Fi (2,4 GHz) :\nconst char *ssid = \"MonWiFi\";\nconst char *password = \"motdepasse\";\n\n// 3) Outils > Carte : « AI Thinker ESP32-CAM »\n//    Outils > Partition Scheme : « Huge APP » si le programme est trop gros\n// 4) IO0 relié à GND, RESET, puis Téléverser\n// 5) Retirer le fil IO0 - GND, appuyer sur RESET\n// 6) Moniteur série à 115200 bauds :\n//      Camera Ready! Use 'http://192.168.1.42' to connect\n// 7) Ouvrir cette adresse dans le navigateur, puis « Start Stream »"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Étape | Résultat attendu |\n|---|---|\n| Téléversement | « Connecting… » puis « Writing at … (100 %) » |\n| Après RESET (sans IO0 – GND) | « Camera Ready! Use 'http://…' to connect » |\n| Page web | réglages de la caméra et bouton « Start Stream » |\n| Résolution VGA | image fluide (environ 10 images par seconde ou plus) |\n| Résolution UXGA | image nette mais saccadée |\n\n> 💡 **LED flash** sur GPIO 4 : très lumineuse, elle chauffe. Elle clignote aussi quand la microSD travaille (broche partagée).\n\n> 💡 **Image lente ou coupée** : rapproche la box, baisse la résolution, ou passe sur l'antenne externe IPEX (déplacer la résistance 0 Ω à côté de l'antenne).\n\n### Les versions et les cousines\n\n| Carte | Particularité |\n|---|---|\n| AI-Thinker | le modèle le plus courant, 27 × 40 mm (celui de cette leçon) |\n| ESP32-CAM-MB | petite carte USB qui se clipse dessous : programmation sans fils |\n| ESP32-S3-CAM | version ESP32-S3 avec USB natif, plus rapide pour traiter l'image |\n| Antenne IPEX | prise pour antenne externe : plus de portée |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **« Failed to connect »** : IO0 non relié à GND ou RESET oublié.\n- **« Brownout detector was triggered »** : alimentation trop faible (câble fin, port USB faible). Prendre une source 5 V / 1 A.\n- **« Camera init failed »** : mauvais modèle choisi ou nappe de la caméra mal enfoncée.\n- **TX sur TX, RX sur RX** : rien ne passe, il faut croiser (TX → U0R).\n- **IO0 laissé à GND** : le programme ne démarre pas, la carte attend un téléversement.\n\n## 📌 À retenir\n\n- ESP32 + caméra OV2640 (2 Mpx) + 4 Mo de PSRAM + microSD.\n- Pas d'USB : FTDI en 5 V (TX → U0R, RX → U0T) ou ESP32-CAM-MB.\n- IO0 à GND seulement pour flasher.\n- Taille brute = largeur × hauteur × octets par pixel ; débit = taille × images par seconde.\n- Alimentation 5 V solide, sinon « Brownout ».\n\n## 🏆 Mini-défi\n\nAjoute un **détecteur de mouvement PIR sur GPIO 13** et enregistre une **photo sur la microSD** à chaque mouvement : le premier pas vers une vraie caméra de surveillance. Astuce : la microSD en **mode 1 bit** libère GPIO 4, 12 et 13."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : une photo JPEG sur la microSD à chaque mouvement\n#include \"esp_camera.h\"\n#include \"FS.h\"\n#include \"SD_MMC.h\"\n\nconst int PIR = 13;      // sortie du HC-SR501 (alimenté en 5 V, sortie en 3,3 V)\nint numero = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PIR, INPUT);\n  camera_config_t c = {};                  // brochage de la carte AI-Thinker\n  c.ledc_channel = LEDC_CHANNEL_0;  c.ledc_timer = LEDC_TIMER_0;\n  c.pin_d0 = 5;   c.pin_d1 = 18;  c.pin_d2 = 19;  c.pin_d3 = 21;\n  c.pin_d4 = 36;  c.pin_d5 = 39;  c.pin_d6 = 34;  c.pin_d7 = 35;\n  c.pin_xclk = 0;  c.pin_pclk = 22;  c.pin_vsync = 25;  c.pin_href = 23;\n  c.pin_sccb_sda = 26;  c.pin_sccb_scl = 27;  c.pin_pwdn = 32;  c.pin_reset = -1;\n  c.xclk_freq_hz = 20000000;\n  c.pixel_format = PIXFORMAT_JPEG;\n  c.frame_size = FRAMESIZE_VGA;            // 640 x 480\n  c.jpeg_quality = 12;                     // 0 = meilleure qualité, 63 = la plus faible\n  c.fb_count = 1;\n  if (esp_camera_init(&c) != ESP_OK) { Serial.println(\"Camera init failed\"); return; }\n  if (!SD_MMC.begin(\"/sdcard\", true)) {   // true = mode 1 bit\n    Serial.println(\"Carte microSD absente\"); return;\n  }\n  Serial.println(\"Pret : en attente d'un mouvement\");\n}\n\nvoid loop() {\n  if (digitalRead(PIR) == HIGH) {\n    camera_fb_t *img = esp_camera_fb_get();          // prend la photo\n    if (img) {\n      String nom = \"/photo\" + String(numero++) + \".jpg\";\n      File f = SD_MMC.open(nom, FILE_WRITE);\n      f.write(img->buf, img->len);\n      f.close();\n      Serial.printf(\"%s : %u octets\\n\", nom.c_str(), img->len);\n      esp_camera_fb_return(img);                     // libère la mémoire\n    }\n    delay(5000);                                     // une photo au plus toutes les 5 s\n  }\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quel capteur d'image équipe l'ESP32-CAM AI-Thinker ?",
+    "choix": [
+     "OV2640 (2 Mpx)",
+     "HC-SR04",
+     "DHT22",
+     "OV9655 (12 Mpx)"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "La caméra OV2640 donne au maximum 1600 × 1200 pixels."
+   },
+   {
+    "question": "Comment programme-t-on l'ESP32-CAM, qui n'a pas de port USB ?",
+    "choix": [
+     "Par Bluetooth uniquement",
+     "Avec un adaptateur FTDI ou une carte ESP32-CAM-MB",
+     "Avec une carte microSD",
+     "Ce n'est pas possible"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'adaptateur USB-série transmet le programme par U0R / U0T."
+   },
+   {
+    "question": "À quelle broche de l'ESP32-CAM relie-t-on le TX du FTDI ?",
+    "choix": [
+     "U0T",
+     "U0R",
+     "IO0",
+     "5V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une émission (TX) va toujours vers une réception (R)."
+   },
+   {
+    "question": "Que faut-il faire pour mettre la carte en mode programmation ?",
+    "choix": [
+     "Relier IO0 à GND puis appuyer sur RESET",
+     "Relier IO4 au 5V",
+     "Retirer la caméra",
+     "Insérer une microSD"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "IO0 à l'état bas au démarrage = attente d'un téléversement."
+   },
+   {
+    "question": "Le programme est téléversé mais ne démarre pas. Quelle est la cause la plus probable ?",
+    "choix": [
+     "Le fil IO0 – GND est resté branché",
+     "La LED flash est éteinte",
+     "La microSD est vide",
+     "Le Wi-Fi est en 2,4 GHz"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Il faut retirer le cavalier et appuyer sur RESET pour lancer le programme."
+   },
+   {
+    "question": "Que signifie le message « Brownout detector was triggered » ?",
+    "choix": [
+     "La caméra est mal branchée",
+     "L'alimentation est trop faible : la tension chute",
+     "Le mot de passe Wi-Fi est faux",
+     "La microSD est pleine"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les pics de courant du Wi-Fi font chuter la tension : il faut une source 5 V solide."
+   },
+   {
+    "question": "Quelle est la taille brute d'une image VGA (640 × 480) à 2 octets par pixel ?",
+    "choix": [
+     "≈ 60 Ko",
+     "≈ 300 Ko",
+     "≈ 600 Ko",
+     "≈ 6 Mo"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "640 × 480 × 2 = 614 400 octets ≈ 600 Ko, plus que les 520 Ko de RAM."
+   },
+   {
+    "question": "Pourquoi la caméra envoie-t-elle ses images en JPEG ?",
+    "choix": [
+     "Pour les rendre plus colorées",
+     "Pour les compresser fortement et tenir dans la mémoire et le Wi-Fi",
+     "Parce que le PNG est interdit",
+     "Pour réduire la résolution"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le JPEG est souvent 15 à 30 fois plus petit que l'image brute."
+   },
+   {
+    "question": "Des images de 30 Ko à 10 images par seconde représentent un débit de :",
+    "choix": [
+     "30 Ko/s",
+     "300 Ko/s",
+     "3 Mo/s",
+     "30 Mo/s"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "30 Ko × 10 = 300 Ko/s, soit 2,4 Mbit/s."
+   },
+   {
+    "question": "Sur quelle broche se trouve la LED flash blanche ?",
+    "choix": [
+     "GPIO 0",
+     "GPIO 4",
+     "GPIO 13",
+     "GPIO 33"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "GPIO 4, partagée avec la microSD en mode 4 bits."
+   },
+   {
+    "question": "Quel message indique un mauvais modèle choisi ou une nappe mal enfoncée ?",
+    "choix": [
+     "Camera init failed",
+     "Brownout detector was triggered",
+     "Failed to connect",
+     "Not found"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "esp_camera_init() échoue s'il ne trouve pas la caméra aux bonnes broches."
+   },
+   {
+    "question": "Quelle résolution choisir pour un flux de vidéosurveillance fluide et net ?",
+    "choix": [
+     "UXGA 1600 × 1200",
+     "VGA 640 × 480",
+     "8K",
+     "Aucune"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "VGA est un bon compromis ; UXGA donne de belles photos mais un flux saccadé."
+   }
+  ]
+ },
+ {
+  "id": "4.6",
+  "titre": "Le Raspberry Pi Pico",
+  "resume": "Un petit microcontrôleur signé Raspberry Pi, à programmer en MicroPython ou en C++. Tu installes MicroPython, tu fais clignoter une LED avec Thonny, tu lis son thermomètre intégré et tu convertis ses mesures 16 bits.",
+  "duree_minutes": 45,
+  "photo": {
+   "fichier": "4.6-photo.jpg",
+   "legende": "Le Raspberry Pi Pico : la puce RP2040 au centre, le micro-USB et le bouton BOOTSEL à gauche, 2 × 20 broches à bords crénelés.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × Raspberry Pi Pico (ou Pico H, avec broches déjà soudées)",
+   "1 × câble micro-USB de données",
+   "1 × ordinateur avec Thonny (gratuit, thonny.org)",
+   "1 × breadboard",
+   "1 × LED rouge et 1 × résistance 330 Ω",
+   "Pour le mini-défi : 1 × potentiomètre 10 kΩ",
+   "5 × câbles Dupont mâle-mâle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. La carte : RP2040, BOOTSEL, broches physiques et numéros GP.\n2. L'installation de MicroPython : BOOTSEL, lecteur RPI-RP2, fichier .uf2.\n3. Thonny : taper une commande en direct, puis enregistrer main.py sur le Pico.\n4. La LED qui clignote, le thermomètre intégré, puis la vitesse réglée au potentiomètre.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe **Pico** est le microcontrôleur conçu par Raspberry Pi autour de sa propre puce, la **RP2040**. On le programme surtout en **MicroPython** : pas de compilation, on tape une ligne et elle s'exécute aussitôt.\n\nÀ la fin de cette leçon, tu sauras :\n\n- installer MicroPython avec le bouton BOOTSEL et un fichier .uf2 ;\n- distinguer **numéro de broche physique** et **numéro GP** ;\n- piloter une LED et lire une entrée analogique en MicroPython ;\n- convertir une lecture 16 bits en tension et lire le thermomètre intégré."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Les caractéristiques\n\n| Élément | Valeur |\n|---|---|\n| Puce | RP2040 : 2 cœurs ARM Cortex-M0+ à 133 MHz |\n| Mémoire | 264 Ko de RAM, 2 Mo de Flash |\n| Logique | **3,3 V** |\n| Broches | 26 GPIO, dont 3 entrées analogiques (GP26 à GP28) |\n| Convertisseur | 12 bits, lu en MicroPython sur 16 bits (0 à 65535) |\n| Communication | 2 UART, 2 SPI, 2 I2C, 16 canaux PWM |\n| Spécialité | 8 machines PIO : signaux précis sans occuper le processeur |\n| Courant par broche | 4 mA par défaut (réglable jusqu'à 12 mA) |\n\n> ⚠️ Le Pico a deux numérotations : la **broche physique** (1 à 40, autour de la carte) et le **numéro GP** utilisé dans le code. La broche physique 20 est **GP15** ; dans le code, on écrit `Pin(15)`."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.6-brochage-pico.svg",
+    "legende": "Le brochage du Pico, USB à gauche : en bas les broches physiques 1 à 20 (GP0 à GP15), en haut les broches 40 à 21. Une masse GND toutes les 5 broches. Les broches de l'expérience et du mini-défi sont entourées de jaune."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Installer MicroPython\n\n1. Télécharge le fichier **.uf2** MicroPython du Pico sur micropython.org.\n2. **Maintiens BOOTSEL** et branche l'USB : le Pico apparaît comme une clé USB nommée **RPI-RP2**.\n3. **Glisse le fichier .uf2** sur ce lecteur : le Pico redémarre tout seul sous MicroPython.\n4. Dans **Thonny** : Outils > Options > Interpréteur « **MicroPython (Raspberry Pi Pico)** ».\n5. Tape `print(\"Bonjour\")` dans la console (en bas) : le Pico répond aussitôt.\n\n> 💡 Un fichier enregistré **sur le Pico** sous le nom **main.py** démarre tout seul à chaque mise sous tension.\n\n## 3. Les conversions\n\n### L'entrée analogique\n\n`read_u16()` renvoie un nombre de 0 à 65535 :\n\n$$U = N \\times \\frac{3{,}3}{65535} \\qquad N = 32768 \\Rightarrow U \\approx 1{,}65\\ \\text{V}$$\n\nLe convertisseur réel est en 12 bits : son pas reste \\( q = 3{,}3 / 4096 \\approx 0{,}8\\ \\text{mV} \\).\n\n### Le thermomètre intégré\n\nLe canal **ADC 4** mesure la tension d'une diode interne. La documentation de la RP2040 donne :\n\n$$T = 27 - \\frac{U - 0{,}706}{0{,}001721}$$\n\nExemple : \\( U = 0{,}700\\ \\text{V} \\Rightarrow T = 27 - \\frac{-0{,}006}{0{,}001721} \\approx 27 + 3{,}5 = 30{,}5\\ \\text{°C} \\). C'est la température de la puce, un peu au-dessus de celle de la pièce.\n\n### La LED\n\n$$I = \\frac{3{,}3 - 2}{330} \\approx 3{,}9\\ \\text{mA}$$\n\nCe courant reste dans les 4 mA prévus par défaut sur une broche.\n\n### La PWM\n\n`duty_u16(n)` règle le rapport cyclique sur 16 bits : \\( \\alpha = n / 65535 \\), donc `duty_u16(32768)` ≈ 50 %."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : faire clignoter une LED en MicroPython\n\n### Le montage pas à pas\n\n1. Débranche le Pico. Place-le **à cheval sur la rainure**, USB vers l'extérieur.\n2. **GP15** (broche physique **20**) → **330 Ω** → **anode** de la LED.\n3. **Cathode** → **GND** (broche physique **18**, juste à côté).\n4. Branche l'USB, ouvre Thonny, colle le programme et enregistre-le **sur le Pico** sous le nom `main.py`."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.6-schema-pico.svg",
+    "legende": "LED sur GP15 (broche 20) à travers 330 Ω, retour sur GND (broche 18). Le potentiomètre P1 sert au mini-défi : 3V3 (broche 36), GND, curseur sur GP26 (broche 31)."
+   },
+   {
+    "type": "code",
+    "language": "python",
+    "code": "# Leçon 4.6 — Blink et thermomètre en MicroPython (Thonny) : enregistrer en main.py\nfrom machine import Pin, ADC\nimport time\n\nled = Pin(25, Pin.OUT)        # LED soudée sur le Pico (sur Pico W : Pin(\"LED\", Pin.OUT))\nled_ext = Pin(15, Pin.OUT)    # LED externe + 330 Ω sur GP15 (broche 20)\ncapteur = ADC(4)              # thermomètre interne de la RP2040\n\nwhile True:\n    led.toggle()                       # inverse l'état\n    led_ext.value(led.value())         # même état sur la LED externe\n    u = capteur.read_u16() * 3.3 / 65535\n    t = 27 - (u - 0.706) / 0.001721\n    print(\"LED :\", led.value(), \" puce :\", round(t, 1), \"°C\")\n    time.sleep(0.5)                    # pause de 0,5 s"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Observation | Valeur attendue |\n|---|---|\n| LED de la carte et LED externe | clignotent ensemble, 1 Hz |\n| Console Thonny | « LED : 1  puce : 27.5 °C », puis « LED : 0 … » |\n| Doigt posé sur la RP2040 | la température monte de quelques degrés |\n| Débranché puis rebranché | le programme redémarre seul (main.py) |\n\n> 📌 **En C++ avec l'Arduino IDE** : installer le paquet « Raspberry Pi Pico/RP2040 » d'Earle Philhower. Même montage, `pinMode(15, OUTPUT)` puis `digitalWrite()` comme sur un Uno ; `LED_BUILTIN` désigne la LED de la carte.\n\n> 💡 **Clavier USB** : en CircuitPython ou en C++, le Pico peut se faire passer pour un clavier ou une souris.\n\n### Les versions et les cousines\n\n| Carte | Particularité |\n|---|---|\n| Pico | RP2040, sans radio (celle de cette leçon) |\n| Pico W | ajoute le Wi-Fi et le Bluetooth ; LED commandée par `Pin(\"LED\")` |\n| Pico H / WH | broches déjà soudées et connecteur de débogage : pratique en classe |\n| Pico 2 | puce RP2350 : 150 MHz, 520 Ko de RAM, 4 Mo de Flash |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Lecteur RPI-RP2 absent** : BOOTSEL pas maintenu ou câble « charge seule ».\n- **Pico W : `Pin(25)` ne fait rien** : écrire `Pin(\"LED\")`.\n- **Fichier enregistré sur le PC** au lieu du Pico : rien au redémarrage.\n- **Numéro physique confondu avec GP** : la broche 20 est GP15, on écrit `Pin(15)`.\n- **5 V sur une broche** : la RP2040 ne le supporte pas.\n\n## 📌 À retenir\n\n- RP2040 : 2 cœurs à 133 MHz, 264 Ko de RAM, logique 3,3 V.\n- BOOTSEL + fichier .uf2 pour installer MicroPython ; main.py démarre seul.\n- Code : numéros GP ; broche physique 20 = GP15.\n- `read_u16()` : \\( U = N \\times 3{,}3 / 65535 \\) ; 3 entrées analogiques GP26 à GP28.\n- LED de la carte : GP25 (`Pin(\"LED\")` sur Pico W).\n\n## 🏆 Mini-défi\n\nBranche un **potentiomètre sur GP26 (ADC0)** et règle la **vitesse de clignotement** : de 0,05 s (curseur en bas) à environ 1 s (curseur en haut)."
+   },
+   {
+    "type": "code",
+    "language": "python",
+    "code": "# Solution du mini-défi : vitesse réglée au potentiomètre\nfrom machine import Pin, ADC\nimport time\n\nled = Pin(15, Pin.OUT)\npot = ADC(26)                    # GP26 = ADC0 (broche physique 31)\n\nwhile True:\n    n = pot.read_u16()           # 0 à 65535\n    pause = 0.05 + n / 65535     # de 0,05 s à 1,05 s\n    led.toggle()\n    print(n, round(n * 3.3 / 65535, 2), \"V\", round(pause, 2), \"s\")\n    time.sleep(pause)"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle puce équipe le Raspberry Pi Pico ?",
+    "choix": [
+     "ATmega328P",
+     "RP2040",
+     "ESP32",
+     "BCM2711"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La RP2040, conçue par Raspberry Pi : 2 cœurs à 133 MHz."
+   },
+   {
+    "question": "Comment installe-t-on MicroPython sur un Pico neuf ?",
+    "choix": [
+     "Avec un adaptateur FTDI",
+     "En maintenant BOOTSEL au branchement puis en déposant un fichier .uf2",
+     "Par Wi-Fi",
+     "Avec une carte microSD"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le Pico apparaît comme une clé USB RPI-RP2 : on y glisse le fichier."
+   },
+   {
+    "question": "La broche physique 20 du Pico correspond à :",
+    "choix": [
+     "GP20",
+     "GP15",
+     "GP25",
+     "GND"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Broche physique 20 = GP15 : dans le code, on écrit Pin(15)."
+   },
+   {
+    "question": "Quel nom de fichier démarre tout seul à la mise sous tension ?",
+    "choix": [
+     "boot.txt",
+     "main.py",
+     "setup.ino",
+     "start.uf2"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "main.py, enregistré sur le Pico et non sur le PC."
+   },
+   {
+    "question": "Sur un Pico W, comment commander la LED de la carte ?",
+    "choix": [
+     "Pin(25)",
+     "Pin(\"LED\")",
+     "Pin(13)",
+     "Elle ne se commande pas"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sur le Pico W, la LED est reliée à la puce Wi-Fi : on utilise le nom \"LED\"."
+   },
+   {
+    "question": "Quelles broches peuvent lire une tension analogique ?",
+    "choix": [
+     "GP0 à GP2",
+     "GP26 à GP28",
+     "Toutes",
+     "Aucune"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "GP26, GP27 et GP28 (ADC0 à ADC2) ; ADC4 est le thermomètre interne."
+   },
+   {
+    "question": "read_u16() renvoie 32768. Quelle est la tension ?",
+    "choix": [
+     "≈ 0,8 V",
+     "≈ 1,65 V",
+     "≈ 3,3 V",
+     "≈ 5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = 32768 × 3,3 / 65535 ≈ 1,65 V."
+   },
+   {
+    "question": "Le thermomètre interne mesure U = 0,706 V. Quelle température donne la formule ?",
+    "choix": [
+     "0 °C",
+     "20 °C",
+     "27 °C",
+     "70,6 °C"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "T = 27 − (0,706 − 0,706) / 0,001721 = 27 °C."
+   },
+   {
+    "question": "Quel courant traverse une LED rouge (2 V) avec 330 Ω sous 3,3 V ?",
+    "choix": [
+     "≈ 0,4 mA",
+     "≈ 4 mA",
+     "≈ 10 mA",
+     "≈ 40 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = (3,3 − 2) / 330 ≈ 3,9 mA, dans les 4 mA prévus par défaut."
+   },
+   {
+    "question": "Quel est le rapport cyclique avec duty_u16(16384) ?",
+    "choix": [
+     "≈ 16 %",
+     "≈ 25 %",
+     "≈ 50 %",
+     "≈ 75 %"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "16384 / 65535 ≈ 0,25, soit 25 %."
+   },
+   {
+    "question": "Le programme ne démarre pas tout seul après débranchement. Pourquoi ?",
+    "choix": [
+     "La LED est grillée",
+     "Le fichier a été enregistré sur le PC, ou pas sous le nom main.py",
+     "Le Pico n'a pas de mémoire",
+     "Il faut un FTDI"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Seul un main.py présent sur le Pico est lancé au démarrage."
+   },
+   {
+    "question": "À quoi servent les 8 machines PIO de la RP2040 ?",
+    "choix": [
+     "À stocker des fichiers",
+     "À produire des signaux précis (rubans WS2812, VGA…) sans occuper le processeur",
+     "Au Wi-Fi",
+     "À mesurer la température"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Ce sont de petits processeurs spécialisés dans les entrées / sorties."
+   }
+  ]
+ },
+ {
+  "id": "4.7",
+  "titre": "Le Raspberry Pi",
+  "resume": "Un vrai ordinateur sous Linux, grand comme une carte bancaire, avec 40 broches GPIO. Tu apprends ce qui le distingue d'un microcontrôleur, à l'installer sans écran, à lire son connecteur GPIO et à piloter une LED et un bouton en Python avec gpiozero.",
+  "duree_minutes": 50,
+  "photo": {
+   "fichier": "4.7-photo.jpg",
+   "legende": "Un Raspberry Pi de première génération (modèle B, 2012) dans un boîtier transparent. Le Pi 4 garde le format carte bancaire, mais son connecteur GPIO compte 40 broches au lieu de 26.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × Raspberry Pi 4 (ou Pi 5, Pi 3, Zero 2 W : le code est le même)",
+   "1 × alimentation officielle USB-C 5 V / 3 A (5 V / 5 A pour un Pi 5)",
+   "1 × carte microSD de 16 Go ou plus",
+   "1 × ordinateur avec Raspberry Pi Imager (raspberrypi.com)",
+   "1 × breadboard, 1 × LED rouge, 1 × résistance 330 Ω, 1 × bouton poussoir",
+   "4 × câbles Dupont mâle-femelle"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le tour de la carte : processeur, RAM, ports USB, Ethernet, micro-HDMI, connecteur GPIO.\n2. Raspberry Pi Imager : écrire le système avec le Wi-Fi, l'utilisateur et SSH déjà réglés.\n3. La connexion en SSH depuis le PC, puis le câblage de la LED et du bouton.\n4. Le script gpiozero, le démarrage automatique et l'arrêt propre avec sudo shutdown now.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe **Raspberry Pi** n'est pas un microcontrôleur : c'est un **ordinateur complet** sous Linux, avec bureau, navigateur, Python et réseau. Ses 40 broches **GPIO** lui permettent en plus de commander des LED, des relais et des capteurs numériques.\n\nÀ la fin de cette leçon, tu sauras :\n\n- choisir entre un Raspberry Pi et un microcontrôleur ;\n- installer Raspberry Pi OS et te connecter **sans écran** (SSH) ;\n- lire le connecteur GPIO (numéros physiques et numéros GPIO) ;\n- piloter une LED et un bouton en Python avec **gpiozero** ;\n- calculer la puissance consommée et le budget de courant des GPIO."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Un ordinateur, pas un microcontrôleur\n\n| | Arduino, ESP32, Pico | Raspberry Pi 4 |\n|---|---|---|\n| Nature | microcontrôleur | ordinateur sous Linux |\n| Processeur | 1 ou 2 cœurs, 16 à 240 MHz | 4 cœurs ARM 64 bits à 1,5 GHz |\n| Mémoire | 2 à 520 Ko de RAM | 1 à 8 Go de RAM |\n| Démarrage | instantané | environ 30 s |\n| Programmes | un seul, en boucle | plusieurs à la fois |\n| Entrées analogiques | oui | **non** : ajouter un ADS1115 (leçon 3.4) |\n| Débranchement | sans risque | **arrêt propre d'abord** |\n\n### Le Raspberry Pi 4\n\n| Élément | Valeur |\n|---|---|\n| Processeur | BCM2711, 4 cœurs Cortex-A72 à 1,5 GHz |\n| Connectique | 2 × USB 3, 2 × USB 2, Ethernet Gigabit, 2 × micro-HDMI (4K) |\n| Sans fil | Wi-Fi 2,4 et 5 GHz, Bluetooth 5.0 |\n| Stockage | carte microSD (système et fichiers) |\n| Alimentation | USB-C, 5 V / 3 A |\n| GPIO | 40 broches, logique **3,3 V**, 16 mA au plus par broche |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les calculs d'énergie\n\n### La puissance de l'alimentation\n\n$$P_{max} = U \\times I = 5 \\times 3 = 15\\ \\text{W}$$\n\nEn pratique, un Pi 4 consomme environ 3 W au repos et jusqu'à 6 ou 7 W en plein calcul. Un Arduino Uno consomme environ \\( 5 \\times 0{,}05 = 0{,}25\\ \\text{W} \\).\n\n### L'énergie sur un an\n\nUn serveur domestique allumé en permanence à 4 W :\n\n$$E = P \\times t = 4\\ \\text{W} \\times 8760\\ \\text{h} \\approx 35\\ \\text{kWh par an}$$\n\n### Le budget de courant des GPIO\n\nAu plus 16 mA par broche, et il est conseillé de ne pas dépasser environ 50 mA pour l'ensemble des GPIO. Avec des LED à 4 mA :\n\n$$\\frac{50\\ \\text{mA}}{4\\ \\text{mA}} \\approx 12\\ \\text{LED au maximum}$$\n\nAu-delà : transistors, MOSFET ou registre à décalage (leçons 2.5, 2.6 et 3.2).\n\n> ⚠️ **Jamais de 5 V sur une GPIO** : la puce est détruite. Les broches 2 et 4 fournissent du 5 V, mais les GPIO ne le supportent pas."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.7-gpio-40-broches.svg",
+    "legende": "Le connecteur GPIO de 40 broches. En haut, les broches paires (au bord de la carte) ; en bas, les impaires. La broche 1 (carrée) est le 3,3 V. Les broches de l'expérience sont entourées de jaune : 11 (GPIO17), 13 (GPIO27) et des masses."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Démarrer un Raspberry Pi sans écran\n\n1. Avec **Raspberry Pi Imager**, choisis ton modèle et **Raspberry Pi OS**, puis la carte microSD (16 Go ou plus).\n2. Dans les **réglages** d'Imager : nom de la carte, **Wi-Fi**, **nom d'utilisateur et mot de passe**, et **activer SSH**.\n3. Écris la carte, insère-la dans le Pi, branche l'**alimentation officielle**.\n4. Depuis le PC (même réseau), ouvre un terminal : `ssh utilisateur@raspberrypi.local`.\n5. Pour voir le bureau à distance : activer **VNC** (`sudo raspi-config`).\n\n### Deux numérotations\n\n| Broche physique | Numéro GPIO (BCM) | Dans le code |\n|---|---|---|\n| 11 | GPIO17 | `LED(17)` |\n| 13 | GPIO27 | `Button(27)` |\n| 6, 9, 14, 20, 25, 30, 34, 39 | GND | — |\n| 1 et 17 | 3,3 V | — |\n| 2 et 4 | 5 V | jamais vers une GPIO |\n\n> 💡 Dans un terminal, la commande `pinout` affiche le brochage de ta carte."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : LED et bouton avec gpiozero\n\n### Le calcul\n\n$$I = \\frac{3{,}3 - 2}{330} \\approx 3{,}9\\ \\text{mA} < 16\\ \\text{mA}$$\n\nLe bouton n'a pas besoin de résistance : `Button()` active la **résistance de tirage interne** (pull-up). Bouton relâché : la broche lit 1 ; bouton appuyé : elle est reliée à la masse et lit 0.\n\n### Le montage pas à pas\n\n1. **Éteins le Pi** (`sudo shutdown now`) et débranche l'alimentation.\n2. **Broche 11 (GPIO17)** → **330 Ω** → **anode** de la LED ; **cathode** → **GND** (broche 9).\n3. **Broche 13 (GPIO27)** → **bouton** → **GND**.\n4. Rebranche, connecte-toi en SSH, crée le fichier `led_bouton.py` (`nano led_bouton.py`) et lance `python3 led_bouton.py`."
+   },
+   {
+    "type": "schema",
+    "fichier": "4.7-schema-gpiozero.svg",
+    "legende": "GPIO17 (broche 11) commande la LED à travers 330 Ω ; GPIO27 (broche 13) lit le bouton BP1 relié à la masse. Toutes les masses sont communes."
+   },
+   {
+    "type": "code",
+    "language": "python",
+    "code": "# Leçon 4.7 — LED et bouton avec gpiozero (déjà installé dans Raspberry Pi OS)\nfrom gpiozero import LED, Button\nfrom signal import pause\n\nled = LED(17)          # GPIO17 = broche physique 11\nbouton = Button(27)    # GPIO27 = broche 13, l'autre patte vers GND\n\nbouton.when_pressed = led.on      # appui : LED allumée\nbouton.when_released = led.off    # relâché : LED éteinte\n\nprint(\"Prêt : appuie sur le bouton (Ctrl+C pour quitter)\")\npause()                # attend les événements sans fin"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Action | LED | Terminal |\n|---|---|---|\n| Lancement du script | éteinte | « Prêt : appuie sur le bouton » |\n| Appui sur le bouton | allumée | — |\n| Bouton relâché | éteinte | — |\n| Ctrl+C | éteinte | le script s'arrête |\n\n> 💡 **Démarrage automatique** : `crontab -e`, puis une ligne `@reboot python3 /home/utilisateur/led_bouton.py`.\n\n> 💡 **Pi + Arduino** : le Pi gère le réseau, l'écran et les données ; un Arduino ou un ESP32 relié en USB lit les capteurs analogiques.\n\n> 📌 **Et avec un Pi 5 ?** Même code : gpiozero passe par la bibliothèque lgpio. L'ancienne bibliothèque RPi.GPIO, elle, n'y fonctionne plus.\n\n### Les modèles courants\n\n| Modèle | Particularité |\n|---|---|\n| Pi 4 B | 4 cœurs à 1,5 GHz, 1 à 8 Go de RAM, USB 3 (celui de cette leçon) |\n| Pi 5 | 2 à 3 fois plus rapide (2,4 GHz), port PCIe ; alimentation 5 V / 5 A |\n| Pi Zero 2 W | minuscule (65 × 30 mm), Wi-Fi, 512 Mo de RAM : pour les objets connectés |\n| Pi 400 / 500 | un Raspberry Pi intégré dans un clavier : il suffit d'un écran |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **5 V sur une GPIO** : la puce est détruite (3,3 V au maximum).\n- **Numéro physique au lieu du numéro GPIO** : écrire `LED(17)`, pas `LED(11)`.\n- **Oubli de `pause()`** : le script se termine aussitôt.\n- **Alimentation trop faible** : éclair à l'écran, redémarrages, carte lente.\n- **Débranchement sans arrêt propre** : la carte microSD peut être abîmée.\n\n## 📌 À retenir\n\n- Un ordinateur Linux, pas un microcontrôleur : pas d'entrée analogique.\n- GPIO en 3,3 V, 16 mA par broche, environ 50 mA en tout.\n- Numéros GPIO (BCM) dans le code : `LED(17)` = broche 11.\n- Sans écran : Imager (Wi-Fi + SSH), puis `ssh utilisateur@raspberrypi.local`.\n- Toujours `sudo shutdown now` avant de débrancher.\n\n## 🏆 Mini-défi\n\nFais en sorte que chaque appui lance un **clignotement** (au lieu d'allumer la LED), puis **compte les appuis** et affiche le total dans le terminal."
+   },
+   {
+    "type": "code",
+    "language": "python",
+    "code": "# Solution du mini-défi : clignotement et compteur d'appuis\nfrom gpiozero import LED, Button\nfrom signal import pause\n\nled = LED(17)\nbouton = Button(27)\nappuis = 0\n\ndef appui():\n    global appuis\n    appuis += 1\n    led.blink(on_time=0.2, off_time=0.2, n=3)   # 3 éclats, sans bloquer\n    print(\"Appuis :\", appuis)\n\nbouton.when_pressed = appui\npause()"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle est la grande différence entre un Raspberry Pi et un Arduino ?",
+    "choix": [
+     "Le Pi est un ordinateur sous Linux, l'Arduino un microcontrôleur",
+     "Le Pi n'a pas de broches",
+     "L'Arduino est plus rapide",
+     "Aucune"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le Pi fait tourner un système complet et plusieurs programmes à la fois."
+   },
+   {
+    "question": "Quelle est la tension maximale sur une GPIO du Raspberry Pi ?",
+    "choix": [
+     "1,8 V",
+     "3,3 V",
+     "5 V",
+     "12 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les GPIO sont en 3,3 V ; du 5 V les détruit."
+   },
+   {
+    "question": "Combien d'entrées analogiques possède le Raspberry Pi 4 ?",
+    "choix": [
+     "Aucune",
+     "2",
+     "6",
+     "8"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Il faut ajouter un convertisseur, par exemple un ADS1115 en I2C."
+   },
+   {
+    "question": "Dans gpiozero, une LED branchée sur la broche physique 11 s'écrit :",
+    "choix": [
+     "LED(11)",
+     "LED(17)",
+     "LED(\"P11\")",
+     "LED(1)"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "On utilise le numéro GPIO (BCM) : la broche 11 est GPIO17."
+   },
+   {
+    "question": "Pourquoi le bouton n'a-t-il pas besoin de résistance avec Button(27) ?",
+    "choix": [
+     "Le bouton en contient une",
+     "gpiozero active la résistance de tirage interne (pull-up)",
+     "Le Pi est en 5 V",
+     "Il en faut une, c'est une erreur"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La broche est tirée vers 3,3 V ; l'appui la relie à la masse."
+   },
+   {
+    "question": "Que se passe-t-il si on oublie pause() à la fin du script ?",
+    "choix": [
+     "La LED reste allumée",
+     "Le script se termine aussitôt",
+     "Le Pi redémarre",
+     "Rien ne change"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sans pause(), Python atteint la fin du fichier et quitte."
+   },
+   {
+    "question": "Quelle commande taper avant de débrancher le Pi ?",
+    "choix": [
+     "exit",
+     "sudo shutdown now",
+     "Ctrl+C",
+     "python3 stop"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un arrêt propre évite d'abîmer la carte microSD."
+   },
+   {
+    "question": "Quelle puissance maximale fournit une alimentation 5 V / 3 A ?",
+    "choix": [
+     "1,5 W",
+     "8 W",
+     "15 W",
+     "53 W"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "P = 5 × 3 = 15 W."
+   },
+   {
+    "question": "Un Pi allumé toute l'année à 4 W consomme environ :",
+    "choix": [
+     "3,5 kWh",
+     "35 kWh",
+     "350 kWh",
+     "3500 kWh"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "E = 4 W × 8760 h ≈ 35 000 Wh = 35 kWh."
+   },
+   {
+    "question": "Comment se connecter au Pi depuis un PC, sans écran ni clavier ?",
+    "choix": [
+     "En HDMI",
+     "En SSH : ssh utilisateur@raspberrypi.local",
+     "Avec un FTDI",
+     "Par la broche 1"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "SSH ouvre un terminal à distance ; VNC permet de voir le bureau."
+   },
+   {
+    "question": "Quel courant traverse une LED rouge (2 V) avec 330 Ω sur une GPIO ?",
+    "choix": [
+     "≈ 0,4 mA",
+     "≈ 4 mA",
+     "≈ 16 mA",
+     "≈ 40 mA"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = (3,3 − 2) / 330 ≈ 3,9 mA."
+   },
+   {
+    "question": "Quelle bibliothèque ne fonctionne plus sur le Raspberry Pi 5 ?",
+    "choix": [
+     "gpiozero",
+     "RPi.GPIO",
+     "Python 3",
+     "SSH"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "gpiozero continue de marcher en passant par lgpio."
+   }
+  ]
+ }
+]
