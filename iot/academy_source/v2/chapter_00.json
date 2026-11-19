@@ -175,7 +175,7 @@
     "explication": "P = U² / R = 25 / 1 000 = 0,025 W = 25 mW, bien en dessous des 250 mW d'une résistance ¼ W."
    },
    {
-    "question": "Quelles affirmations sur la tension sont vraies ? (plusieurs réponses)",
+    "question": "Quelles affirmations sur la tension sont vraies ?",
     "choix": [
      "Elle se mesure en volts",
      "Elle se mesure entre deux points du circuit",
@@ -226,6 +226,1641 @@
      "B"
     ],
     "explication": "Au-delà de sa tension de seuil, le courant dans une LED augmente très vite : sans résistance, il dépasse largement les 20 mA tolérés."
+   }
+  ]
+ },
+ {
+  "id": "0.2",
+  "titre": "Continu et alternatif",
+  "resume": "Le continu va dans un seul sens ; l'alternatif oscille 50 fois par seconde. Tu apprends à reconnaître DC, AC et PWM, à lire l'étiquette d'un adaptateur et à mesurer la moyenne d'un signal PWM.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "0.2-photo.jpg",
+   "legende": "Piles et accus AA : des sources de tension continue (1,5 V pour une pile, 1,2 V pour un accu NiMH).",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard 400 ou 830 points",
+   "1 × résistance 10 kΩ (marron-noir-orange)",
+   "1 × condensateur électrolytique 10 µF, 16 V ou plus (attention au sens : bande « − » vers GND)",
+   "1 × multimètre numérique",
+   "4 × câbles Dupont mâle-mâle",
+   "1 × pile 1,5 V ou 9 V (pour mesurer une tension continue)",
+   "1 × adaptateur secteur ou chargeur USB, seulement pour lire son étiquette (ne jamais l'ouvrir)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Une pile et un chargeur côte à côte : où est le continu, où est l'alternatif.\n2. Les quatre formes de signaux (continu, sinusoïde, redressé, PWM) dessinées et expliquées.\n3. La lecture de l'étiquette d'un adaptateur : Input, Output, ⎓ et ~, polarité du jack.\n4. L'expérience PWM : le filtre RC sur la breadboard, le moniteur série et la vérification au multimètre.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne pile et une prise de courant ne fournissent pas le même genre d'électricité. La pile donne du **continu** (DC), la prise donne de l'**alternatif** (AC). Tes cartes Arduino et ESP32, elles, ne fonctionnent qu'en continu.\n\nÀ la fin de cette leçon, tu sauras :\n\n- distinguer une tension continue d'une tension alternative ;\n- utiliser la période, la fréquence, la valeur crête et la valeur efficace ;\n- lire l'étiquette d'un adaptateur et choisir le bon pour ton montage ;\n- comprendre le **PWM** de l'Arduino et calculer sa tension moyenne ;\n- lisser un signal PWM avec un filtre RC et mesurer le résultat."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Deux façons de fournir de l'énergie\n\n- En **continu**, la tension garde toujours le même signe : le **+** reste le +. Le courant circule toujours dans le même sens.\n- En **alternatif**, la tension change de signe en permanence : elle monte, redescend, devient négative, puis recommence. Le courant change de sens à chaque demi-période.\n\n| | Continu (DC) | Alternatif (AC) |\n|---|---|---|\n| Abréviation anglaise | DC : Direct Current | AC : Alternating Current |\n| Symbole sur les étiquettes | ⎓ (trait plein + pointillés) | ~ (vague) |\n| Forme de la tension | une droite horizontale | une sinusoïde |\n| Exemples | pile, batterie, panneau solaire, USB 5 V, sortie d'un régulateur | prise secteur, sortie d'un transformateur |\n| Pour quoi faire ? | alimenter l'électronique : Arduino, ESP32, capteurs | transporter l'énergie sur de longues distances |\n\n> 💡 Les chargeurs et adaptateurs transforment l'alternatif du secteur en continu basse tension. C'est grâce à eux que ton téléphone ou ta carte Arduino peuvent être alimentés depuis une prise."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les grandeurs d'un signal alternatif\n\nUn signal alternatif se répète. On le décrit avec quatre grandeurs :\n\n- la **période** \\( T \\) : la durée d'un cycle complet, en secondes (s) ;\n- la **fréquence** \\( f \\) : le nombre de cycles par seconde, en hertz (Hz) ;\n- la **valeur crête** \\( U_{max} \\) : la tension la plus haute atteinte ;\n- la **valeur efficace** \\( U_{eff} \\) : la tension continue qui chaufferait autant une résistance. C'est elle qu'on écrit sur les prises et les appareils (230 V).\n\nFréquence et période sont l'inverse l'une de l'autre :\n\n$$f = \\frac{1}{T} \\qquad\\qquad T = \\frac{1}{f}$$\n\nPour une sinusoïde, la crête vaut environ 1,41 fois la valeur efficace :\n\n$$U_{max} = \\sqrt{2} \\times U_{eff} \\approx 1{,}414 \\times U_{eff}$$\n\n### Exemples\n\n| Réseau | Valeur efficace | Fréquence | Période | Crête |\n|---|---|---|---|---|\n| France | 230 V | 50 Hz | 20 ms | ≈ 325 V |\n| Guinée | 220 V | 50 Hz | 20 ms | ≈ 311 V |\n| États-Unis | 120 V | 60 Hz | ≈ 16,7 ms | ≈ 170 V |\n\nLe calcul pour la France :\n\n$$T = \\frac{1}{50\\ \\text{Hz}} = 0{,}02\\ \\text{s} = 20\\ \\text{ms} \\qquad U_{max} = 1{,}414 \\times 230 \\approx 325\\ \\text{V}$$\n\n> 🔒 Le secteur est **mortel**. Tu l'étudies sur le papier et à l'oscilloscope virtuel, jamais avec les doigts ni avec un montage sur breadboard."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.2-signaux.svg",
+    "legende": "Les quatre formes de signaux à connaître : continu (pile), alternatif sinusoïdal (secteur), redressé (après un pont de diodes) et carré / PWM (sortie analogWrite d'un Arduino)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Du secteur au continu : l'adaptateur\n\nÀ l'intérieur d'un adaptateur, quatre étapes transforment le 230 V alternatif en une petite tension continue :\n\n1. **Abaisser** la tension (transformateur ou électronique à découpage).\n2. **Redresser** avec un pont de diodes : la tension devient toujours positive, mais elle ondule (fiche 2.1).\n3. **Lisser** avec un condensateur : les creux se remplissent.\n4. **Réguler** : un régulateur donne une tension bien stable, par exemple 5 V.\n\n### Lire l'étiquette d'un adaptateur\n\n| Mention | Signification |\n|---|---|\n| Input : 100-240 V ~ 50/60 Hz | il se branche sur le secteur alternatif, dans tous les pays |\n| Output : 5 V ⎓ 2 A | il fournit du continu à 5 V, jusqu'à 2 A au maximum |\n| Dessin « centre + » (⊖ – ● – ⊕) | polarité du jack : le centre est au +, l'extérieur au − |\n\nPour choisir un adaptateur :\n\n- la **même tension** que celle attendue par le montage ;\n- un **courant maximal supérieur ou égal** à la consommation du montage (le montage ne prend que ce dont il a besoin) ;\n- une sortie en **continu** (⎓), jamais en alternatif (~) ;\n- la **bonne polarité** du jack.\n\n> 💡 Exemple : ton montage consomme 300 mA sous 5 V. Un adaptateur 5 V ⎓ 2 A convient parfaitement : 2 A ≥ 0,3 A. Un adaptateur 9 V ⎓ 2 A **ne convient pas** si tu branches directement sur la broche 5V de la carte."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Le PWM : un continu « haché »\n\nUne broche d'Arduino ne sait donner que 0 V ou 5 V. Pour faire varier la luminosité d'une LED ou la vitesse d'un moteur, elle bascule très vite entre les deux : c'est le **PWM** (*Pulse Width Modulation*, modulation de largeur d'impulsion).\n\nPendant une période \\( T \\), la sortie reste à 5 V pendant \\( t_{on} \\), puis à 0 V le reste du temps. Le **rapport cyclique** \\( \\alpha \\) est la part du temps passée à l'état haut :\n\n$$\\alpha = \\frac{t_{on}}{T}$$\n\nLa tension **moyenne** vaut alors :\n\n$$U_{moy} = \\alpha \\times U_{haut}$$\n\nAvec `analogWrite(broche, r)`, la valeur r va de 0 à 255, donc :\n\n$$\\alpha = \\frac{r}{255} \\qquad\\qquad U_{moy} = \\frac{r}{255} \\times 5\\ \\text{V}$$\n\n| r dans analogWrite | Rapport cyclique | U moyenne (Uno, 5 V) | U moyenne (ESP32, 3,3 V) |\n|---|---|---|---|\n| 0 | 0 % | 0 V | 0 V |\n| 64 | 25 % | ≈ 1,25 V | ≈ 0,83 V |\n| 128 | 50 % | ≈ 2,5 V | ≈ 1,65 V |\n| 192 | 75 % | ≈ 3,76 V | ≈ 2,48 V |\n| 255 | 100 % | 5 V (continu) | 3,3 V (continu) |\n\n> 📌 Sur l'Uno, seules les broches marquées **~** font du PWM : **3, 5, 6, 9, 10 et 11**. La fréquence est d'environ **490 Hz** (980 Hz sur les broches 5 et 6).\n\n> ⚠️ Le PWM n'est **pas** une vraie tension intermédiaire : c'est un carré 0 / 5 V. Une LED clignote si vite que l'œil voit une moyenne, mais un circuit sensible, lui, voit bien les 5 V."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.2-schema-pwm-rc.svg",
+    "legende": "Le filtre RC : la résistance de 10 kΩ et le condensateur de 10 µF lissent le signal PWM de D9. A0 mesure la tension moyenne."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Expérience : lisser un PWM et mesurer sa moyenne\n\nLe condensateur se charge pendant les 5 V et se décharge pendant les 0 V. Comme le signal bascule beaucoup plus vite que le condensateur ne réagit, la tension à ses bornes reste presque constante : elle vaut la **moyenne** du PWM. La vitesse de réaction du filtre est donnée par sa **constante de temps** :\n\n$$\\tau = R \\times C = 10\\,000\\ \\Omega \\times 10 \\times 10^{-6}\\ \\text{F} = 0{,}1\\ \\text{s}$$\n\nAprès environ \\( 5\\tau = 0{,}5\\ \\text{s} \\), la tension est stabilisée : c'est pour cela que le programme attend une seconde avant de mesurer.\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. Relie **D9** à une patte de la résistance de **10 kΩ**.\n3. Relie l'autre patte de la résistance à la patte **+** (la plus longue) du condensateur de **10 µF**, et à **A0**.\n4. Relie la patte **−** du condensateur (côté bande blanche) à **GND**.\n5. Rebranche l'USB, téléverse le programme et ouvre le moniteur série à **9600 bauds**."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.2 — PWM sur D9, lissé par un filtre RC, mesuré sur A0\nconst int PWM = 9;   // broches PWM (~) de l'Uno : 3 5 6 9 10 11\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  for (int r = 0; r <= 255; r += 64) {   // r = 0, 64, 128, 192\n    analogWrite(PWM, r);                 // rapport cyclique r / 255\n    delay(1000);                         // le filtre RC se stabilise (5 tau = 0,5 s)\n    float u = analogRead(A0) * 5.0 / 1023.0;\n    float attendu = r / 255.0 * 5.0;     // U moyenne théorique\n    Serial.print(\"r = \");    Serial.print(r);\n    Serial.print(\"  mesure : \"); Serial.print(u, 2);\n    Serial.print(\" V  attendu : \"); Serial.print(attendu, 2);\n    Serial.println(\" V\");\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| r | Rapport cyclique | U attendue | Ta mesure sur A0 | Ta mesure au multimètre (V⎓) |\n|---|---|---|---|---|\n| 0 | 0 % | 0,00 V | … | … |\n| 64 | 25 % | 1,25 V | … | … |\n| 128 | 50 % | 2,51 V | … | … |\n| 192 | 75 % | 3,76 V | … | … |\n\nPour mesurer au multimètre : calibre **20 V⎓**, pointe rouge sur la patte + du condensateur, pointe noire sur GND.\n\n> 📌 **Et avec un ESP32 ?** Presque toutes les GPIO font du PWM : `analogWrite` avec les versions récentes du core ESP32, sinon `ledcWrite`. Le signal va de 0 à 3,3 V, donc \\( U_{moy} = \\alpha \\times 3{,}3\\ \\text{V} \\). Mesure sur **GPIO 34** (valeurs de 0 à 4095) : `float u = analogRead(34) * 3.3 / 4095.0;`.\n\n## 6. Mesurer au multimètre\n\n- **V⎓** (continu) pour les piles, l'USB, l'Arduino et la sortie du filtre RC.\n- **V~** (alternatif) seulement pour le secteur, et seulement si tu as été formé.\n- Sur un PWM non filtré, un multimètre en V⎓ affiche à peu près la moyenne ; en V~, la lecture est trompeuse.\n- Pour voir la vraie forme du signal, il faut un **oscilloscope** : FOUNATEK OSC (fiche 11.3) permet de s'entraîner en ligne."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Broche sans « ~ »** : `analogWrite(7, 128)` ne donne que 0 ou 5 V, pas de PWM.\n- **Croire que le PWM est une vraie tension** : c'est un carré 0 / 5 V ; seule sa moyenne vaut 2,5 V.\n- **Condensateur électrolytique à l'envers** : il chauffe et peut gonfler. La bande « − » va vers GND.\n- **Adaptateur à sortie AC (~)** sur une carte : il faut du continu (⎓).\n- **Mauvais calibre** : V~ sur une pile ou V⎓ sur le secteur donnent une lecture fausse.\n\n> 🔒 Sécurité : ne touche **jamais** au secteur 230 V, n'ouvre jamais un chargeur branché. Toutes les expériences de ce livre se font en très basse tension (piles, USB).\n\n## 📌 À retenir\n\n- **DC** : tension fixe, un seul sens (piles, USB). **AC** : sinusoïde, 230 V 50 Hz au secteur.\n- \\( f = 1 / T \\) : 50 Hz donne une période de 20 ms.\n- \\( U_{max} = \\sqrt{2} \\times U_{eff} \\) : 230 V efficaces montent à 325 V en crête.\n- PWM : \\( U_{moy} = \\alpha \\times U_{haut} \\), avec \\( \\alpha = r / 255 \\) pour `analogWrite`.\n- Un filtre RC (\\( \\tau = R \\times C \\)) transforme un PWM en tension presque continue.\n\n## 🏆 Mini-défi\n\nQuelle valeur donner à `analogWrite` pour obtenir **3,3 V** de moyenne sur A0 avec l'Uno ? Calcule-la avec \\( r = U_{moy} / 5 \\times 255 \\), vérifie avec le programme puis au multimètre.\n\n> ✅ Solution : \\( r = 3{,}3 / 5 \\times 255 \\approx 168 \\). Écris `analogWrite(9, 168);` : A0 doit lire environ 3,29 V."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Que signifie l'abréviation DC sur une étiquette ?",
+    "choix": [
+     "Courant alternatif",
+     "Courant continu",
+     "Double courant",
+     "Courant de décharge"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "DC vient de l'anglais Direct Current : courant continu, qui circule toujours dans le même sens."
+   },
+   {
+    "question": "Quelle est la fréquence du secteur en France et en Guinée ?",
+    "choix": [
+     "10 Hz",
+     "50 Hz",
+     "60 Hz",
+     "230 Hz"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le secteur oscille à 50 Hz en Europe et en Afrique de l'Ouest ; les États-Unis utilisent 60 Hz."
+   },
+   {
+    "question": "Quelle est la période d'un signal de 50 Hz ?",
+    "choix": [
+     "2 ms",
+     "20 ms",
+     "50 ms",
+     "0,5 s"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "T = 1 / f = 1 / 50 = 0,02 s = 20 ms."
+   },
+   {
+    "question": "La tension efficace du secteur est 230 V. Quelle est environ sa valeur crête ?",
+    "choix": [
+     "163 V",
+     "230 V",
+     "325 V",
+     "460 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Umax = √2 × Ueff ≈ 1,414 × 230 ≈ 325 V."
+   },
+   {
+    "question": "Que signifie le symbole « ~ » sur un appareil ?",
+    "choix": [
+     "Tension continue",
+     "Tension alternative",
+     "Masse",
+     "Batterie faible"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La vague « ~ » désigne l'alternatif (AC) ; le continu (DC) se note ⎓."
+   },
+   {
+    "question": "Ton montage consomme 500 mA sous 5 V. L'adaptateur « Output : 5 V ⎓ 2 A » convient-il ?",
+    "choix": [
+     "Non, 2 A va détruire le montage",
+     "Oui : même tension, et 2 A ≥ 0,5 A",
+     "Non, il faut exactement 500 mA",
+     "Oui, mais seulement en alternatif"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le courant indiqué est un maximum : le montage ne prend que ce dont il a besoin. Il faut la même tension et un courant max suffisant."
+   },
+   {
+    "question": "Sur un Uno, quelle tension moyenne donne analogWrite(9, 128) ?",
+    "choix": [
+     "≈ 1,25 V",
+     "≈ 2,5 V",
+     "≈ 3,3 V",
+     "5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Rapport cyclique 128 / 255 ≈ 50 %, donc Umoy ≈ 0,5 × 5 V = 2,5 V."
+   },
+   {
+    "question": "Parmi ces broches de l'Arduino Uno, lesquelles savent faire du PWM ?",
+    "choix": [
+     "D3",
+     "D7",
+     "D9",
+     "D13"
+    ],
+    "bonnes": [
+     "A",
+     "C"
+    ],
+    "explication": "Les broches PWM de l'Uno sont marquées « ~ » : 3, 5, 6, 9, 10 et 11. D7 et D13 ne donnent que 0 ou 5 V."
+   },
+   {
+    "question": "Dans le filtre RC de l'expérience, à quoi sert le condensateur ?",
+    "choix": [
+     "À augmenter la tension",
+     "À lisser le signal PWM pour garder sa moyenne",
+     "À transformer le continu en alternatif",
+     "À protéger la LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le condensateur se charge et se décharge lentement : il « remplit les creux » du carré et garde une tension proche de la moyenne."
+   },
+   {
+    "question": "Quelle est la constante de temps τ d'un filtre avec R = 10 kΩ et C = 10 µF ?",
+    "choix": [
+     "0,001 s",
+     "0,01 s",
+     "0,1 s",
+     "10 s"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "τ = R × C = 10 000 × 0,000 01 = 0,1 s. La tension est stable après environ 5τ = 0,5 s."
+   },
+   {
+    "question": "Quelle valeur passer à analogWrite pour obtenir environ 3,3 V de moyenne sur un Uno ?",
+    "choix": [
+     "33",
+     "128",
+     "168",
+     "255"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "r = 3,3 / 5 × 255 ≈ 168."
+   },
+   {
+    "question": "Sur un ESP32, quelle est la tension moyenne d'un PWM à 50 % ?",
+    "choix": [
+     "≈ 1,65 V",
+     "≈ 2,5 V",
+     "3,3 V",
+     "5 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Les sorties de l'ESP32 vont de 0 à 3,3 V : Umoy = 0,5 × 3,3 V = 1,65 V."
+   },
+   {
+    "question": "Quel instrument montre la vraie forme d'un signal PWM ?",
+    "choix": [
+     "Le multimètre en V⎓",
+     "Le multimètre en V~",
+     "L'oscilloscope",
+     "L'ohmmètre"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Un multimètre affiche un seul nombre (une moyenne ou une valeur efficace approximative). L'oscilloscope trace la tension en fonction du temps."
+   }
+  ]
+ },
+ {
+  "id": "0.3",
+  "titre": "Analogique et numérique",
+  "resume": "Un signal analogique varie en continu ; un signal numérique ne vaut que 0 ou 1. Tu apprends à lire un capteur avec analogRead, à interpréter les niveaux logiques et à protéger une entrée 3,3 V.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "0.3-photo.jpg",
+   "legende": "Un potentiomètre câblé sur une breadboard : son curseur donne une tension réglable de 0 à 5 V (voir la fiche 1.2).",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × potentiomètre 10 kΩ (linéaire, souvent marqué B10K)",
+   "1 × résistance 1,8 kΩ (marron-gris-rouge) et 1 × résistance 3,3 kΩ (orange-orange-rouge) pour le pont diviseur",
+   "1 × multimètre numérique",
+   "5 × câbles Dupont mâle-mâle",
+   "Facultatif : 1 × ESP32 DevKit pour tester le pont diviseur 5 V → 3,3 V"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. La différence entre un variateur (analogique) et un interrupteur (numérique), avec une lampe.\n2. Le potentiomètre sur A0 : les valeurs 0 à 1023 qui défilent dans le moniteur série quand on tourne.\n3. La même tension lue en numérique : le moment où digitalRead bascule de 0 à 1.\n4. Le pont diviseur 1,8 kΩ / 3,3 kΩ mesuré au multimètre avant de le brancher sur un ESP32.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLes capteurs parlent deux langues. Une sonde de température donne une tension qui varie doucement : c'est de l'**analogique**. Un bouton dit seulement « appuyé » ou « relâché » : c'est du **numérique**. Ta carte sait écouter les deux, à condition de choisir la bonne broche et la bonne fonction.\n\nÀ la fin de cette leçon, tu sauras :\n\n- distinguer un signal analogique d'un signal numérique ;\n- convertir une valeur lue par `analogRead()` en volts ;\n- connaître les seuils HIGH et LOW d'une carte 5 V et d'une carte 3,3 V ;\n- abaisser un signal 5 V à 3,3 V avec un **pont diviseur** ;\n- lire un potentiomètre en analogique et en numérique."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.3-analogique-numerique.svg",
+    "legende": "À gauche, un signal analogique prend toutes les valeurs entre 0 et 5 V. À droite, un signal numérique ne connaît que deux états : 0 (LOW) et 1 (HIGH)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Deux types de signaux\n\n| | Analogique | Numérique |\n|---|---|---|\n| Valeurs possibles | toutes, de 0 à 5 V (ou 3,3 V) | deux seulement : 0 (LOW) ou 1 (HIGH) |\n| Exemples de capteurs | potentiomètre, LDR, LM35, micro | bouton, PIR, fin de course, capteur à seuil |\n| Fonction Arduino | `analogRead(A0)` | `digitalRead(2)` |\n| Broches de l'Uno | A0 à A5 | D0 à D13 (et A0 à A5 aussi) |\n| Ce qu'on obtient | un nombre de 0 à 1023 | 0 ou 1 |\n\n> 💡 Une même tension peut se lire des deux façons : en analogique pour connaître sa valeur précise, en numérique pour savoir seulement si elle est « haute » ou « basse »."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Le convertisseur analogique-numérique (CAN)\n\nLe microcontrôleur ne manipule que des nombres. Son **CAN** (ADC en anglais) découpe la plage de tension en marches et donne le numéro de la marche atteinte. Le nombre de marches dépend de la **résolution** en bits :\n\n$$\\text{nombre de valeurs} = 2^{n}$$\n\n| Carte | Résolution | Valeurs | Plage | Une marche vaut |\n|---|---|---|---|---|\n| Arduino Uno, Nano | 10 bits | 1 024 (0 à 1023) | 0 à 5 V | ≈ 4,9 mV |\n| ESP32 | 12 bits | 4 096 (0 à 4095) | 0 à 3,3 V | ≈ 0,8 mV |\n\nPour retrouver la tension à partir de la valeur lue \\( N \\) :\n\n$$U = N \\times \\frac{5}{1023} \\qquad \\text{(Uno)} \\qquad\\qquad U = N \\times \\frac{3{,}3}{4095} \\qquad \\text{(ESP32)}$$\n\nEt dans l'autre sens, pour prévoir la valeur lue :\n\n$$N = U \\times \\frac{1023}{5}$$\n\n### Exemples\n\n1. Uno, \\( N = 512 \\) : \\( U = 512 \\times 5 / 1023 \\approx 2{,}50\\ \\text{V} \\).\n2. Uno, \\( N = 205 \\) : \\( U = 205 \\times 5 / 1023 \\approx 1{,}00\\ \\text{V} \\).\n3. ESP32, \\( N = 2048 \\) : \\( U = 2048 \\times 3{,}3 / 4095 \\approx 1{,}65\\ \\text{V} \\).\n4. Uno, tension de 3 V : \\( N = 3 \\times 1023 / 5 \\approx 614 \\).\n\n> ⚠️ Dans le code, écris `5.0` et `1023.0` avec un point : sinon le calcul se fait en nombres entiers et donne 0 ou 1."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les niveaux logiques\n\nEn numérique, la carte compare la tension à deux seuils. Entre les deux, la lecture n'est pas garantie : c'est une **zone interdite** à éviter.\n\n| Carte | Lue LOW (0) si | Zone incertaine | Lue HIGH (1) si |\n|---|---|---|---|\n| Uno (logique 5 V) | U < 1,5 V | 1,5 V à 3 V | U > 3 V |\n| ESP32 (logique 3,3 V) | U < ≈ 0,8 V | ≈ 0,8 V à 2,5 V | U > ≈ 2,5 V |\n\n> 🔒 Les entrées de l'ESP32 ne supportent **pas** 5 V. Un signal 5 V (sortie d'un Uno, écho d'un HC-SR04) envoyé directement peut détruire la broche, voire la carte.\n\n> 💡 Dans l'autre sens, un 3,3 V suffit souvent à un Uno (seuil ≈ 3 V), mais c'est juste. Pour un lien fiable, notamment en I2C, on utilise un module **convertisseur de niveaux** (à transistors BSS138)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Passer de 5 V à 3,3 V : le pont diviseur\n\nDeux résistances en série partagent la tension. Au point milieu, on obtient une fraction de la tension d'entrée :\n\n$$U_s = U_e \\times \\frac{R_2}{R_1 + R_2}$$\n\n\\( R_1 \\) est la résistance du haut (en série), \\( R_2 \\) celle du bas (vers la masse). Avec \\( R_1 = 1{,}8\\ \\text{k}\\Omega \\) et \\( R_2 = 3{,}3\\ \\text{k}\\Omega \\) :\n\n$$U_s = 5 \\times \\frac{3{,}3}{1{,}8 + 3{,}3} = 5 \\times \\frac{3{,}3}{5{,}1} \\approx 3{,}24\\ \\text{V}$$\n\n3,24 V est sous les 3,3 V de l'ESP32 et bien au-dessus de son seuil HIGH (2,5 V) : la lecture est sûre.\n\n| R1 | R2 | Tension de sortie (entrée 5 V) |\n|---|---|---|\n| 1,8 kΩ | 3,3 kΩ | ≈ 3,24 V |\n| 1 kΩ | 2 kΩ | ≈ 3,33 V |\n| 10 kΩ | 20 kΩ | ≈ 3,33 V |\n| 4,7 kΩ | 10 kΩ | ≈ 3,40 V (un peu haut) |"
+   },
+   {
+    "type": "schema",
+    "fichier": "0.3-schema-pont-diviseur.svg",
+    "legende": "Pont diviseur : le signal 5 V de l'écho du HC-SR04 passe par R1 (1,8 kΩ) ; R2 (3,3 kΩ) va à la masse. La GPIO 18 de l'ESP32 reçoit environ 3,2 V. Les deux masses doivent être reliées."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Expérience : analogRead ou digitalRead ?\n\nLe potentiomètre est lui-même un pont diviseur réglable : en tournant l'axe, tu déplaces le curseur entre les deux extrémités. Sa tension va de 0 V (curseur côté GND) à 5 V (curseur côté 5V).\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. Place le potentiomètre sur la breadboard, ses trois pattes dans trois colonnes différentes.\n3. Relie une patte extérieure au **5V**, l'autre patte extérieure au **GND**.\n4. Relie la patte du **milieu** (le curseur) à **A0**.\n5. Téléverse le programme et ouvre le moniteur série à 9600 bauds. Tourne lentement l'axe."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.3-schema-potentiometre.svg",
+    "legende": "Le potentiomètre P1 entre 5V et GND : son curseur délivre une tension de 0 à 5 V sur l'entrée A0."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.3 — la même tension lue en analogique et en numérique\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int n = analogRead(A0);          // 0 à 1023\n  float u = n * 5.0 / 1023.0;      // conversion en volts\n  int etat = digitalRead(A0);      // 0 ou 1\n\n  Serial.print(\"N = \");          Serial.print(n);\n  Serial.print(\"  U = \");        Serial.print(u, 2);\n  Serial.print(\" V  logique = \"); Serial.println(etat);\n  delay(300);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Position du curseur | N (analogRead) | U calculée | digitalRead |\n|---|---|---|---|\n| tout côté GND | 0 | 0,00 V | 0 |\n| au quart | ≈ 256 | ≈ 1,25 V | 0 |\n| au milieu | ≈ 512 | ≈ 2,50 V | 0 ou 1 (zone incertaine) |\n| aux trois quarts | ≈ 767 | ≈ 3,75 V | 1 |\n| tout côté 5V | 1023 | 5,00 V | 1 |\n\nUne même tension donne une **mesure fine** en analogique et un simple **oui / non** en numérique. Vérifie aussi une ou deux valeurs au multimètre (calibre 20 V⎓, entre A0 et GND).\n\n> 📌 **Et avec un ESP32 ?** Branche le potentiomètre entre **3,3 V** et GND (jamais 5 V !), curseur sur **GPIO 34**. `analogRead(34)` donne 0 à 4095 et \\( U = N \\times 3{,}3 / 4095 \\). Utilise les broches de l'**ADC1** (GPIO 32 à 39) : l'ADC2 ne fonctionne pas quand le Wi-Fi est actif. L'ADC de l'ESP32 est aussi moins précis près de 0 V et de 3,3 V."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Envoyer 5 V sur une broche d'ESP32** : risque de la détruire. Pont diviseur ou convertisseur obligatoire.\n- **Curseur relié au 5V** au lieu de A0 : en tournant à fond, tu crées un court-circuit entre 5V et GND.\n- **Entrée « en l'air »** (reliée à rien) : la lecture varie au hasard, elle capte les parasites.\n- **Oublier la masse commune** entre deux cartes : les tensions n'ont plus de référence, rien ne marche.\n- **Calcul en entiers** : `n * 5 / 1023` donne 0 à 4 ; écris `5.0` et `1023.0`.\n- **Lire un bouton avec analogRead** : ça marche, mais c'est inutile ; `digitalRead` avec `INPUT_PULLUP` suffit (fiche 6.1).\n\n## 📌 À retenir\n\n- Analogique : toutes les valeurs, `analogRead()` donne 0 à 1023 sur l'Uno (10 bits), 0 à 4095 sur l'ESP32 (12 bits).\n- \\( U = N \\times 5 / 1023 \\) sur l'Uno, \\( U = N \\times 3{,}3 / 4095 \\) sur l'ESP32.\n- Numérique : 0 ou 1 avec `digitalRead()`. Uno : HIGH au-dessus de 3 V, LOW sous 1,5 V.\n- Pont diviseur : \\( U_s = U_e \\times R_2 / (R_1 + R_2) \\). 1,8 kΩ et 3,3 kΩ font passer 5 V à 3,2 V.\n- Jamais de 5 V sur une entrée 3,3 V, et toujours une masse commune.\n\n## 🏆 Mini-défi\n\nAffiche « BAS », « MILIEU » ou « HAUT » selon la position du potentiomètre, en découpant 0–1023 en trois zones avec des `if`. Essaie d'abord seul, puis compare avec la solution ci-dessous."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : trois zones pour le potentiomètre\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int n = analogRead(A0);\n  if (n < 341) {              // 0 à 340 : premier tiers\n    Serial.println(\"BAS\");\n  } else if (n < 682) {       // 341 à 681 : deuxième tiers\n    Serial.println(\"MILIEU\");\n  } else {                    // 682 à 1023 : dernier tiers\n    Serial.println(\"HAUT\");\n  }\n  delay(300);\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Qu'est-ce qui caractérise un signal analogique ?",
+    "choix": [
+     "Il ne vaut que 0 ou 1",
+     "Il peut prendre toutes les valeurs dans une plage",
+     "Il est toujours alternatif",
+     "Il ne se lit qu'avec digitalRead"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Un signal analogique varie de façon continue : toutes les valeurs entre 0 et 5 V sont possibles."
+   },
+   {
+    "question": "Quelles valeurs renvoie analogRead() sur un Arduino Uno ?",
+    "choix": [
+     "0 ou 1",
+     "0 à 255",
+     "0 à 1023",
+     "0 à 4095"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le CAN de l'Uno a 10 bits : 2^10 = 1024 valeurs, de 0 à 1023."
+   },
+   {
+    "question": "Combien de valeurs différentes donne un convertisseur 12 bits comme celui de l'ESP32 ?",
+    "choix": [
+     "1 024",
+     "2 048",
+     "4 096",
+     "65 536"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "2^12 = 4 096 valeurs, de 0 à 4095."
+   },
+   {
+    "question": "Sur un Uno, analogRead(A0) renvoie 512. Quelle est la tension sur A0 ?",
+    "choix": [
+     "≈ 0,5 V",
+     "≈ 1,65 V",
+     "≈ 2,5 V",
+     "≈ 5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "U = 512 × 5 / 1023 ≈ 2,50 V : la moitié de la plage."
+   },
+   {
+    "question": "Sur un ESP32, analogRead(34) renvoie 2048. Quelle est la tension ?",
+    "choix": [
+     "≈ 1,65 V",
+     "≈ 2,5 V",
+     "≈ 3,3 V",
+     "≈ 5 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "U = 2048 × 3,3 / 4095 ≈ 1,65 V."
+   },
+   {
+    "question": "Une entrée numérique d'Uno reçoit 2 V. Que lit digitalRead ?",
+    "choix": [
+     "Toujours 0",
+     "Toujours 1",
+     "Le résultat n'est pas garanti : 2 V est dans la zone incertaine",
+     "Une erreur de compilation"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Sur l'Uno, LOW est garanti sous 1,5 V et HIGH au-dessus de 3 V. Entre les deux, la lecture peut donner 0 ou 1."
+   },
+   {
+    "question": "Quelle tension donne un pont diviseur R1 = 1,8 kΩ, R2 = 3,3 kΩ alimenté en 5 V ?",
+    "choix": [
+     "≈ 1,8 V",
+     "≈ 2,5 V",
+     "≈ 3,2 V",
+     "≈ 4,5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Us = 5 × 3,3 / (1,8 + 3,3) = 5 × 3,3 / 5,1 ≈ 3,24 V."
+   },
+   {
+    "question": "Parmi ces capteurs, lesquels donnent un signal analogique ?",
+    "choix": [
+     "Le capteur de température LM35",
+     "La photorésistance (LDR) en pont diviseur",
+     "Le bouton poussoir",
+     "Le détecteur de mouvement PIR"
+    ],
+    "bonnes": [
+     "A",
+     "B"
+    ],
+    "explication": "LM35 et LDR donnent une tension qui varie de façon continue. Le bouton et le PIR sont tout-ou-rien."
+   },
+   {
+    "question": "Sur un ESP32 qui utilise le Wi-Fi, sur quelles broches lire un capteur analogique ?",
+    "choix": [
+     "Celles de l'ADC1 (GPIO 32 à 39)",
+     "Celles de l'ADC2",
+     "N'importe quelle GPIO",
+     "Aucune : le Wi-Fi bloque toutes les mesures"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "L'ADC2 est utilisé par le Wi-Fi : seules les entrées de l'ADC1 (GPIO 32 à 39) restent disponibles."
+   },
+   {
+    "question": "Que se passe-t-il quand une entrée n'est reliée à rien ?",
+    "choix": [
+     "Elle lit toujours 0",
+     "Elle lit toujours 1",
+     "Sa lecture varie au hasard",
+     "La carte s'éteint"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Une entrée « en l'air » capte les parasites : il faut toujours lui imposer un niveau (montage, pull-up ou pull-down)."
+   },
+   {
+    "question": "Combien vaut environ une « marche » du CAN de l'Uno ?",
+    "choix": [
+     "≈ 0,5 mV",
+     "≈ 4,9 mV",
+     "≈ 49 mV",
+     "≈ 0,5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "5 V / 1024 ≈ 0,0049 V = 4,9 mV."
+   },
+   {
+    "question": "Pourquoi écrire n * 5.0 / 1023.0 plutôt que n * 5 / 1023 dans le code ?",
+    "choix": [
+     "Pour aller plus vite",
+     "Pour que le calcul se fasse avec des décimales et non en nombres entiers",
+     "Parce que 5 n'est pas autorisé",
+     "Ça ne change rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Avec des entiers, la division supprime les décimales : 512 × 5 / 1023 donne 2 au lieu de 2,50."
+   }
+  ]
+ },
+ {
+  "id": "0.4",
+  "titre": "Lire un schéma",
+  "resume": "Le schéma est le plan du montage : des symboles reliés par des fils. Tu apprends à reconnaître les symboles, à lire les valeurs (4k7, 104, code couleur) et à passer du schéma au câblage.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "0.4-photo.jpg",
+   "legende": "Un schéma imprimé : des symboles, des repères, des valeurs et des liaisons. C'est le plan de tout montage électronique.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × LED rouge 5 mm",
+   "1 × résistance 220 Ω (rouge-rouge-marron)",
+   "3 × câbles Dupont mâle-mâle",
+   "Quelques résistances et condensateurs de ton kit, pour t'entraîner à lire leurs valeurs",
+   "1 × feuille, un crayon et des surligneurs (pour le mini-défi)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Un vrai schéma imprimé, lu pas à pas : alimentation, masse, composants, fils.\n2. Les symboles de base à côté des vrais composants (résistance, condensateur, LED, bouton…).\n3. Lire 4k7, 104 et le code couleur d'une résistance, avec vérification à l'ohmmètre.\n4. Du schéma au câblage : la LED sur D13 montée sur la breadboard, fil après fil, au surligneur.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne photo de montage montre des fils qui partent dans tous les sens. Un **schéma**, lui, montre l'essentiel : quels composants sont utilisés et comment ils sont reliés. Il se lit partout dans le monde, quelle que soit la langue de celui qui l'a dessiné.\n\nÀ la fin de cette leçon, tu sauras :\n\n- reconnaître les symboles des composants courants et leurs repères (R1, C1, D1, U1…) ;\n- faire la différence entre une jonction et un simple croisement de fils ;\n- lire les valeurs écrites en notation courte (4k7) et en code (104, code couleur) ;\n- suivre une méthode pour câbler un schéma sans erreur."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Schéma, vue breadboard, photo : trois façons de montrer un montage\n\n| Représentation | Ce qu'elle montre | Quand l'utiliser |\n|---|---|---|\n| Schéma électrique | les liaisons électriques, avec des symboles normalisés | comprendre, dépanner, partager |\n| Vue breadboard (Fritzing) | la place des composants et des fils sur la plaque | débuter, câbler vite |\n| Photo | l'aspect réel du montage | vérifier une couleur ou un détail |\n\n> 💡 Le schéma ne dit pas **où** poser les composants, seulement **qui est relié à qui**. Deux montages très différents sur la breadboard peuvent correspondre au même schéma."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.4-symboles.svg",
+    "legende": "Les symboles de base (norme européenne IEC) avec leur repère et un exemple de valeur. Le point noir indique que des fils sont reliés ; sans point, ils se croisent sans se toucher."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Symbole, repère, valeur\n\nSur un schéma, chaque composant porte trois informations : son **symbole**, son **repère** et sa **valeur**. Exemple : un rectangle marqué « R1 220 Ω ».\n\n| Composant | Repère | Unité de la valeur | Polarisé (un sens) ? |\n|---|---|---|---|\n| Résistance | R1, R2… | ohm (Ω) | non |\n| Condensateur céramique | C1, C2… | farad (F) : nF, µF | non |\n| Condensateur électrolytique | C1, C2… | farad (F) : µF | **oui** (+ et −) |\n| Diode | D1, D2… | référence (1N4007) | **oui** (anode A, cathode K) |\n| LED | LED1, D1… | couleur | **oui** (anode A, cathode K) |\n| Transistor | Q1, T1… | référence (2N2222) | **oui** (3 pattes) |\n| Circuit intégré | U1, IC1… | référence (74HC08) | **oui** (broche 1 repérée) |\n| Bouton, interrupteur | BP1, SW1… | — | non |\n| Potentiomètre | P1, RV1… | ohm (Ω) | non (mais 3 pattes) |\n| Pile, batterie | BT1… | volt (V) | **oui** |\n\n> ⚠️ Un composant **polarisé** ne fonctionne que dans un sens. Monté à l'envers, une LED reste éteinte ; un condensateur électrolytique peut chauffer et gonfler."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Fils, nœuds et étiquettes\n\n- Un **trait** est un fil parfait : tous les points qu'il relie sont au **même potentiel** (même tension).\n- Un **point** (nœud) à un croisement signifie que les fils sont **reliés**.\n- Un croisement **sans point** signifie que les fils passent l'un au-dessus de l'autre **sans se toucher**.\n- Les symboles **+5 V** (ou VCC) et **GND** évitent de dessiner les fils d'alimentation : tous les symboles de masse d'un schéma sont reliés entre eux, de même que tous les +5 V.\n- Deux fils qui portent la même **étiquette** (SDA, D7, ECHO…) sont reliés, même sans trait entre eux.\n\n> 💡 On dessine en général le **+ en haut** et la **masse en bas**, les entrées à gauche et les sorties à droite : le schéma se lit de gauche à droite et de haut en bas, comme un texte."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Lire les valeurs\n\n### Les préfixes, écrits à la place de la virgule\n\nPour éviter qu'une virgule s'efface à l'impression, on écrit souvent le préfixe **à sa place** :\n\n| Écrit | Se lit | Valeur |\n|---|---|---|\n| 4k7 | 4,7 kΩ | 4 700 Ω |\n| 2R2 | 2,2 Ω | 2,2 Ω (R = virgule) |\n| 1M | 1 MΩ | 1 000 000 Ω |\n| 4n7 | 4,7 nF | 0,000 000 004 7 F |\n\n### Le code à 3 chiffres des condensateurs\n\nLes deux premiers chiffres forment un nombre, le troisième indique le nombre de zéros. Le résultat est en **picofarads** (pF) :\n\n$$104 \\;\\rightarrow\\; 10 \\times 10^{4}\\ \\text{pF} = 100\\,000\\ \\text{pF} = 100\\ \\text{nF}$$\n\n| Code | Calcul | Valeur |\n|---|---|---|\n| 103 | 10 suivi de 3 zéros pF | 10 nF |\n| 104 | 10 suivi de 4 zéros pF | 100 nF (le plus courant) |\n| 105 | 10 suivi de 5 zéros pF | 1 µF |\n| 471 | 47 suivi de 1 zéro pF | 470 pF |\n\n> 📌 Rappel : 1 µF = 1 000 nF = 1 000 000 pF.\n\n### Le code couleur des résistances\n\nSur une résistance à 4 anneaux : les deux premiers anneaux donnent deux chiffres, le troisième le **multiplicateur** (nombre de zéros), le quatrième la **tolérance** (or = ± 5 %).\n\n| Couleur | Chiffre | Couleur | Chiffre |\n|---|---|---|---|\n| noir | 0 | vert | 5 |\n| marron | 1 | bleu | 6 |\n| rouge | 2 | violet | 7 |\n| orange | 3 | gris | 8 |\n| jaune | 4 | blanc | 9 |\n\nExemples :\n\n1. rouge, rouge, marron : 2, 2 et 1 zéro → **220 Ω**.\n2. marron, noir, orange : 1, 0 et 3 zéros → **10 000 Ω = 10 kΩ**.\n3. jaune, violet, rouge : 4, 7 et 2 zéros → **4 700 Ω = 4,7 kΩ**.\n\n> 💡 En cas de doute, mesure à l'ohmmètre (leçon 0.6) : c'est plus sûr que les couleurs, parfois difficiles à distinguer."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. La méthode de lecture en 3 étapes\n\n1. **Repérer l'alimentation et la masse** : d'où vient l'énergie, où elle retourne.\n2. **Identifier chaque composant** : repère, valeur, et sens des composants polarisés (diodes, LED, condensateurs électrolytiques).\n3. **Suivre chaque fil** d'une broche à l'autre, et le cocher au surligneur une fois posé sur la breadboard.\n\n## 6. Exercice : du schéma au câblage d'une LED\n\nVoici le schéma le plus simple de l'Arduino : une LED et sa résistance sur la broche D13. Note les deux symboles de masse : ils représentent le **même** fil, relié au GND de la carte."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.4-schema-led-d13.svg",
+    "legende": "R1 (220 Ω) limite le courant ; LED1 s'allume quand D13 est à l'état haut. A = anode (patte longue), K = cathode (patte courte, côté plat)."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Le calcul\n\nAvec une LED rouge (\\( U_{LED} \\approx 2\\ \\text{V} \\)) et la sortie D13 à 5 V :\n\n$$I = \\frac{U_{alim} - U_{LED}}{R_1} = \\frac{5 - 2}{220} \\approx 0{,}014\\ \\text{A} = 14\\ \\text{mA}$$\n\n### Du schéma au câblage\n\n1. **D13** → une patte de **R1** (220 Ω). R1 se branche dans les deux sens.\n2. Autre patte de R1 → **anode** de la LED (patte longue).\n3. **Cathode** de la LED (patte courte, côté plat) → **GND**.\n4. Chaque trait du schéma = un fil posé. Coche-le sur ta feuille.\n\nTéléverse ensuite ce programme de test et suis les messages dans le moniteur série."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.4 — tester le câblage de LED1 (schéma : D13 → R1 → LED1 → GND)\nconst int LED1 = 13;   // D13, comme sur le schéma\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(LED1, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LED1, HIGH);   // D13 → R1 → LED1 → GND : le courant passe\n  Serial.println(\"D13 = HIGH : LED1 doit s'allumer\");\n  delay(2000);\n  digitalWrite(LED1, LOW);    // plus de courant\n  Serial.println(\"D13 = LOW : LED1 doit s'éteindre\");\n  delay(2000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "> 📌 **Et avec un ESP32 ?** Remplace 13 par une GPIO comme **2** (LED intégrée sur beaucoup de cartes). En 3,3 V : \\( I = (3{,}3 - 2) / 220 \\approx 6\\ \\text{mA} \\) : la LED éclaire moins. Tu peux descendre à **100 Ω** : \\( I = 1{,}3 / 100 = 13\\ \\text{mA} \\).\n\n## 7. Bon à savoir\n\n- **La datasheet** : la fiche technique du fabricant donne le brochage du composant et un schéma d'application type. C'est la meilleure source.\n- **Les logiciels** : KiCad (gratuit) pour dessiner des schémas et des circuits imprimés, Fritzing pour les vues breadboard, Wokwi pour simuler un Arduino ou un ESP32 en ligne, sans matériel.\n\n## ⚠️ Erreurs fréquentes\n\n- **Confondre** un croisement sans point avec une jonction : les fils ne sont pas reliés.\n- **LED à l'envers** : anode et cathode inversées, elle reste éteinte.\n- **Oublier R1** : la LED et la broche D13 sont en danger.\n- **Lire 4k7 comme 47 Ω** au lieu de 4 700 Ω.\n- **Oublier que tous les GND sont reliés** : chaque symbole de masse doit aller au GND de la carte.\n\n## 📌 À retenir\n\n- Chaque composant : un symbole, un repère (R1, C1, D1, U1…) et une valeur.\n- Un trait = un fil ; un point = une jonction ; pas de point = pas de liaison.\n- +5 V en haut, GND en bas : tous les symboles de masse sont reliés.\n- 4k7 = 4,7 kΩ ; 104 = 100 nF ; rouge-rouge-marron = 220 Ω.\n- Méthode : alimentation et masse, puis composants, puis chaque fil.\n\n## 🏆 Mini-défi\n\nDessine à la main le schéma d'un **bouton poussoir** relié entre **D2** et **GND**, lu avec `INPUT_PULLUP` (fiche 6.1), puis câble-le sur la breadboard.\n\n> ✅ Indice : le schéma ne comporte que trois éléments : la broche D2, le symbole du bouton BP1 et un symbole de masse. Avec `INPUT_PULLUP`, la résistance de tirage est **à l'intérieur** de la carte : tu ne la dessines pas."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Sur un schéma, que signifie un point noir à l'intersection de deux fils ?",
+    "choix": [
+     "Les fils se croisent sans se toucher",
+     "Les fils sont reliés",
+     "Il y a un composant caché",
+     "Le fil est coupé"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le point (nœud) indique une jonction : tous les fils qui y arrivent sont reliés."
+   },
+   {
+    "question": "Deux fils se croisent sans point. Que faut-il comprendre ?",
+    "choix": [
+     "Ils sont reliés",
+     "Ils ne sont pas reliés",
+     "C'est une erreur de dessin",
+     "Il faut les souder"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sans point, les fils passent l'un au-dessus de l'autre sans contact électrique."
+   },
+   {
+    "question": "Que vaut une résistance marquée « 4k7 » ?",
+    "choix": [
+     "47 Ω",
+     "470 Ω",
+     "4 700 Ω",
+     "47 000 Ω"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le k remplace la virgule : 4k7 = 4,7 kΩ = 4 700 Ω."
+   },
+   {
+    "question": "Un condensateur porte le code « 104 ». Quelle est sa valeur ?",
+    "choix": [
+     "104 pF",
+     "10 nF",
+     "100 nF",
+     "10 µF"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "10 suivi de 4 zéros = 100 000 pF = 100 nF."
+   },
+   {
+    "question": "Que vaut le code « 103 » sur un condensateur ?",
+    "choix": [
+     "10 pF",
+     "1 nF",
+     "10 nF",
+     "100 nF"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "10 suivi de 3 zéros = 10 000 pF = 10 nF."
+   },
+   {
+    "question": "Quelle est la valeur d'une résistance rouge, rouge, marron ?",
+    "choix": [
+     "22 Ω",
+     "220 Ω",
+     "2,2 kΩ",
+     "22 kΩ"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Rouge = 2, rouge = 2, marron = 1 zéro : 220 Ω."
+   },
+   {
+    "question": "Quel composant porte habituellement le repère D1 ?",
+    "choix": [
+     "Un condensateur",
+     "Une diode",
+     "Un circuit intégré",
+     "Une résistance"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "D comme diode (une LED est parfois repérée D1 ou LED1). C = condensateur, U = circuit intégré, R = résistance."
+   },
+   {
+    "question": "Un schéma comporte deux symboles de masse à deux endroits différents. Que faut-il câbler ?",
+    "choix": [
+     "Rien, ce sont des décorations",
+     "Les deux points doivent être reliés au GND de la carte",
+     "Seulement le premier",
+     "Une résistance entre les deux"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Tous les symboles de masse représentent le même fil commun à 0 V."
+   },
+   {
+    "question": "Parmi ces composants, lesquels sont polarisés (ils ont un sens de branchement) ?",
+    "choix": [
+     "La LED",
+     "Le condensateur électrolytique",
+     "La résistance",
+     "La diode 1N4007"
+    ],
+    "bonnes": [
+     "A",
+     "B",
+     "D"
+    ],
+    "explication": "LED, diode et condensateur électrolytique ont un + et un −. La résistance se branche dans les deux sens."
+   },
+   {
+    "question": "Comment reconnaître la cathode (K) d'une LED ?",
+    "choix": [
+     "C'est la patte la plus longue",
+     "C'est la patte la plus courte, du côté plat du boîtier",
+     "Elle est toujours rouge",
+     "Elle est marquée d'un +"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La cathode est la patte courte, du côté du méplat. L'anode est la patte longue."
+   },
+   {
+    "question": "Quelle est la première étape pour lire un schéma ?",
+    "choix": [
+     "Compter les fils",
+     "Repérer l'alimentation et la masse",
+     "Lire le programme",
+     "Mesurer les résistances"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "On commence par savoir d'où vient l'énergie et où elle retourne, puis on identifie les composants et on suit les fils."
+   },
+   {
+    "question": "Quel outil permet de simuler un Arduino ou un ESP32 en ligne, sans matériel ?",
+    "choix": [
+     "KiCad",
+     "Wokwi",
+     "Le multimètre",
+     "Fritzing"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Wokwi simule cartes, composants et programme dans le navigateur. KiCad dessine des schémas, Fritzing des vues breadboard."
+   }
+  ]
+ },
+ {
+  "id": "0.5",
+  "titre": "La breadboard",
+  "resume": "Une plaque d'essai sans soudure : on enfiche, on teste, on modifie. Tu apprends ce qui est relié à l'intérieur, comment placer les composants et tu câbles une LED clignotante.",
+  "duree_minutes": 30,
+  "photo": {
+   "fichier": "0.5-photo.jpg",
+   "legende": "Une breadboard 830 points : les rails + et − sur les côtés, les colonnes au centre, la rainure au milieu.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard 400 ou 830 points",
+   "2 × LED (rouge et verte, 5 mm)",
+   "2 × résistances 220 Ω (rouge-rouge-marron)",
+   "1 fil noir et 2 fils de couleur (Dupont mâle-mâle ou fils rigides précoupés)",
+   "1 × multimètre avec le mode continuité (bip), pour tester la plaque"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. L'intérieur d'une breadboard : les lamelles métalliques qui relient les trous.\n2. Le test au multimètre en mode bip : même colonne, colonnes voisines, rail coupé.\n3. Le câblage de la LED clignotante sur D8, colonne après colonne.\n4. Les trois pièges classiques : pattes dans la même colonne, rail coupé, fil décalé d'un trou.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLa **breadboard** (plaque d'essai) est le terrain de jeu de l'électronicien : on y enfiche les composants et les fils sans soudure, on teste, on corrige, on démonte. Rien n'est abîmé, tout se réutilise.\n\nÀ la fin de cette leçon, tu sauras :\n\n- quels trous sont reliés entre eux à l'intérieur de la plaque ;\n- placer un composant pour qu'il soit vraiment dans le circuit ;\n- câbler proprement une LED clignotante et suivre le chemin du courant ;\n- tester une plaque au multimètre et éviter les faux contacts."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Ce qui est relié à l'intérieur\n\nSous le plastique, des **lamelles métalliques à ressort** relient les trous par groupes :\n\n- **Au centre** : les 5 trous d'une même **colonne** (rangées a à e, ou f à j) sont reliés.\n- **La rainure centrale** coupe chaque colonne en deux groupes **indépendants** : a–e d'un côté, f–j de l'autre.\n- **Les rails** + et − courent sur toute la longueur : tous les trous d'un rail sont reliés. On y amène l'alimentation et la masse.\n\n> ⚠️ Sur certaines plaques 830 points, les rails sont **coupés au milieu** (le trait rouge ou bleu est interrompu). Il faut alors relier les deux moitiés avec un petit fil, sinon la moitié du montage n'est pas alimentée."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.5-breadboard-connexions.svg",
+    "legende": "En vert, deux colonnes de 5 trous : chacune forme un groupe relié. En orange, l'autre moitié de la colonne 8, séparée par la rainure. En rouge et bleu, les rails + et − reliés sur toute la ligne."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les modèles et les accessoires\n\n| Modèle | Taille | Idéal pour |\n|---|---|---|\n| 830 points | 63 colonnes, 2 doubles rails | ESP32, Uno, montages complets |\n| 400 points (demi-plaque) | 30 colonnes, 2 doubles rails | Nano et quelques capteurs |\n| Mini 170 points | 17 colonnes, sans rails | se coller sur un shield ou un boîtier |\n\n| Fil | Usage |\n|---|---|\n| Dupont mâle-mâle | breadboard ↔ broches femelles de l'Uno |\n| Dupont mâle-femelle | breadboard ↔ broches mâles d'un module ou d'un ESP32 |\n| Dupont femelle-femelle | module ↔ carte, sans breadboard |\n| Fils rigides précoupés | montage propre, à plat, sans faux contacts |\n\n### Caractéristiques à connaître\n\n- **Pas** (distance entre deux trous) : **2,54 mm**, le même que les broches des cartes et des circuits intégrés.\n- Fils rigides de **0,6 mm** environ (22 AWG).\n- Courant maximal : environ **1 A** par contact. Pas de moteurs puissants, et **jamais de 230 V**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Bien placer les composants\n\nLa règle d'or : **les pattes d'un composant vont toujours dans des colonnes différentes.** Si les deux pattes d'une LED sont dans la même colonne, elles sont reliées entre elles : la LED est court-circuitée et ne s'allume jamais.\n\n- Un **circuit intégré** (74HC08, NE555…) se place **à cheval sur la rainure** : chaque broche a alors sa propre colonne.\n- Un **Arduino Nano** se pose aussi à cheval sur la rainure.\n- Les **couleurs** rendent le montage lisible : **rouge pour le +**, **noir ou bleu pour le −**, d'autres couleurs pour les signaux.\n- Des **fils courts et à plat** : le montage reste lisible et les fils ne s'arrachent pas.\n\n> 💡 Avant de brancher l'USB, suis le courant avec le doigt : de la broche de sortie, à travers chaque composant, jusqu'à la masse. Si ton doigt « saute » un composant ou reste coincé, il y a une erreur."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : câbler une LED clignotante sur D8\n\nLe circuit est celui des leçons précédentes : une sortie, une résistance de 220 Ω, une LED, la masse. Cette fois, on se concentre sur **la place de chaque patte** dans la plaque.\n\n### Le branchement\n\n1. **Fil noir** : GND de l'Arduino → **rail −**.\n2. **LED** : anode (patte longue) dans la **colonne 10**, cathode (patte courte) dans le **rail −**.\n3. **R1 (220 Ω)** : de la **colonne 10** à la **colonne 14**.\n4. **Fil de couleur** : D8 de l'Arduino → **colonne 14**.\n\nOn suit le courant : **D8 → colonne 14 → R1 → colonne 10 → LED → rail − → GND**."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.5-breadboard-led.svg",
+    "legende": "Vue de la breadboard : la LED (colonne 10 et rail −), la résistance R1 (colonnes 10 à 14), le fil orange vers D8 et le fil noir vers GND. Les colonnes utilisées sont surlignées en vert."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.5 — LED clignotante sur D8, durées réglables\nconst int LED = 8;          // D8 → colonne 14\nconst int ALLUME = 300;     // durée allumée (ms)\nconst int ETEINT = 700;     // durée éteinte (ms)\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LED, HIGH);\n  delay(ALLUME);\n  digitalWrite(LED, LOW);\n  delay(ETEINT);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Le calcul : période, fréquence et rapport cyclique\n\nLe clignotement est un signal carré, comme le PWM de la leçon 0.2, mais beaucoup plus lent :\n\n$$T = t_{on} + t_{off} = 300 + 700 = 1000\\ \\text{ms} = 1\\ \\text{s}$$\n\n$$f = \\frac{1}{T} = \\frac{1}{1\\ \\text{s}} = 1\\ \\text{Hz} \\qquad\\qquad \\alpha = \\frac{t_{on}}{T} = \\frac{300}{1000} = 30\\ \\%$$\n\nEssaie ALLUME = 10 et ETEINT = 10 : la LED clignote à 50 Hz et ton œil ne voit plus le clignotement, seulement une lumière un peu plus faible. C'est exactement le principe du PWM.\n\n> 📌 **Et avec un ESP32 ?** La carte DevKit est large : posée sur une seule plaque, elle ne laisse qu'une rangée libre d'un côté. Utilise **deux plaques côte à côte**, ou une plaque par moitié de carte. Remplace `LED = 8` par une GPIO comme **23** (sortie 3,3 V ; 100 à 150 Ω suffisent).\n\n## 5. Tester une plaque au multimètre\n\n1. Mets le multimètre en mode **continuité** (symbole •))) ).\n2. Pique deux trous d'une **même colonne** : ça doit **biper**.\n3. Pique deux **colonnes voisines** : **silence**.\n4. Pique les deux extrémités d'un **rail** : bip si le rail est continu, silence s'il est coupé au milieu.\n\nUne plaque usée a des contacts lâches : si un montage marche « quand on appuie dessus », change de trous ou de plaque."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Les deux pattes de la LED dans la même colonne** : elle est court-circuitée, elle ne s'allume pas.\n- **Rail coupé au milieu** : la moitié du montage n'est pas alimentée.\n- **Pattes trop courtes ou tordues** : faux contact intermittent.\n- **Fil décalé d'un trou** : il n'est plus dans la bonne colonne.\n- **Composant de part et d'autre de la rainure sans le vouloir** : les deux moitiés d'une colonne ne sont pas reliées.\n\n> 🔒 La breadboard est faite pour la **très basse tension** (5 V, 3,3 V, 9 V). Jamais de 230 V, et pas de courants forts (moteurs de plus de 1 A) : les contacts chaufferaient.\n\n## 📌 À retenir\n\n- Au centre, les colonnes de 5 trous sont reliées (a–e et f–j séparés par la rainure).\n- Les rails + et − sont reliés sur toute la longueur, parfois coupés au milieu.\n- Pas de 2,54 mm, environ 1 A par contact.\n- Les pattes d'un composant toujours dans des colonnes différentes ; les circuits intégrés à cheval sur la rainure.\n- \\( T = t_{on} + t_{off} \\), \\( f = 1 / T \\), \\( \\alpha = t_{on} / T \\).\n\n## 🏆 Mini-défi\n\nAjoute une **2e LED sur D9** avec sa propre résistance de 220 Ω, et fais clignoter les deux **en alternance**, comme un feu de passage à niveau. Essaie seul, puis compare avec la solution."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : deux LED en alternance (passage à niveau)\nconst int LED_A = 8;\nconst int LED_B = 9;\n\nvoid setup() {\n  pinMode(LED_A, OUTPUT);\n  pinMode(LED_B, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(LED_A, HIGH);  digitalWrite(LED_B, LOW);\n  delay(500);\n  digitalWrite(LED_A, LOW);   digitalWrite(LED_B, HIGH);\n  delay(500);\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Au centre d'une breadboard, quels trous sont reliés entre eux ?",
+    "choix": [
+     "Tous les trous d'une rangée horizontale",
+     "Les 5 trous d'une même colonne (a à e, ou f à j)",
+     "Aucun",
+     "Tous les trous de la plaque"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une lamelle métallique relie les 5 trous d'une colonne, de chaque côté de la rainure."
+   },
+   {
+    "question": "Que fait la rainure centrale ?",
+    "choix": [
+     "Elle relie les deux moitiés",
+     "Elle coupe chaque colonne en deux groupes indépendants",
+     "Elle sert de masse",
+     "Elle évacue la chaleur"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les rangées a–e et f–j d'une même colonne ne sont pas reliées : c'est ce qui permet d'y placer un circuit intégré."
+   },
+   {
+    "question": "Que se passe-t-il si les deux pattes d'une LED sont dans la même colonne ?",
+    "choix": [
+     "Elle brille plus fort",
+     "Elle est court-circuitée et ne s'allume pas",
+     "Elle clignote",
+     "Rien de particulier"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les deux pattes sont reliées par la lamelle : le courant contourne la LED."
+   },
+   {
+    "question": "Quel est le pas (espacement) entre deux trous d'une breadboard ?",
+    "choix": [
+     "1 mm",
+     "2,54 mm",
+     "5 mm",
+     "1 cm"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "2,54 mm (un dixième de pouce), le même pas que les broches des cartes et des circuits intégrés."
+   },
+   {
+    "question": "La moitié droite de ton montage n'est pas alimentée, alors que la gauche fonctionne. Cause probable ?",
+    "choix": [
+     "La LED est grillée",
+     "Le rail est coupé au milieu de la plaque",
+     "Le programme est faux",
+     "L'Arduino est en panne"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Sur certaines plaques, les rails sont interrompus au milieu : il faut relier les deux moitiés avec un fil."
+   },
+   {
+    "question": "Comment place-t-on un circuit intégré (boîtier DIP) sur une breadboard ?",
+    "choix": [
+     "Sur un rail",
+     "À cheval sur la rainure centrale",
+     "Toutes les broches dans la même colonne",
+     "En dehors de la plaque"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "À cheval sur la rainure, chaque broche se retrouve dans sa propre colonne."
+   },
+   {
+    "question": "Avec ALLUME = 300 ms et ETEINT = 700 ms, quelle est la fréquence de clignotement ?",
+    "choix": [
+     "0,3 Hz",
+     "1 Hz",
+     "3 Hz",
+     "10 Hz"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "T = 300 + 700 = 1 000 ms = 1 s, donc f = 1 / T = 1 Hz."
+   },
+   {
+    "question": "Et quel est son rapport cyclique ?",
+    "choix": [
+     "30 %",
+     "43 %",
+     "70 %",
+     "100 %"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "α = t_on / T = 300 / 1 000 = 30 %."
+   },
+   {
+    "question": "En mode continuité, que doit faire le multimètre entre deux trous d'une même colonne ?",
+    "choix": [
+     "Rester silencieux",
+     "Biper",
+     "Afficher 5 V",
+     "Afficher OL"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Les deux trous sont reliés par la lamelle : la résistance est presque nulle, le multimètre bipe."
+   },
+   {
+    "question": "Quelles conventions de couleurs rendent un montage lisible ?",
+    "choix": [
+     "Rouge pour le +",
+     "Noir ou bleu pour le − (masse)",
+     "Rouge pour la masse",
+     "Une seule couleur pour tous les fils"
+    ],
+    "bonnes": [
+     "A",
+     "B"
+    ],
+    "explication": "Rouge pour l'alimentation, noir ou bleu pour la masse, d'autres couleurs pour les signaux."
+   },
+   {
+    "question": "Quel courant maximal peut passer environ par un contact de breadboard ?",
+    "choix": [
+     "10 mA",
+     "1 A",
+     "10 A",
+     "Aucune limite"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Environ 1 A : pour un moteur puissant, il faut un câblage plus solide."
+   }
+  ]
+ },
+ {
+  "id": "0.6",
+  "titre": "Le multimètre",
+  "resume": "L'outil n° 1 de l'électronicien : il mesure tension, courant et résistance. Tu apprends à brancher les cordons, à choisir le calibre et à mesurer U, I, R et la continuité sans rien abîmer.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "0.6-photo.jpg",
+   "legende": "Un multimètre numérique avec ses deux cordons : noir dans COM, rouge dans V/Ω/mA (ou 10 A pour les forts courants).",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × multimètre numérique avec bip de continuité (par exemple DT830 ou UNI-T UT33)",
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "1 × LED rouge 5 mm",
+   "1 × résistance 220 Ω et 1 × résistance 1 kΩ",
+   "4 × câbles Dupont mâle-mâle",
+   "1 × pile 1,5 V ou 9 V",
+   "1 × fil quelconque et une diode 1N4007 (facultatif) pour les tests de continuité et de diode"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le tour de l'appareil : écran, sélecteur, les trois bornes et où mettre les cordons.\n2. Mesurer une tension : une pile, l'USB 5 V, la broche 3,3 V, puis aux bornes d'une LED.\n3. Mesurer un courant : ouvrir le circuit, passer en série, lire 14 mA, remettre le cordon sur V.\n4. Résistance, continuité et test de diode, puis le mini-voltmètre Arduino comparé au multimètre.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nSans mesure, on devine. Avec un **multimètre**, on vérifie : la pile est-elle chargée ? Combien consomme mon montage ? Ce fil est-il coupé ? Cette résistance fait-elle bien 220 Ω ?\n\nÀ la fin de cette leçon, tu sauras :\n\n- brancher les cordons dans les bonnes bornes et choisir le bon calibre ;\n- mesurer une tension (en parallèle) et un courant (en série) ;\n- mesurer une résistance et tester la continuité d'un fil ;\n- utiliser tes mesures pour calculer une puissance et une autonomie de batterie."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.6-multimetre.svg",
+    "legende": "Les cinq éléments d'un multimètre : l'écran, le sélecteur rotatif, la borne COM (cordon noir), la borne VΩmA (cordon rouge) et la borne 10 A, réservée aux forts courants."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Découvrir l'appareil\n\n- Le **cordon noir** va **toujours** dans **COM** (commun).\n- Le **cordon rouge** va dans **VΩmA** pour presque toutes les mesures, et dans **10A** seulement pour les courants forts.\n- Le **sélecteur** choisit la grandeur (V⎓, V~, A, Ω, bip) et le **calibre** (la valeur maximale mesurable).\n- Si l'écran affiche **« 1 »** ou **« OL »** (*overload*), la valeur dépasse le calibre : passe au calibre supérieur.\n\n### Les calibres (exemple d'un DT830B)\n\n| Mode | Calibres |\n|---|---|\n| Tension continue V⎓ | 200 mV, 2000 mV, 20 V, 200 V, 600 V |\n| Tension alternative V~ | 200 V, 600 V |\n| Courant continu A⎓ | 200 µA, 2000 µA, 20 mA, 200 mA, 10 A |\n| Résistance Ω | 200 Ω, 2 kΩ, 20 kΩ, 200 kΩ, 2000 kΩ |\n\n> 💡 La règle : choisis le **plus petit calibre supérieur à la valeur attendue**. Pour une pile de 9 V : calibre 20 V. Si tu ne sais pas, commence par le plus grand et descends. Les modèles à **calibre automatique** choisissent tout seuls."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Mesurer une tension (voltmètre)\n\nLa tension se mesure **entre deux points** : le multimètre se branche **en parallèle**, une pointe de chaque côté du composant. Le circuit reste fermé et fonctionne normalement.\n\n1. Cordon noir dans COM, rouge dans VΩmA.\n2. Sélecteur sur **V⎓**, calibre **20 V** pour l'électronique 3,3 V / 5 V / 9 V.\n3. Pointe rouge sur le point le plus positif, pointe noire sur la masse (ou l'autre borne du composant).\n4. Lis la valeur. Un signe « − » veut dire que les pointes sont inversées : ce n'est pas grave.\n\n| Ce que tu mesures | Valeur attendue |\n|---|---|\n| Pile AA neuve | ≈ 1,5 à 1,6 V |\n| Pile 9 V neuve | ≈ 9 à 9,5 V |\n| Broche 5V de l'Uno (USB) | ≈ 4,8 à 5,1 V |\n| Broche 3V3 de l'Uno ou de l'ESP32 | ≈ 3,3 V |\n| LED rouge allumée | ≈ 1,8 à 2,1 V |\n\n> 📌 En voltmètre, le multimètre a une résistance interne énorme (environ 10 MΩ) : il ne prélève presque aucun courant et ne perturbe pas le circuit."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Mesurer un courant (ampèremètre)\n\nLe courant **traverse** les composants : pour le mesurer, il faut qu'il traverse aussi le multimètre. On **ouvre** le circuit et on place le multimètre **dans le trou** : il est **en série**.\n\n1. Éteins le montage.\n2. Cordon rouge dans **mA** (ou **10A** si tu attends plus de 200 mA).\n3. Sélecteur sur **A⎓**, calibre **200 mA**.\n4. Retire un fil du circuit et relie les deux extrémités libres aux deux pointes.\n5. Rallume et lis la valeur.\n6. **Après la mesure, remets le cordon rouge dans V** : c'est l'oubli qui grille le plus de multimètres.\n\n> ⚠️ En ampèremètre, le multimètre a une résistance presque **nulle** : il se comporte comme un fil. Branché en parallèle sur une alimentation, il fait un **court-circuit**, et son fusible grille."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.6-schema-mesures.svg",
+    "legende": "L'ampèremètre (A) est placé en série, dans le chemin du courant ; le voltmètre (V) est placé en parallèle, aux bornes de la LED."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Mesurer une résistance (ohmmètre)\n\nL'ohmmètre envoie lui-même un petit courant dans le composant : le circuit doit être **hors tension**, et le composant si possible **retiré** du circuit (sinon tu mesures aussi tout ce qui est branché en parallèle).\n\nUne résistance réelle n'est jamais exactement à sa valeur : sa **tolérance** \\( t \\) (± 5 % pour un anneau or) donne l'intervalle acceptable :\n\n$$R_{min} = R \\times (1 - t) \\qquad\\qquad R_{max} = R \\times (1 + t)$$\n\nPour 220 Ω à ± 5 % : \\( 220 \\times 0{,}95 = 209\\ \\Omega \\) et \\( 220 \\times 1{,}05 = 231\\ \\Omega \\). Une mesure de 218 Ω est donc parfaite.\n\n## 5. Continuité et test de diode\n\n- **Continuité** (symbole •))) ) : le multimètre **bipe** si la résistance est très faible. Idéal pour vérifier un fil, une soudure, une piste, un fusible ou une colonne de breadboard. Toujours hors tension.\n- **Test de diode** (symbole →|) : pointe rouge sur l'anode, noire sur la cathode. L'écran affiche la tension de seuil : environ **0,5 à 0,7 V** (souvent écrit 500 à 700) pour une diode au silicium, **1,8 V** environ pour une LED rouge, qui peut même s'allumer faiblement. Dans l'autre sens : « 1 » ou « OL »."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 6. Exploiter ses mesures\n\n### La puissance consommée\n\nAvec la tension et le courant mesurés, la puissance se calcule directement (leçon 0.1) :\n\n$$P = U \\times I$$\n\nUne LED à 2,0 V traversée par 14 mA : \\( P = 2{,}0 \\times 0{,}014 = 0{,}028\\ \\text{W} = 28\\ \\text{mW} \\).\n\n### L'autonomie d'une batterie\n\nLa capacité \\( C \\) d'une batterie s'exprime en milliampères-heures (mAh). Divisée par le courant consommé, elle donne la durée de fonctionnement :\n\n$$t = \\frac{C}{I}$$\n\nMontage mesuré à 50 mA, batterie de 2 000 mAh : \\( t = 2000 / 50 = 40\\ \\text{h} \\) en théorie, un peu moins en réalité (la batterie ne se vide jamais complètement et sa tension baisse).\n\n### Trouver une panne\n\nMesure la tension **point par point** en partant de l'alimentation et en suivant le circuit. Là où la tension disparaît se trouve le défaut : fil coupé, mauvais contact, composant à l'envers."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 7. Expérience : mesurer U, I et la continuité\n\nCâble le montage du schéma ci-dessus : **5V → 220 Ω → LED → GND** (sans multimètre pour l'instant).\n\n1. **Tension** : calibre 20 V⎓, pointes aux bornes de la LED (en parallèle) → environ **2 V**. Aux bornes de la résistance → environ **3 V**. La somme fait bien 5 V.\n2. **Courant** : calibre 200 mA, cordon rouge dans mA. Retire le fil entre 5V et la résistance, et place le multimètre à sa place (en série) → environ **14 mA**.\n3. **Continuité** : débranche l'USB, mode bip, vérifie chaque fil de ton montage.\n\n| Mesure | Calcul (loi d'Ohm) | Ta mesure |\n|---|---|---|\n| U aux bornes de la LED | ≈ 2,0 V | … |\n| U aux bornes de R | 5 − 2 = 3,0 V | … |\n| I dans le circuit | 3 / 220 ≈ 13,6 mA | … |\n| R hors circuit | 220 Ω (209 à 231 Ω) | … |\n\n### Bonus : un mini-voltmètre avec l'Arduino\n\nL'Arduino peut lui aussi mesurer une tension, entre 0 et 5 V seulement. Le programme fait la moyenne de 20 lectures pour une valeur plus stable. Compare son affichage avec ton multimètre sur une pile de 1,5 V."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.6 — mini-voltmètre : fil sur A0 = pointe rouge, GND = COM\n// Ne jamais dépasser 5 V sur A0 !\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  long somme = 0;\n  for (int k = 0; k < 20; k++) {   // moyenne de 20 lectures\n    somme += analogRead(A0);\n  }\n  float u = somme / 20.0 * 5.0 / 1023.0;\n  Serial.print(\"U = \");\n  Serial.print(u, 2);\n  Serial.println(\" V\");\n  delay(500);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "> 📌 **Et avec un ESP32 ?** Vérifie au multimètre que ses sorties donnent bien **3,3 V** (et non 5 V). Le mini-voltmètre lit sur **GPIO 34**, de 0 à 3,3 V au maximum : remplace `5.0 / 1023.0` par `3.3 / 4095.0`.\n\n## ⚠️ Erreurs fréquentes\n\n- **Cordon rouge resté dans 10A ou mA** pour mesurer une tension : court-circuit, fusible grillé.\n- **Ampèremètre en parallèle** : il court-circuite le composant ou l'alimentation.\n- **Mesurer une résistance sous tension** : valeur fausse et appareil en danger.\n- **Calibre trop petit** : « 1 » ou « OL » s'affiche.\n- **Oublier d'éteindre le multimètre** : sa pile 9 V se vide.\n- **Plus aucune mesure de courant** : le fusible du calibre mA a sans doute grillé ; il se remplace (souvent 200 mA).\n\n> 🔒 Sécurité : pour approcher le secteur, il faut un appareil classé **CAT III 600 V** au minimum, des cordons en parfait état et une formation. Ne mets **jamais** le multimètre en mode A sur une prise.\n\n## 📌 À retenir\n\n- Cordon noir dans COM, rouge dans VΩmA (10A seulement pour les forts courants).\n- Tension : en **parallèle**. Courant : en **série**, circuit ouvert.\n- Résistance et continuité : toujours **hors tension**.\n- Toujours partir du plus grand calibre si la valeur est inconnue.\n- \\( P = U \\times I \\) et autonomie \\( t = C / I \\).\n\n## 🏆 Mini-défi\n\nMesure le courant de la LED avec **220 Ω**, puis avec **1 kΩ**. Calcule d'abord les valeurs attendues avec \\( I = (5 - 2) / R \\), puis compare.\n\n> ✅ Valeurs attendues : \\( 3 / 220 \\approx 13{,}6\\ \\text{mA} \\) et \\( 3 / 1000 = 3\\ \\text{mA} \\). Avec 1 kΩ, la LED éclaire nettement moins : le courant est environ 4,5 fois plus faible."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Dans quelle borne va toujours le cordon noir ?",
+    "choix": [
+     "VΩmA",
+     "10A",
+     "COM",
+     "Ça dépend de la mesure"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le cordon noir va toujours dans COM, la borne commune ; seul le cordon rouge change de borne."
+   },
+   {
+    "question": "Comment branche-t-on le multimètre pour mesurer une tension ?",
+    "choix": [
+     "En série, circuit ouvert",
+     "En parallèle, aux bornes du composant",
+     "À la place du composant",
+     "Sur la borne 10A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une tension se mesure entre deux points : une pointe de chaque côté du composant, circuit fermé."
+   },
+   {
+    "question": "Comment branche-t-on le multimètre pour mesurer un courant ?",
+    "choix": [
+     "En parallèle sur l'alimentation",
+     "En série, en ouvrant le circuit",
+     "Sur un composant retiré du circuit",
+     "Entre deux broches GND"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le courant doit traverser le multimètre : on ouvre le circuit et on le place dans le trou."
+   },
+   {
+    "question": "L'écran affiche « OL ». Que faut-il faire ?",
+    "choix": [
+     "Changer la pile du multimètre",
+     "Passer à un calibre plus grand",
+     "Inverser les cordons",
+     "Jeter l'appareil"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "« OL » (ou « 1 ») signifie que la valeur dépasse le calibre choisi."
+   },
+   {
+    "question": "Tu veux mesurer une pile de 9 V sur un DT830B. Quel calibre choisir ?",
+    "choix": [
+     "200 mV",
+     "2000 mV",
+     "20 V",
+     "600 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "On prend le plus petit calibre supérieur à la valeur attendue : 20 V pour 9 V."
+   },
+   {
+    "question": "Pourquoi mesurer une résistance hors tension ?",
+    "choix": [
+     "Pour économiser la pile",
+     "Parce que l'ohmmètre envoie son propre courant : sous tension, la mesure est fausse et l'appareil en danger",
+     "Parce que la résistance change de couleur",
+     "Ce n'est pas nécessaire"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "L'ohmmètre calcule R à partir de son propre petit courant ; une tension extérieure fausse tout et peut l'abîmer."
+   },
+   {
+    "question": "Ton montage consomme 50 mA. Combien de temps tiendra une batterie de 2 000 mAh, en théorie ?",
+    "choix": [
+     "4 h",
+     "40 h",
+     "100 h",
+     "400 h"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "t = C / I = 2 000 mAh / 50 mA = 40 h (un peu moins en pratique)."
+   },
+   {
+    "question": "Que risque-t-on en mesurant une tension avec le cordon rouge resté dans la borne 10A ?",
+    "choix": [
+     "Rien",
+     "Une lecture un peu fausse",
+     "Un court-circuit qui peut griller le fusible ou l'appareil",
+     "Le multimètre s'éteint"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Sur la borne 10A, le multimètre est presque un fil : branché en parallèle, il court-circuite la source."
+   },
+   {
+    "question": "Une résistance de 220 Ω à ± 5 % est acceptable entre quelles valeurs ?",
+    "choix": [
+     "215 et 225 Ω",
+     "209 et 231 Ω",
+     "200 et 240 Ω",
+     "110 et 330 Ω"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "220 × 0,95 = 209 Ω et 220 × 1,05 = 231 Ω."
+   },
+   {
+    "question": "En test de diode, que lit-on environ sur une diode au silicium dans le bon sens ?",
+    "choix": [
+     "0 V",
+     "≈ 0,6 V",
+     "≈ 5 V",
+     "OL"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le multimètre affiche la tension de seuil, environ 0,5 à 0,7 V pour le silicium (souvent écrit 500 à 700)."
+   },
+   {
+    "question": "Ton multimètre mesure toujours 0 en courant, alors que le montage fonctionne. Cause probable ?",
+    "choix": [
+     "La pile du montage est vide",
+     "Le fusible du calibre mA a grillé",
+     "Le cordon noir est dans COM",
+     "Le calibre est trop grand"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le calibre mA est protégé par un fusible (souvent 200 mA) qui grille après une erreur de branchement ; il se remplace."
+   },
+   {
+    "question": "Que peut mesurer un multimètre de base ?",
+    "choix": [
+     "Une tension continue",
+     "Un courant",
+     "Une résistance",
+     "La forme d'un signal dans le temps"
+    ],
+    "bonnes": [
+     "A",
+     "B",
+     "C"
+    ],
+    "explication": "Tension, courant et résistance, oui. Pour voir la forme d'un signal dans le temps, il faut un oscilloscope."
+   }
+  ]
+ },
+ {
+  "id": "0.7",
+  "titre": "Le binaire",
+  "resume": "La langue des circuits numériques : tout s'écrit avec des 0 et des 1. Tu apprends à compter en binaire et en hexadécimal, à convertir un nombre et à afficher un compteur sur 4 LED.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "0.7-photo.jpg",
+   "legende": "Un prototype Arduino avec des LED : chaque LED allumée ou éteinte représente un bit, 1 ou 0.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "4 × LED 5 mm (de la même couleur, c'est plus lisible)",
+   "4 × résistances 220 Ω (rouge-rouge-marron)",
+   "6 × câbles Dupont mâle-mâle",
+   "Facultatif : 1 × bouton poussoir pour le mini-défi"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Compter sur ses doigts en binaire : de 0 à 31 avec une seule main.\n2. Les poids 8, 4, 2, 1 et la conversion 13 → 1101 par divisions successives.\n3. L'hexadécimal et l'ASCII : pourquoi 0x41 et 65 désignent la lettre « A ».\n4. Le compteur sur 4 LED : le montage, le programme et l'affichage en binaire dans le moniteur série.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUn microcontrôleur ne connaît que deux états : la tension est **haute** (1) ou **basse** (0). Pour représenter des nombres, des lettres, des couleurs ou des mesures, il les écrit avec ces deux chiffres : c'est le **binaire**.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire un nombre binaire grâce aux poids des bits ;\n- convertir un nombre décimal en binaire, et l'inverse ;\n- calculer combien de valeurs tiennent sur n bits ;\n- lire l'hexadécimal (0x27, 0xFF) et le code ASCII ;\n- afficher un compteur binaire sur 4 LED avec `bitRead()`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Pourquoi le binaire ?\n\nDistinguer deux états est simple et fiable : une LED **allumée** ou **éteinte**, une broche à **5 V** ou à **0 V**, un transistor **passant** ou **bloqué**. Même si la tension bouge un peu à cause des parasites, on sait toujours si elle est plutôt haute ou plutôt basse (leçon 0.3).\n\nChaque chiffre binaire s'appelle un **bit** (*binary digit*). Huit bits forment un **octet**.\n\n## 2. Compter en base 2\n\nEn décimal (base 10), chaque rang vaut **10 fois** plus que celui de droite : unités, dizaines, centaines… En binaire (base 2), chaque rang vaut **2 fois** plus : 1, 2, 4, 8, 16…\n\n| Rang du bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |\n|---|---|---|---|---|---|---|---|---|\n| Puissance de 2 | \\( 2^7 \\) | \\( 2^6 \\) | \\( 2^5 \\) | \\( 2^4 \\) | \\( 2^3 \\) | \\( 2^2 \\) | \\( 2^1 \\) | \\( 2^0 \\) |\n| Poids | 128 | 64 | 32 | 16 | 8 | 4 | 2 | 1 |\n\nPour lire un nombre binaire, on additionne les poids des bits qui valent 1. Sur 4 bits :\n\n$$N = b_3 \\times 8 + b_2 \\times 4 + b_1 \\times 2 + b_0 \\times 1$$\n\nExemple :\n\n$$1011_2 = 1 \\times 8 + 0 \\times 4 + 1 \\times 2 + 1 \\times 1 = 11$$\n\n> 💡 Le bit de **droite** (rang 0) est le bit de **poids faible** ; celui de **gauche** est le bit de **poids fort**. On lit un nombre binaire de gauche à droite, comme un nombre décimal."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.7-binaire-4-led.svg",
+    "legende": "Quatre LED de poids 8, 4, 2 et 1 (branchées sur D5, D4, D3 et D2) : une LED allumée vaut 1, éteinte 0. On additionne les poids des LED allumées."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Convertir un nombre décimal en binaire\n\n### Méthode 1 : les divisions successives par 2\n\nOn divise par 2 en notant les restes, jusqu'à obtenir 0. Exemple avec 13 :\n\n| Division | Quotient | Reste |\n|---|---|---|\n| 13 ÷ 2 | 6 | **1** |\n| 6 ÷ 2 | 3 | **0** |\n| 3 ÷ 2 | 1 | **1** |\n| 1 ÷ 2 | 0 | **1** |\n\nOn lit les restes **de bas en haut** : 13 = **1101**. Vérification : 8 + 4 + 0 + 1 = 13.\n\n### Méthode 2 : retirer les poids\n\nOn retire le plus grand poids possible, et on recommence. Exemple avec 200 :\n\n1. 200 − 128 = 72 → bit de poids 128 à 1.\n2. 72 − 64 = 8 → bit de poids 64 à 1.\n3. 32 et 16 ne rentrent pas dans 8 → 0 et 0.\n4. 8 − 8 = 0 → bit de poids 8 à 1 ; tous les suivants valent 0.\n\nRésultat : 200 = **11001000**.\n\n> 💡 Sur ordinateur, la calculatrice en mode **Programmeur** convertit tout. Dans le moniteur série, `Serial.println(n, BIN);` affiche n en binaire."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Bits, octets et nombre de valeurs\n\nAvec n bits, on peut écrire \\( 2^n \\) valeurs différentes, de 0 à \\( 2^n - 1 \\) :\n\n$$\\text{nombre de valeurs} = 2^{n} \\qquad\\qquad \\text{valeur maximale} = 2^{n} - 1$$\n\n| Bits | Valeurs | De … à … | Où on le rencontre |\n|---|---|---|---|\n| 1 | 2 | 0 à 1 | une LED, un bouton, HIGH / LOW |\n| 4 | 16 | 0 à 15 | notre compteur, un chiffre hexadécimal |\n| 8 (1 octet) | 256 | 0 à 255 | une couleur RGB, un caractère, `analogWrite()` |\n| 10 | 1 024 | 0 à 1023 | `analogRead()` de l'Uno |\n| 12 | 4 096 | 0 à 4095 | `analogRead()` de l'ESP32 |\n| 16 | 65 536 | − 32 768 à 32 767 | un `int` sur Arduino Uno |\n\n> 📌 La mémoire se compte aussi en octets : 1 Ko = 1 024 octets. Un Arduino Uno a **32 Ko** de mémoire Flash pour le programme, mais seulement **2 Ko de RAM** (2 048 octets) pour les variables : chaque octet compte."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. L'hexadécimal et l'ASCII\n\nÉcrire 8 chiffres binaires est long. L'**hexadécimal** (base 16) regroupe les bits par 4 : un chiffre hexa = 4 bits. Il utilise les chiffres 0 à 9 puis les lettres A à F.\n\n| Décimal | Binaire | Hexa | Décimal | Binaire | Hexa |\n|---|---|---|---|---|---|\n| 0 | 0000 | 0 | 8 | 1000 | 8 |\n| 1 | 0001 | 1 | 9 | 1001 | 9 |\n| 2 | 0010 | 2 | 10 | 1010 | A |\n| 3 | 0011 | 3 | 11 | 1011 | B |\n| 4 | 0100 | 4 | 12 | 1100 | C |\n| 5 | 0101 | 5 | 13 | 1101 | D |\n| 6 | 0110 | 6 | 14 | 1110 | E |\n| 7 | 0111 | 7 | 15 | 1111 | F |\n\nUn octet s'écrit donc avec **2 chiffres hexa** : \\( \\text{0xFF} = 1111\\,1111_2 = 255 \\).\n\n### Les notations dans le code Arduino\n\n- Décimal : `11`\n- Binaire : `0b1011` (préfixe 0b)\n- Hexadécimal : `0x0B` (préfixe 0x)\n\nCes trois écritures désignent **le même nombre**, onze. On rencontre l'hexa partout : adresses I2C (`0x27` pour un écran LCD, `0x3C` pour un OLED), couleurs (`#FF8800` sur le web), registres des microcontrôleurs.\n\n### Le code ASCII\n\nLes lettres aussi sont des nombres. Dans le code **ASCII**, chaque caractère correspond à un octet : « A » = 65 = 0x41 = 01000001, « B » = 66, « a » = 97, le chiffre « 0 » = 48. Quand tu envoies du texte par le port série, ce sont ces octets qui circulent sur le fil."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 6. Expérience : compter en binaire sur 4 LED\n\nChaque LED représente un bit : D2 = poids 1, D3 = poids 2, D4 = poids 4, D5 = poids 8. Le programme compte de 0 à 15 et allume les LED correspondantes.\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. Place les 4 LED côte à côte, anodes à gauche, cathodes dans le rail −. Mets la LED de **poids 8 à gauche** et celle de **poids 1 à droite**, pour lire le nombre dans le bon sens.\n3. Une résistance de **220 Ω par LED**, entre chaque anode et sa broche : D5, D4, D3, D2.\n4. Relie le rail − au **GND** de l'Arduino.\n5. Téléverse le programme et ouvre le moniteur série."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.7-schema-compteur-4-led.svg",
+    "legende": "Le compteur binaire : 4 LED, chacune avec sa résistance de 220 Ω, sur D5 (poids 8), D4 (poids 4), D3 (poids 2) et D2 (poids 1). Toutes les cathodes rejoignent GND."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.7 — compteur binaire de 0 à 15 sur 4 LED\nconst int LEDS[4] = {2, 3, 4, 5};   // poids 1, 2, 4, 8\n\nvoid setup() {\n  for (int k = 0; k < 4; k++) pinMode(LEDS[k], OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  for (int n = 0; n < 16; n++) {          // 4 bits : 16 valeurs, de 0 à 15\n    for (int k = 0; k < 4; k++) {\n      digitalWrite(LEDS[k], bitRead(n, k)); // bit de rang k de n : 0 ou 1\n    }\n    Serial.print(n);\n    Serial.print(\" = \");\n    Serial.println(n, BIN);               // affiche n en binaire\n    delay(1000);\n  }\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que fait bitRead\n\n`bitRead(n, k)` renvoie le bit de **rang k** du nombre n. Pour n = 10 (1010 en binaire) :\n\n| k | bitRead(10, k) | LED |\n|---|---|---|\n| 0 | 0 | D2 éteinte |\n| 1 | 1 | D3 allumée |\n| 2 | 0 | D4 éteinte |\n| 3 | 1 | D5 allumée |\n\nAprès 15 (1111), le compteur repart à 0 : **4 bits ne peuvent pas compter plus loin**. C'est un **débordement** : il arrive aussi dans les programmes, par exemple quand une variable `byte` passe de 255 à 0.\n\n> 📌 **Et avec un ESP32 ?** Prends des GPIO de sortie comme **16, 17, 18 et 19** (évite 34 à 39, qui sont des entrées seules). `bitRead()` fonctionne pareil ; en 3,3 V, 100 à 150 Ω suffisent par LED.\n\n## ⚠️ Erreurs fréquentes\n\n- **LED dans le désordre** : D2 doit être le bit de poids 1, placé à droite.\n- **Lire le binaire à l'envers** : le bit de poids fort est à gauche.\n- **Une seule résistance pour 4 LED** : la luminosité change selon le nombre de LED allumées.\n- **Compter de 1 à 16** au lieu de 0 à 15 : 4 bits donnent 16 valeurs, la première est 0.\n- **Confondre `0b10` (deux) et `10` (dix)** dans le code.\n\n## 📌 À retenir\n\n- Bit = 0 ou 1 ; octet = 8 bits, de 0 à 255.\n- Poids des bits de droite à gauche : 1, 2, 4, 8, 16, 32, 64, 128.\n- n bits = \\( 2^n \\) valeurs, de 0 à \\( 2^n - 1 \\).\n- Un chiffre hexa = 4 bits ; `0b1011` = `0x0B` = 11.\n- `bitRead(n, k)` lit le bit de rang k ; `Serial.println(n, BIN)` affiche en binaire.\n\n## 🏆 Mini-défi\n\nAjoute un **bouton sur D7** (entre D7 et GND, en `INPUT_PULLUP`) : chaque appui ajoute 1 au nombre affiché sur les 4 LED. Que se passe-t-il après 15 ? Essaie seul, puis compare avec la solution."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : +1 à chaque appui sur le bouton D7\nconst int LEDS[4] = {2, 3, 4, 5};\nconst int BOUTON = 7;\nint n = 0;\nbool avant = HIGH;                       // état précédent du bouton\n\nvoid setup() {\n  for (int k = 0; k < 4; k++) pinMode(LEDS[k], OUTPUT);\n  pinMode(BOUTON, INPUT_PULLUP);         // relâché = HIGH, appuyé = LOW\n}\n\nvoid loop() {\n  bool maintenant = digitalRead(BOUTON);\n  if (avant == HIGH && maintenant == LOW) {   // on vient d'appuyer\n    n = (n + 1) % 16;                         // après 15, retour à 0\n    delay(30);                                // anti-rebond simple\n  }\n  avant = maintenant;\n  for (int k = 0; k < 4; k++) digitalWrite(LEDS[k], bitRead(n, k));\n}"
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Combien vaut le nombre binaire 1011 en décimal ?",
+    "choix": [
+     "9",
+     "11",
+     "13",
+     "1011"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "1 × 8 + 0 × 4 + 1 × 2 + 1 × 1 = 11."
+   },
+   {
+    "question": "Comment s'écrit 13 en binaire ?",
+    "choix": [
+     "1011",
+     "1101",
+     "1110",
+     "0111"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "13 = 8 + 4 + 1, donc les bits de poids 8, 4 et 1 valent 1 : 1101."
+   },
+   {
+    "question": "Quelles valeurs peut prendre un octet ?",
+    "choix": [
+     "0 à 8",
+     "0 à 128",
+     "0 à 255",
+     "0 à 1023"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "8 bits donnent 2^8 = 256 valeurs, de 0 à 255."
+   },
+   {
+    "question": "Combien de valeurs différentes peut-on écrire avec 4 bits ?",
+    "choix": [
+     "4",
+     "8",
+     "15",
+     "16"
+    ],
+    "bonnes": [
+     "D"
+    ],
+    "explication": "2^4 = 16 valeurs, de 0 à 15."
+   },
+   {
+    "question": "Que vaut 0x0B en décimal ?",
+    "choix": [
+     "0",
+     "8",
+     "11",
+     "16"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "En hexadécimal, B vaut 11 ; 0x0B = 11."
+   },
+   {
+    "question": "Que vaut 0xFF en décimal ?",
+    "choix": [
+     "15",
+     "99",
+     "255",
+     "256"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "0xFF = 1111 1111 en binaire = 255, la valeur maximale d'un octet."
+   },
+   {
+    "question": "Quel est le poids du bit de rang 3 ?",
+    "choix": [
+     "3",
+     "6",
+     "8",
+     "9"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Le poids du rang k est 2^k : 2^3 = 8."
+   },
+   {
+    "question": "Quelles écritures désignent toutes le nombre onze dans un programme Arduino ?",
+    "choix": [
+     "0b1011",
+     "0x0B",
+     "11",
+     "0b1101"
+    ],
+    "bonnes": [
+     "A",
+     "B",
+     "C"
+    ],
+    "explication": "0b1011 (binaire), 0x0B (hexadécimal) et 11 (décimal) valent onze ; 0b1101 vaut treize."
+   },
+   {
+    "question": "Que renvoie bitRead(10, 1) ?",
+    "choix": [
+     "0",
+     "1",
+     "2",
+     "10"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "10 s'écrit 1010 : le bit de rang 1 (le deuxième en partant de la droite) vaut 1."
+   },
+   {
+    "question": "Quel nombre correspond à la lettre « A » dans le code ASCII ?",
+    "choix": [
+     "1",
+     "41",
+     "65",
+     "97"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "« A » = 65 en décimal, soit 0x41 en hexadécimal. « a » minuscule vaut 97."
+   },
+   {
+    "question": "Combien de mémoire RAM a un Arduino Uno ?",
+    "choix": [
+     "2 Ko",
+     "32 Ko",
+     "256 Ko",
+     "2 Mo"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "L'ATmega328P de l'Uno a 2 Ko de RAM (2 048 octets) et 32 Ko de Flash pour le programme."
+   },
+   {
+    "question": "Le compteur est à 15 (1111) et on ajoute 1 sur 4 bits. Qu'affichent les LED ?",
+    "choix": [
+     "16",
+     "0000 : le compteur repart à 0",
+     "1111 : il reste bloqué",
+     "Une erreur"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "16 demande un 5e bit : sur 4 bits, il y a débordement et le compteur revient à 0000."
+   }
+  ]
+ },
+ {
+  "id": "0.8",
+  "titre": "Les portes logiques",
+  "resume": "Des circuits qui prennent des décisions avec des 0 et des 1 : ET, OU, NON… Tu apprends les tables de vérité, les équations logiques, les circuits 74HC et tu programmes une porte ET avec deux boutons.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "0.8-photo.jpg",
+   "legende": "Des circuits intégrés logiques en boîtier DIP. L'encoche et le point repèrent la broche 1.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × breadboard",
+   "2 × boutons poussoirs 4 pattes (6 × 6 mm)",
+   "1 × LED 5 mm et 1 × résistance 220 Ω",
+   "6 × câbles Dupont mâle-mâle",
+   "Facultatif : 1 × circuit 74HC08 (4 portes ET), 2 × résistances 10 kΩ, pour réaliser la porte ET sans programme"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Les portes ET, OU, NON expliquées avec des interrupteurs et une lampe.\n2. Remplir une table de vérité pas à pas, puis la vérifier avec les deux boutons.\n3. La même décision écrite en code : &&, || et !, et le piège du & simple.\n4. Bonus : le 74HC08 sur la breadboard, alimenté par les broches 14 et 7, sans aucun programme.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne alarme se déclenche si la porte est ouverte **ET** si le système est armé. Une sonnette retentit si on appuie sur le bouton de devant **OU** sur celui de derrière. Ces décisions, l'électronique les prend avec des **portes logiques**.\n\nÀ la fin de cette leçon, tu sauras :\n\n- reconnaître les portes NON, ET, OU, NON-ET et OU exclusif ;\n- lire et remplir une table de vérité ;\n- écrire les équations logiques et les traduire en code Arduino ;\n- alimenter et brancher un circuit logique 74HC ;\n- programmer une porte ET avec deux boutons et une LED."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.8-portes-logiques.svg",
+    "legende": "Les cinq portes de base avec leur symbole (norme américaine, la plus répandue dans les datasheets) et leur équation. A et B sont les entrées, S la sortie."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Une porte, une règle\n\nUne porte logique reçoit une ou deux entrées binaires (0 ou 1) et donne une sortie selon une règle fixe :\n\n- **NON** (NOT) : inverse l'entrée. 0 devient 1, 1 devient 0.\n- **ET** (AND) : la sortie vaut 1 seulement si **toutes** les entrées valent 1.\n- **OU** (OR) : la sortie vaut 1 si **au moins une** entrée vaut 1.\n- **NON-ET** (NAND) : un ET suivi d'un NON. C'est la porte **universelle** : avec des NAND seules, on peut construire toutes les autres.\n- **OU exclusif** (XOR) : la sortie vaut 1 si les entrées sont **différentes**.\n\n## 2. Les tables de vérité\n\nUne **table de vérité** liste toutes les combinaisons possibles des entrées et la sortie correspondante. Avec 2 entrées, il y a \\( 2^2 = 4 \\) cas.\n\n| A | B | ET | OU | NON-ET | OU exclusif |\n|---|---|---|---|---|---|\n| 0 | 0 | 0 | 0 | 1 | 0 |\n| 0 | 1 | 0 | 1 | 1 | 1 |\n| 1 | 0 | 0 | 1 | 1 | 1 |\n| 1 | 1 | **1** | 1 | **0** | **0** |\n\n| A | NON A |\n|---|---|\n| 0 | 1 |\n| 1 | 0 |\n\n> 💡 Astuce pour retenir : le ET est « exigeant » (il faut tout), le OU est « généreux » (une seule entrée suffit), le OU exclusif dit « l'un ou l'autre, mais pas les deux »."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les équations logiques\n\nOn écrit les portes comme des opérations. Le ET ressemble à une multiplication, le OU à une addition, et le NON se note par une barre au-dessus :\n\n$$\\text{ET : } S = A \\cdot B \\qquad\\quad \\text{OU : } S = A + B \\qquad\\quad \\text{NON : } S = \\overline{A}$$\n\n$$\\text{NON-ET : } S = \\overline{A \\cdot B} \\qquad\\quad \\text{OU exclusif : } S = A \\oplus B$$\n\n> ⚠️ Attention : en logique, \\( 1 + 1 = 1 \\) (« vrai OU vrai » est vrai). Ce n'est pas une addition de nombres.\n\n### Les lois de De Morgan\n\nElles permettent de transformer un ET en OU (et inversement) en inversant tout :\n\n$$\\overline{A \\cdot B} = \\overline{A} + \\overline{B} \\qquad\\qquad \\overline{A + B} = \\overline{A} \\cdot \\overline{B}$$\n\nEn français : « pas (A et B) » revient à « pas A, ou pas B ». C'est très pratique pour simplifier les conditions d'un `if`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Les portes dans un programme Arduino\n\nChaque `if` de tes programmes est une porte logique. En langage Arduino (C++) :\n\n- ET : `a && b`\n- OU : `a || b`\n- NON : `!a`\n- OU exclusif : `a != b` (vrai si a et b sont différents)\n\nExemple : `if (porteOuverte && alarmeArmee) { sonner(); }`\n\n> ⚠️ Ne confonds pas `&&` (ET **logique**, sur vrai / faux) et `&` (ET **bit à bit**, sur chaque bit d'un nombre). Par exemple, `2 & 1` vaut 0, car 10 et 01 n'ont aucun bit à 1 en commun, alors que `2 && 1` est vrai."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Les circuits logiques 74HC\n\nAvant les microcontrôleurs, on construisait la logique avec des circuits intégrés de la famille **74xx**. Ils restent utiles pour un montage simple, très rapide, sans programme.\n\n| Circuit | Contenu | Fonction |\n|---|---|---|\n| 74HC04 | 6 portes | NON |\n| 74HC08 | 4 portes | ET |\n| 74HC32 | 4 portes | OU |\n| 74HC00 | 4 portes | NON-ET |\n| 74HC86 | 4 portes | OU exclusif |\n\nPour un boîtier à 14 broches comme le 74HC08 :\n\n- **broche 14 au +5 V**, **broche 7 à la masse** : sans alimentation, rien ne fonctionne ;\n- les portes sont repérées U1A, U1B, U1C, U1D (entrées 1A et 1B, sortie 1Y, etc.) ;\n- **ne laisse jamais une entrée inutilisée « en l'air »** : relie-la à GND ;\n- place un condensateur de **100 nF** entre les broches 14 et 7, au plus près du circuit (découplage)."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.8-brochage-74hc08.svg",
+    "legende": "Brochage du 74HC08 vu de dessus : 4 portes ET (entrées nA et nB, sortie nY), alimentation +5 V sur la broche 14 et masse sur la broche 7. La broche 1 est en haut à gauche, à côté de l'encoche."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 6. Expérience : une porte ET avec deux boutons\n\nLa LED ne s'allume que si **BP1 ET BP2** sont appuyés en même temps, comme une presse industrielle qui exige les deux mains de l'opérateur pour démarrer.\n\n### Le montage pas à pas\n\n1. Débranche l'Arduino.\n2. **BP1** entre **D2** et **GND**, **BP2** entre **D3** et **GND** (chaque bouton à cheval sur la rainure).\n3. **D8** → résistance **220 Ω** → anode de la **LED** ; cathode → **GND**.\n4. Téléverse le programme. Teste les 4 cas de la table de vérité."
+   },
+   {
+    "type": "schema",
+    "fichier": "0.8-schema-porte-et-boutons.svg",
+    "legende": "Deux boutons sur D2 et D3 (vers GND, lus avec INPUT_PULLUP) et une LED sur D8 : le programme réalise LED = BP1 ET BP2."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 0.8 — une porte ET avec deux boutons (et les autres portes)\nconst int BP1 = 2, BP2 = 3, LED = 8;\n\nvoid setup() {\n  pinMode(BP1, INPUT_PULLUP);   // relâché = HIGH, appuyé = LOW\n  pinMode(BP2, INPUT_PULLUP);\n  pinMode(LED, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  bool a = (digitalRead(BP1) == LOW);   // a = 1 si BP1 est appuyé\n  bool b = (digitalRead(BP2) == LOW);   // b = 1 si BP2 est appuyé\n  bool s = a && b;                      // ET ; essaie aussi a || b, !a, a != b\n  digitalWrite(LED, s);\n\n  Serial.print(\"A = \"); Serial.print(a);\n  Serial.print(\"  B = \"); Serial.print(b);\n  Serial.print(\"  S = \"); Serial.println(s);\n  delay(100);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| BP1 | BP2 | A | B | LED (A ET B) |\n|---|---|---|---|---|\n| relâché | relâché | 0 | 0 | éteinte |\n| relâché | appuyé | 0 | 1 | éteinte |\n| appuyé | relâché | 1 | 0 | éteinte |\n| appuyé | appuyé | 1 | 1 | **allumée** |\n\n> 💡 Avec `INPUT_PULLUP`, la broche est tirée à 5 V par une résistance interne : **relâché = HIGH, appuyé = LOW**. C'est l'inverse de l'intuition, c'est pourquoi le code calcule `a = (digitalRead(BP1) == LOW)` pour retrouver « appuyé = 1 ».\n\n### Bonus : la même porte sans programme\n\nAvec un **74HC08** alimenté (14 au +5 V, 7 à GND) : relie 1A et 1B aux boutons (chaque entrée tirée à GND par une résistance de 10 kΩ, le bouton l'envoie au +5 V), et la sortie 1Y à la LED via 220 Ω. Le circuit fait exactement la même chose, sans Arduino.\n\n> 📌 **Et avec un ESP32 ?** Boutons sur **GPIO 4** et **GPIO 5** en `INPUT_PULLUP`, LED sur **GPIO 23** via 220 Ω (ou 100 Ω). Attention : les GPIO 34 à 39 n'ont **pas** de résistance de pull-up interne.\n\n## 7. Bon à savoir\n\n- **Le OU exclusif** (74HC86, `a != b` en code) est le principe du **va-et-vient** d'un escalier : chaque interrupteur inverse l'état de la lampe.\n- **Porte ou code ?** Avec un Arduino, une ligne de code remplace un 74HC. Le circuit intégré reste utile pour un montage sans programme, ou très rapide.\n- **Au cœur d'un processeur**, il y a des milliards de portes logiques, chacune faite de quelques transistors."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Oublier `INPUT_PULLUP`** : l'entrée est en l'air, la LED s'allume au hasard.\n- **Inverser la logique** : avec pull-up, appuyé = LOW, et non HIGH.\n- **Confondre `&` et `&&`** : `2 & 1` vaut 0 !\n- **Circuit 74HC non alimenté** : broche 14 au +5 V, broche 7 à GND.\n- **Entrées inutilisées d'un 74HC en l'air** : la consommation augmente et la sortie devient imprévisible. Relie-les à GND.\n\n## 📌 À retenir\n\n- ET : 1 si toutes les entrées valent 1. OU : 1 si au moins une vaut 1. NON : inverse.\n- NON-ET : la porte universelle. OU exclusif : 1 si les entrées sont différentes.\n- \\( S = A \\cdot B \\), \\( S = A + B \\), \\( S = \\overline{A} \\) ; De Morgan : \\( \\overline{A \\cdot B} = \\overline{A} + \\overline{B} \\).\n- En code : `&&`, `||`, `!` et `!=`.\n- 74HC08 (ET), 74HC32 (OU), 74HC04 (NON), 74HC00 (NON-ET), 74HC86 (OU exclusif) : broche 14 au +5 V, broche 7 à la masse.\n\n## 🏆 Mini-défi\n\nTransforme le montage en porte **OU**, puis en **OU exclusif**, en ne changeant qu'une ligne du programme. Remplis la table de vérité de chacune pour les 4 cas possibles, puis vérifie avec les boutons.\n\n> ✅ Solution : remplace `bool s = a && b;` par `bool s = a || b;` (OU), puis par `bool s = a != b;` (OU exclusif). Pour le OU exclusif, la LED s'éteint quand tu appuies sur les deux boutons."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quand la sortie d'une porte ET vaut-elle 1 ?",
+    "choix": [
+     "Quand au moins une entrée vaut 1",
+     "Quand toutes les entrées valent 1",
+     "Quand les entrées sont différentes",
+     "Quand toutes les entrées valent 0"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le ET est exigeant : il faut que A ET B valent 1."
+   },
+   {
+    "question": "Porte OU avec A = 0 et B = 1 : que vaut la sortie ?",
+    "choix": [
+     "0",
+     "1",
+     "2",
+     "Indéterminée"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une seule entrée à 1 suffit pour que la sortie d'un OU vaille 1."
+   },
+   {
+    "question": "Que donne une porte NON dont l'entrée vaut 1 ?",
+    "choix": [
+     "0",
+     "1",
+     "2",
+     "Elle reste à 1"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "La porte NON inverse son entrée : 1 devient 0."
+   },
+   {
+    "question": "Porte NON-ET (NAND) avec A = 1 et B = 1 : que vaut la sortie ?",
+    "choix": [
+     "0",
+     "1",
+     "2",
+     "Indéterminée"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "A ET B = 1, puis le NON l'inverse : la sortie vaut 0. C'est le seul cas où un NAND donne 0."
+   },
+   {
+    "question": "Porte OU exclusif (XOR) avec A = 1 et B = 1 : que vaut la sortie ?",
+    "choix": [
+     "0",
+     "1",
+     "2",
+     "Indéterminée"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le OU exclusif vaut 1 seulement si les entrées sont différentes. Ici elles sont égales : 0."
+   },
+   {
+    "question": "Que contient un circuit 74HC08 ?",
+    "choix": [
+     "6 portes NON",
+     "4 portes ET",
+     "4 portes OU",
+     "Un microcontrôleur"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le 74HC08 contient 4 portes ET à deux entrées. Le 74HC32 contient des OU, le 74HC04 des NON."
+   },
+   {
+    "question": "Comment alimenter un 74HC08 en boîtier 14 broches ?",
+    "choix": [
+     "Broche 1 au +5 V, broche 14 à la masse",
+     "Broche 14 au +5 V, broche 7 à la masse",
+     "Il n'a pas besoin d'alimentation",
+     "Broche 7 au +5 V, broche 14 à la masse"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Comme la plupart des circuits 74xx à 14 broches : VCC sur la broche 14, GND sur la broche 7."
+   },
+   {
+    "question": "Comment s'écrit le OU logique en langage Arduino ?",
+    "choix": [
+     "a && b",
+     "a || b",
+     "!a",
+     "a & b"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "|| est le OU logique, && le ET logique, ! le NON."
+   },
+   {
+    "question": "Avec INPUT_PULLUP, que lit digitalRead quand le bouton est appuyé ?",
+    "choix": [
+     "HIGH",
+     "LOW",
+     "Une valeur au hasard",
+     "1023"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La résistance interne tire la broche à HIGH ; le bouton appuyé la relie à GND : elle lit LOW."
+   },
+   {
+    "question": "D'après De Morgan, à quoi est égal NON (A ET B) ?",
+    "choix": [
+     "(NON A) ET (NON B)",
+     "(NON A) OU (NON B)",
+     "A OU B",
+     "A ET B"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La barre sur un ET se « casse » en changeant le ET en OU : non(A·B) = non A + non B."
+   },
+   {
+    "question": "Quelle porte est dite universelle, car elle permet de construire toutes les autres ?",
+    "choix": [
+     "NON",
+     "OU",
+     "NON-ET (NAND)",
+     "OU exclusif"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Avec des portes NAND seules, on peut fabriquer NON, ET, OU et toutes les autres fonctions."
+   },
+   {
+    "question": "En C / Arduino, que vaut l'expression 2 & 1 ?",
+    "choix": [
+     "0",
+     "1",
+     "2",
+     "3"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "& compare bit à bit : 10 et 01 n'ont aucun bit à 1 en commun, le résultat est 0. Avec &&, 2 && 1 serait vrai."
+   },
+   {
+    "question": "Quelles situations correspondent à une porte ET ?",
+    "choix": [
+     "Une presse qui démarre seulement si l'opérateur appuie avec ses deux mains",
+     "Une alarme qui sonne si la porte est ouverte et le système armé",
+     "Une sonnette qui sonne si on appuie devant ou derrière",
+     "Une lampe d'escalier commandée en va-et-vient"
+    ],
+    "bonnes": [
+     "A",
+     "B"
+    ],
+    "explication": "Les deux premières exigent deux conditions vraies en même temps (ET). La sonnette est un OU, le va-et-vient un OU exclusif."
    }
   ]
  }
