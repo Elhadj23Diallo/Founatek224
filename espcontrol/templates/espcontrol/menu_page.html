@@ -225,6 +225,13 @@ h1 {
         </a>
         {% endif %}
 
+        {% if published_modules.apprentissage %}
+        <a href="{% url 'iot:academy_book_home' %}" class="node-block node-green">
+            <div class="icon-box"><i class="fas fa-book-open"></i></div>
+            <div class="node-label">Founatek Academy · Livre 1</div>
+        </a>
+        {% endif %}
+
         {% if published_modules.social_feed %}
         <a href="{% url 'techfeed:feed' %}" class="node-block node-social">
             <div class="icon-box"><i class="fas fa-users"></i></div>
