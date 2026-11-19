@@ -559,8 +559,11 @@ def liste_lecons(request, parcours_id):
 
     # Les fiches brutes de Canva (pas encore enrichies) ne s'affichent pas.
     raw_hidden = 0
+    raw_parts = []
     if is_book:
-        raw_hidden = lecons.filter(raw_book_draft_q()).count()
+        raw = lecons.filter(raw_book_draft_q())
+        raw_hidden = raw.count()
+        raw_parts = sorted(set(raw.values_list("academy_book_entry__chapter_number", flat=True)))
         lecons = lecons.exclude(raw_book_draft_q())
 
     for lecon in lecons:
@@ -583,6 +586,8 @@ def liste_lecons(request, parcours_id):
         "lecons_data": lecons_data,
         "is_following": is_following,
         "raw_hidden": raw_hidden if has_full_access(request.user) else 0,
+        "raw_parts": ("partie " if len(raw_parts) == 1 else "parties ")
+                     + " et ".join(", ".join(raw_parts).rsplit(", ", 1)) if raw_parts else "",
     })
 
 

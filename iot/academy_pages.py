@@ -10,13 +10,13 @@ from .models import AcademyBookLesson, Parcours
 def academy_book_home(request):
     is_admin = has_full_access(request.user)
     counts = {}
-    for row in AcademyBookLesson.objects.filter(published=True).values_list("chapter_number", flat=True):
+    book = AcademyBookLesson.objects.filter(lecon__parcours__slug=BOOK_SLUG)
+    for row in book.filter(published=True).values_list("chapter_number", flat=True):
         counts[row] = counts.get(row, 0) + 1
     drafts = {}
     admin_parcours = None
     if is_admin:
-        for row in (AcademyBookLesson.objects.filter(published=False).exclude(content_hash="")
-                    .values_list("chapter_number", flat=True)):
+        for row in book.filter(published=False).exclude(content_hash="").values_list("chapter_number", flat=True):
             drafts[row] = drafts.get(row, 0) + 1
         admin_parcours = Parcours.objects.filter(slug=BOOK_SLUG).first()
     chapters = [

@@ -54,7 +54,8 @@
   <p>Contenu en préparation · aucune leçon publiée pour le moment.</p>
   {% endif %}
   {% if is_admin and chapter.drafts_count %}
-  <p style="color:#fbbf24">Admin : {{ chapter.drafts_count }} leçon{{ chapter.drafts_count|pluralize }} en brouillon</p>
+  <p style="color:#fbbf24">Admin : {{ chapter.drafts_count }} leçon{{ chapter.drafts_count|pluralize }} enrichie{{ chapter.drafts_count|pluralize }}, pas encore publiée{{ chapter.drafts_count|pluralize }}.<br>
+  <code style="font-size:.78rem;color:#fde68a">python manage.py publish_academy_chapter --chapter {{ chapter.number }} --apply</code></p>
   {% endif %}
 </article>
 {% endfor %}

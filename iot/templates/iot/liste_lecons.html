@@ -218,8 +218,8 @@
 
     {% if raw_hidden %}
     <p style="color:#fbbf24; font-size:0.9rem; border:1px solid #92400e; border-radius:10px; padding:10px 14px; margin:0 0 18px;">
-        <i class="fas fa-eye-slash"></i> Admin : {{ raw_hidden }} fiche{{ raw_hidden|pluralize }} brute{{ raw_hidden|pluralize }} du livre Canva masquée{{ raw_hidden|pluralize }}.
-        Elle{{ raw_hidden|pluralize }} apparaîtr{{ raw_hidden|pluralize:"a,ont" }} ici une fois enrichie{{ raw_hidden|pluralize }} (photos, schémas, quiz).
+        <i class="fas fa-eye-slash"></i> Admin : {{ raw_hidden }} fiche{{ raw_hidden|pluralize }} brute{{ raw_hidden|pluralize }} du livre Canva masquée{{ raw_hidden|pluralize }} ({{ raw_parts }}).
+        Elles ne sont pas publiées : ce sont les anciennes versions texte, sans images ni quiz. Elles apparaîtront ici une fois enrichies.
     </p>
     {% endif %}
     <div class="timeline">
