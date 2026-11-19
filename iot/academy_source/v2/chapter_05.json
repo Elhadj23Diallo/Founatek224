@@ -1,0 +1,1155 @@
+[
+ {
+  "id": "5.1",
+  "titre": "Les piles",
+  "resume": "Un petit réservoir d'énergie chimique qui fournit une tension continue. Tu apprends à lire une pile (tension, format, chimie), à calculer son autonomie et son énergie, à les associer en série ou en parallèle et à mesurer sa tension avec l'Arduino.",
+  "duree_minutes": 35,
+  "photo": {
+   "fichier": "5.1-photo.jpg",
+   "legende": "Des piles et des accus au format AA : alcalines 1,5 V (non rechargeables) et accus NiMH 1,2 V (rechargeables, marqués « Rechargeable »).",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × pile AA 1,5 V (neuve, puis une usagée pour comparer) et son support",
+   "1 × résistance 1 kΩ",
+   "Facultatif : 1 × pile bouton CR2032, 1 × boîtier 6 × AA avec fiche jack",
+   "1 × multimètre",
+   "3 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Les piles courantes : AA, AAA, 9 V, CR2032, et ce qui est écrit dessus.\n2. Le calcul de l'autonomie et de l'énergie, avec des exemples concrets.\n3. La mesure d'une pile neuve puis d'une pile usagée sur A0 et au multimètre.\n4. Deux piles en série, puis le boîtier 6 × AA branché sur la prise jack de l'Arduino.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUne **pile** transforme de l'énergie chimique en énergie électrique : elle alimente un montage loin du secteur. Choisir la bonne pile, c'est connaître sa **tension**, sa **capacité** et le **courant** que consomme le montage.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire la tension, le format et la chimie d'une pile ;\n- calculer l'autonomie \\( t = C / I \\) et l'énergie \\( E = U \\times C \\) ;\n- associer des piles en série ou en parallèle ;\n- mesurer la tension d'une pile sur une entrée analogique, sans danger."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Comment fonctionne une pile\n\nUne réaction chimique entre deux électrodes pousse les électrons de la borne **−** vers la borne **+** à travers le circuit. Une pile alcaline donne **1,5 V**. Quand les réactifs sont épuisés, la tension baisse : la pile est vide. Une pile **ne se recharge pas** ; un **accu** (NiMH, Li-ion) si.\n\n### Le symbole\n\nSur un schéma, une pile est dessinée avec deux traits : le **trait long** est le **+**, le **trait court** est le **−**. On la repère par **BT1** ou **G1**. Une batterie est un ensemble de plusieurs éléments en série.\n\n### Les modèles courants\n\n| Modèle | Tension | Capacité typique | Usage |\n|---|---|---|---|\n| AA (LR6) | 1,5 V | ≈ 2 500 mAh | jouets, télécommandes : la plus courante |\n| AAA (LR03) | 1,5 V | ≈ 1 000 mAh | souris, petits appareils |\n| 9 V (6LR61) | 9 V | ≈ 500 mAh seulement | détecteurs de fumée, multimètres |\n| CR2032 (bouton lithium) | 3 V | ≈ 220 mAh | modules RTC (DS3231), cartes mères |\n| Accu NiMH (HR6) | 1,2 V | ≈ 2 000 mAh | rechargeable, remplace la AA |\n\n> 💡 **La chimie se lit dans le nom** : LR = alcaline, R = saline (moins chère, moins durable), CR / FR = lithium, HR = NiMH rechargeable."
+   },
+   {
+    "type": "image",
+    "fichier": "5.1-cr2032.jpg",
+    "legende": "Des piles bouton CR2032 : lithium, 3 V, 20 mm de diamètre et 3,2 mm d'épaisseur (d'où le nom 20-32). Elles gardent l'heure des modules RTC.",
+    "credit": "Photo : Pixabay (licence Pixabay)"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les formules clés\n\n### L'autonomie\n\n$$t = \\frac{C}{I}$$\n\nAvec C en mAh et I en mA, t est en heures. Exemple : une pile AA de 2 500 mAh qui alimente un montage de 20 mA :\n\n$$t = \\frac{2500}{20} = 125\\ \\text{h} \\approx 5\\ \\text{jours}$$\n\n### L'énergie stockée\n\n$$E = U \\times C$$\n\nAvec U en volts et C en ampères-heures, E est en wattheures (Wh) :\n\n| Pile | Calcul | Énergie |\n|---|---|---|\n| AA | \\( 1{,}5 \\times 2{,}5 \\) | 3,75 Wh |\n| 9 V | \\( 9 \\times 0{,}5 \\) | 4,5 Wh |\n| CR2032 | \\( 3 \\times 0{,}22 \\) | 0,66 Wh |\n| boîtier 6 × AA | \\( 9 \\times 2{,}5 \\) | 22,5 Wh, 5 fois une pile 9 V |\n\n### La résistance interne\n\nUne pile n'est pas parfaite : elle possède une petite **résistance interne r**. Sous un courant I, sa tension baisse :\n\n$$U = E_0 - r \\times I$$\n\nUne pile 9 V (r ≈ 2 Ω) qui débite 200 mA perd \\( 2 \\times 0{,}2 = 0{,}4\\ \\text{V} \\). Une pile usée a une résistance interne bien plus grande : elle affiche encore 1,4 V **à vide**, mais s'effondre dès qu'on lui demande du courant.\n\n> ⚠️ La capacité annoncée vaut pour de **petits courants**. Au-delà de 100 mA en continu, une alcaline s'épuise beaucoup plus vite : on préfère un accu Li-ion (leçon 5.2)."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.1-autonomie.svg",
+    "legende": "L'autonomie t = C / I en fonction du courant consommé, pour trois piles. Les axes sont gradués en puissances de 10 (échelle logarithmique)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. En série ou en parallèle\n\n| Association | Tension | Capacité | Exemple avec 2 piles AA |\n|---|---|---|---|\n| Série (+ de l'une sur le − de l'autre) | s'additionnent | inchangée | 3 V, 2 500 mAh |\n| Parallèle (+ ensemble, − ensemble) | inchangée | s'additionnent | 1,5 V, 5 000 mAh |\n\nOn met en parallèle uniquement des piles **identiques et de même usure** ; sinon la plus chargée se vide dans l'autre."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.1-serie-parallele.svg",
+    "legende": "En série, les tensions s'additionnent ; en parallèle, ce sont les capacités. Dans les deux cas, l'énergie totale double."
+   },
+   {
+    "type": "image",
+    "fichier": "5.1-boitier-6aa.jpg",
+    "legende": "Un boîtier 6 × AA avec fiche jack : 6 × 1,5 = 9 V, avec cinq fois l'énergie d'une pile 9 V. Idéal pour la prise jack de l'Arduino.",
+    "credit": "Photo : Pixabay (licence Pixabay)"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : mesurer la tension d'une pile\n\nUne pile AA (1,5 V) ou une CR2032 (3 V) reste sous 5 V : on peut la brancher **directement** sur A0, à travers une résistance de protection.\n\n$$U = N \\times \\frac{5}{1023}$$\n\n| Pile | Tension | A0 lit environ |\n|---|---|---|\n| AA neuve | ≈ 1,55 V | 317 |\n| AA presque vide | < 1,2 V | < 245 |\n| CR2032 neuve | ≈ 3,2 V | 655 |\n\n### Le montage pas à pas\n\n1. Place la pile dans son support.\n2. **+ de la pile** → résistance **1 kΩ** → **A0**.\n3. **− de la pile** → **GND** de l'Arduino (indispensable : c'est la référence de la mesure).\n4. Téléverse le programme et ouvre le moniteur série à 9600 bauds."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.1-schema-pile.svg",
+    "legende": "Le + de la pile va sur A0 à travers 1 kΩ (protection en cas d'inversion), le − sur GND. Le trait long du symbole est le +."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 5.1 — tension d'une pile sur A0 (5 V maximum !)\nconst float VREF = 5.0;   // référence du convertisseur de l'Uno\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int lecture = analogRead(A0);          // 0 à 1023\n  float u = lecture * VREF / 1023.0;     // en volts\n  Serial.print(\"Pile : \");\n  Serial.print(u, 2);                    // 2 décimales\n  Serial.println(u < 1.2 ? \" V (faible)\" : \" V (OK)\");\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Pile | Moniteur série | Multimètre |\n|---|---|---|\n| AA neuve | Pile : 1.55 V (OK) | ≈ 1,55 V |\n| AA usagée | Pile : 1.10 V (faible) | ≈ 1,1 V |\n| CR2032 | Pile : 3.20 V (OK) | ≈ 3,2 V (le seuil de 1,2 V ne la concerne pas) |\n\n> 📌 **Et avec un ESP32 ?** Mesure sur **GPIO 34** (ADC1), 3,3 V au maximum. Remplace le calcul par `analogReadMilliVolts(34) / 1000.0`, plus précis que `3.3 / 4095`. Une pile AA (1,5 V) se mesure sans souci.\n\n> 💡 **Recyclage** : piles usées au bac de collecte, jamais à la poubelle. Retire les piles d'un appareil rangé longtemps : elles coulent."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Pile 9 V directement sur A0** : plus de 5 V, l'entrée grille. Il faut un pont diviseur (leçon 5.2).\n- **Oublier de relier le − de la pile au GND** : valeurs au hasard.\n- **Pile inversée** : A0 lit 0 et la broche souffre (la 1 kΩ limite les dégâts).\n- **Juger une pile à vide** : une pile faible affiche encore 1,4 V sans charge.\n- **Mélanger piles neuves et usées** en série ou en parallèle : la plus faible chauffe et coule.\n\n## 📌 À retenir\n\n- Pile = énergie chimique, non rechargeable ; accu = rechargeable.\n- AA / AAA 1,5 V, 9 V, CR2032 3 V, NiMH 1,2 V.\n- \\( t = C / I \\) ; \\( E = U \\times C \\).\n- Série : tensions additionnées ; parallèle : capacités additionnées.\n- Jamais plus de 5 V sur A0.\n\n## 🏆 Mini-défi\n\nUn capteur consomme **15 mA** en continu. Combien de **jours** tient-il avec **2 piles AA de 2 500 mAh en série** ? Et avec une **pile 9 V de 500 mAh** ?\n\n> ✅ Solution : en série, la capacité reste 2 500 mAh : \\( t = 2500 / 15 \\approx 167\\ \\text{h} \\approx 7\\ \\text{jours} \\). Avec la pile 9 V : \\( t = 500 / 15 \\approx 33\\ \\text{h} \\), à peine 1,4 jour. Les 2 AA tiennent 5 fois plus longtemps."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle est la tension d'une pile alcaline AA ?",
+    "choix": [
+     "1,2 V",
+     "1,5 V",
+     "3 V",
+     "9 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Une alcaline donne 1,5 V ; un accu NiMH du même format donne 1,2 V."
+   },
+   {
+    "question": "Sur le symbole d'une pile, le trait long représente :",
+    "choix": [
+     "La borne −",
+     "La borne +",
+     "La résistance interne",
+     "La masse"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Trait long = +, trait court = −."
+   },
+   {
+    "question": "Combien de temps tient une pile de 2 500 mAh qui alimente 50 mA ?",
+    "choix": [
+     "5 h",
+     "50 h",
+     "125 h",
+     "500 h"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "t = 2500 / 50 = 50 h."
+   },
+   {
+    "question": "Quelle énergie contient une pile 9 V de 500 mAh ?",
+    "choix": [
+     "0,45 Wh",
+     "4,5 Wh",
+     "45 Wh",
+     "4 500 Wh"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "E = 9 V × 0,5 Ah = 4,5 Wh."
+   },
+   {
+    "question": "Deux piles AA de 1,5 V en série donnent :",
+    "choix": [
+     "1,5 V et 5 000 mAh",
+     "3 V et 2 500 mAh",
+     "3 V et 5 000 mAh",
+     "0,75 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "En série, les tensions s'additionnent et la capacité reste la même."
+   },
+   {
+    "question": "Deux piles identiques en parallèle donnent :",
+    "choix": [
+     "La même tension et deux fois la capacité",
+     "Deux fois la tension",
+     "La moitié de la tension",
+     "Rien de plus"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "En parallèle, les capacités s'additionnent."
+   },
+   {
+    "question": "Quelle pile garde l'heure d'un module RTC DS3231 ?",
+    "choix": [
+     "AA",
+     "9 V",
+     "CR2032",
+     "18650"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "La pile bouton lithium CR2032 (3 V, ≈ 220 mAh) dure des années sur un RTC."
+   },
+   {
+    "question": "Que signifie le préfixe LR sur une pile (LR6, LR03) ?",
+    "choix": [
+     "Lithium rechargeable",
+     "Alcaline",
+     "Saline",
+     "NiMH"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "LR = alcaline ; R = saline ; CR = lithium ; HR = NiMH rechargeable."
+   },
+   {
+    "question": "Pourquoi ne faut-il pas brancher une pile 9 V directement sur A0 ?",
+    "choix": [
+     "Elle est trop faible",
+     "Elle dépasse les 5 V que supporte l'entrée",
+     "A0 ne mesure que le courant",
+     "Ça marche très bien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Plus de 5 V détruit l'entrée : il faut un pont diviseur."
+   },
+   {
+    "question": "A0 lit 317 sur un Uno. Quelle est la tension de la pile ?",
+    "choix": [
+     "≈ 0,3 V",
+     "≈ 1,55 V",
+     "≈ 3,17 V",
+     "≈ 5 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = 317 × 5 / 1023 ≈ 1,55 V : une pile AA neuve."
+   },
+   {
+    "question": "Une pile usée affiche 1,4 V à vide mais le montage ne marche pas. Pourquoi ?",
+    "choix": [
+     "Le multimètre est faux",
+     "Sa résistance interne a beaucoup augmenté : sa tension s'effondre sous courant",
+     "Elle est trop chargée",
+     "La tension à vide suffit toujours"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "U = E0 − r × I : avec un r élevé, la tension chute dès que le courant circule."
+   },
+   {
+    "question": "Combien de fois plus d'énergie un boîtier 6 × AA contient-il qu'une pile 9 V ?",
+    "choix": [
+     "Autant",
+     "≈ 2 fois",
+     "≈ 5 fois",
+     "≈ 50 fois"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "6 × AA : 9 V × 2,5 Ah = 22,5 Wh ; pile 9 V : 4,5 Wh. Rapport = 5."
+   }
+  ]
+ },
+ {
+  "id": "5.2",
+  "titre": "Batteries 18650 et LiPo",
+  "resume": "Des accus lithium rechargeables : 3,7 V et beaucoup d'énergie dans peu de place. Tu apprends leurs tensions limites, le rôle du BMS, le taux de décharge C, et tu mesures la charge d'une 18650 avec un pont diviseur.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "5.2-photo.jpg",
+   "legende": "Une cellule 18650 (cylindre de 18 × 65 mm) et un accu LiPo plat avec ses fils. Les deux donnent 3,7 V nominaux.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × carte Arduino Uno et son câble USB (ou un ESP32 : voir l'encadré plus bas)",
+   "1 × batterie 18650 « protégée » (ou une LiPo 1 cellule) et son support",
+   "2 × résistances 10 kΩ (ou 2 × 100 kΩ, plus économes)",
+   "1 × condensateur 100 nF (facultatif, pour stabiliser la mesure)",
+   "1 × multimètre",
+   "4 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Une 18650 et une LiPo de près : tension, capacité, fils, BMS.\n2. Les règles de sécurité : 4,2 V au plus, 3,0 V au moins, jamais percer ni chauffer.\n3. Le pont diviseur qui ramène 4,2 V à 2,1 V, puis la mesure sur A0.\n4. Le pourcentage affiché, comparé à la vraie courbe de décharge.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLes accus **lithium-ion** (18650) et **lithium-polymère** (LiPo) stockent beaucoup d'énergie dans peu de place et se rechargent plusieurs centaines de fois. Ils alimentent robots, capteurs autonomes et ESP32 portables — à condition de respecter leurs limites.\n\nÀ la fin de cette leçon, tu sauras :\n\n- connaître les trois tensions d'une cellule : 4,2 V, 3,7 V, 3,0 V ;\n- expliquer le rôle d'un **BMS** ;\n- calculer un courant avec le **taux C** et l'énergie d'un accu ;\n- mesurer une tension supérieure à la limite d'une entrée grâce à un **pont diviseur** ;\n- estimer le pourcentage de charge, et savoir pourquoi ce n'est qu'une estimation."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Comment fonctionne un accu lithium\n\nDes ions lithium passent d'une électrode à l'autre : à la charge, ils sont stockés dans le graphite ; à la décharge, ils reviennent et font circuler le courant.\n\n| Tension d'une cellule | Signification |\n|---|---|\n| **4,2 V** | pleine : ne jamais dépasser (elle chauffe, risque d'incendie) |\n| **3,7 V** | nominale : valeur moyenne pendant la décharge |\n| **3,0 V** | vide : en dessous, la cellule s'abîme |\n\n### Les modèles courants\n\n| Modèle | Caractéristiques | Usage |\n|---|---|---|\n| 18650 | cylindre 18 × 65 mm, 2 000 à 3 500 mAh | lampes, power banks, packs |\n| LiPo plate | sachet souple, 100 à 5 000 mAh, très légère | drones, montres, objets |\n| Pack 2S / 3S | 2 ou 3 cellules en série : 7,4 V ou 11,1 V | robots, moteurs, modélisme |\n| LiFePO4 | 3,2 V nominal, très sûre, plus de 2 000 cycles | solaire, stockage fixe |\n\n## 2. Sécurité et BMS\n\nUn **BMS** (carte de protection) coupe la batterie en **surcharge** (≈ 4,3 V), en **décharge profonde** (≈ 2,4 V) et en **court-circuit**. Les 18650 « protégées » l'ont intégré dans leur tube.\n\n> ⚠️ Ne jamais percer, écraser, chauffer ni court-circuiter un accu lithium. Une LiPo **gonflée** se recycle, elle ne se recharge plus. Charger sur une surface non inflammable, avec un chargeur dédié (leçon 5.3), **jamais avec une simple alimentation**."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les nombres d'un accu\n\n### L'énergie\n\n$$E = U_{nominale} \\times C = 3{,}7\\ \\text{V} \\times 2{,}6\\ \\text{Ah} \\approx 9{,}6\\ \\text{Wh}$$\n\nUne seule 18650 contient plus d'énergie que **deux piles 9 V** (4,5 Wh chacune), et elle se recharge.\n\n### Le taux C\n\nLes courants de charge et de décharge s'expriment en multiples de la capacité :\n\n$$I = n \\times C$$\n\nPour une 18650 de 2 600 mAh : 1C = 2,6 A ; 0,5C = 1,3 A ; 0,2C = 520 mA. On charge en général entre 0,5C et 1C.\n\n### Les packs\n\nEn série, les tensions s'ajoutent : un pack **2S** vaut \\( 2 \\times 3{,}7 = 7{,}4\\ \\text{V} \\) nominal et **8,4 V** plein."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.2-courbe-decharge.svg",
+    "legende": "La tension d'une Li-ion baisse vite au début et à la fin, et forme un long plateau au milieu. Le pourcentage calculé en ligne droite (pointillés) sous-estime la charge restante entre 10 et 70 %."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Mesurer une tension trop haute : le pont diviseur\n\nUne 18650 pleine (4,2 V) reste sous 5 V, mais pas sous les 3,3 V d'un ESP32, et un pack 2S dépasse même 5 V. Deux résistances (leçon 0.3) divisent la tension :\n\n$$V_{A0} = V_{bat} \\times \\frac{R_2}{R_1 + R_2} \\qquad R_1 = R_2 \\Rightarrow V_{A0} = \\frac{V_{bat}}{2}$$\n\nLe programme multiplie donc par 2 :\n\n$$V_{bat} = 2 \\times N \\times \\frac{5}{1023}$$\n\n| État de la 18650 | Vbat | V sur A0 | A0 lit |\n|---|---|---|---|\n| pleine | 4,2 V | 2,1 V | ≈ 430 |\n| nominale | 3,7 V | 1,85 V | ≈ 378 |\n| vide | 3,0 V | 1,5 V | ≈ 307 |\n\n### Le pourcentage (estimation)\n\n$$\\% \\approx \\frac{V_{bat} - 3{,}0}{4{,}2 - 3{,}0} \\times 100$$\n\n### Ce que consomme le pont\n\n$$I = \\frac{4{,}2}{10\\,000 + 10\\,000} = 0{,}21\\ \\text{mA}$$\n\nC'est peu, mais en continu : branché des mois, le pont vide la batterie. Avec 100 kΩ + 100 kΩ, il ne consomme que 21 µA."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 5. Expérience : estimer la charge d'une 18650\n\n### Le montage pas à pas\n\n1. Place la 18650 dans son support (vérifie les repères + et −).\n2. **+ de la batterie** → **R1 (10 kΩ)** → point milieu → **R2 (10 kΩ)** → **GND**.\n3. **Point milieu** → **A0**.\n4. **− de la batterie** → **GND** de l'Arduino.\n5. Facultatif : **100 nF** entre A0 et GND pour stabiliser la mesure."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.2-schema-pont-18650.svg",
+    "legende": "Le pont R1 / R2 divise la tension de la 18650 par deux ; A0 lit le point milieu. Le − de la batterie est relié au GND de l'Arduino."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 5.2 — niveau d'une 18650 : pont 10k / 10k vers A0\nconst float VMIN = 3.0, VMAX = 4.2;   // vide / pleine\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  float vA0 = analogRead(A0) * 5.0 / 1023.0;\n  float vbat = vA0 * 2;                        // le pont divise par 2\n  int pct = (vbat - VMIN) / (VMAX - VMIN) * 100;\n  pct = constrain(pct, 0, 100);                // borne entre 0 et 100 %\n  Serial.print(vbat, 2); Serial.print(\" V  \");\n  Serial.print(pct);     Serial.println(\" %\");\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Batterie | Moniteur série | Multimètre sur la batterie |\n|---|---|---|\n| fraîchement chargée | 4.18 V  98 % | ≈ 4,18 V |\n| à mi-usage | 3.75 V  62 % | ≈ 3,75 V |\n| presque vide | 3.20 V  16 % | ≈ 3,2 V |\n\nLe multimètre et le programme doivent être d'accord à quelques centièmes près. Le pourcentage, lui, reste approximatif (courbe ci-dessus).\n\n> 📌 **Et avec un ESP32 ?** Point milieu sur **GPIO 34** et `vbat = analogReadMilliVolts(34) * 2 / 1000.0;`. Le pont /2 devient **indispensable** : 4,2 V deviennent 2,1 V, sous la limite de 3,3 V.\n\n> 💡 **Fausses capacités** : une 18650 « 9 900 mAh » est un faux, les vraies plafonnent vers 3 500 mAh. Achète des marques connues."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Oublier de relier le − de la batterie au GND** : mesure fausse.\n- **Résistances différentes** (10 k et 4,7 k) : le facteur n'est plus 2, il faut le recalculer.\n- **Lire le % pendant un pic de courant** (Wi-Fi, moteur) : la tension chute, le % aussi.\n- **Laisser un pont 10k / 10k branché des mois** : il vide la batterie.\n- **Charger avec une alimentation de labo** sans chargeur dédié : danger.\n\n## 📌 À retenir\n\n- Li-ion : 4,2 V pleine, 3,7 V nominale, 3,0 V vide ; toujours un BMS.\n- \\( E = U \\times C \\) ; taux C : \\( I = n \\times C \\).\n- Pont diviseur : \\( V_{A0} = V_{bat} \\times R_2 / (R_1 + R_2) \\).\n- Le pourcentage est une estimation, pas une mesure exacte.\n\n## 🏆 Mini-défi\n\nUn **pack 2S** (8,4 V au maximum) doit être lu par un **ESP32** (3,3 V au maximum). Choisis R1 et R2 pour que l'entrée ne dépasse pas **3 V** à pleine charge.\n\n> ✅ Solution : il faut \\( R_2 / (R_1 + R_2) \\le 3 / 8{,}4 \\approx 0{,}357 \\). Avec **R1 = 18 kΩ** et **R2 = 10 kΩ** : \\( 8{,}4 \\times 10 / 28 = 3{,}0\\ \\text{V} \\). Le programme multiplie alors par \\( 28 / 10 = 2{,}8 \\). En 180 kΩ / 100 kΩ, même rapport et 10 fois moins de courant consommé."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle est la tension d'une cellule Li-ion pleine ?",
+    "choix": [
+     "3,0 V",
+     "3,7 V",
+     "4,2 V",
+     "5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "4,2 V pleine, 3,7 V nominale, 3,0 V vide."
+   },
+   {
+    "question": "Sous quelle tension une cellule Li-ion s'abîme-t-elle ?",
+    "choix": [
+     "4,2 V",
+     "3,7 V",
+     "3,0 V environ",
+     "1,5 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Une décharge sous 3,0 V use la cellule ; le BMS coupe vers 2,4 V."
+   },
+   {
+    "question": "À quoi sert un BMS ?",
+    "choix": [
+     "À augmenter la tension",
+     "À couper la batterie en surcharge, décharge profonde ou court-circuit",
+     "À mesurer la température de la pièce",
+     "À recharger par USB"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est la carte de protection indispensable aux accus lithium."
+   },
+   {
+    "question": "Quelle énergie contient une 18650 de 3,7 V et 2 600 mAh ?",
+    "choix": [
+     "≈ 0,96 Wh",
+     "≈ 9,6 Wh",
+     "≈ 96 Wh",
+     "≈ 2,6 Wh"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "E = 3,7 × 2,6 ≈ 9,6 Wh."
+   },
+   {
+    "question": "Pour une batterie de 2 600 mAh, un courant de 0,5C vaut :",
+    "choix": [
+     "0,5 A",
+     "1,3 A",
+     "2,6 A",
+     "5,2 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "0,5 × 2,6 A = 1,3 A."
+   },
+   {
+    "question": "Quelle est la tension maximale d'un pack 2S ?",
+    "choix": [
+     "4,2 V",
+     "7,4 V",
+     "8,4 V",
+     "11,1 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "2 × 4,2 V = 8,4 V plein ; 7,4 V est la tension nominale."
+   },
+   {
+    "question": "Avec un pont 10 kΩ / 10 kΩ, quelle tension arrive sur A0 pour une batterie de 4,2 V ?",
+    "choix": [
+     "1,05 V",
+     "2,1 V",
+     "4,2 V",
+     "8,4 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le pont divise par 2 : 4,2 / 2 = 2,1 V."
+   },
+   {
+    "question": "A0 lit 378 avec le pont /2 sur un Uno. Quelle est la tension de la batterie ?",
+    "choix": [
+     "≈ 1,85 V",
+     "≈ 3,7 V",
+     "≈ 4,2 V",
+     "≈ 7,4 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Vbat = 2 × 378 × 5 / 1023 ≈ 3,70 V."
+   },
+   {
+    "question": "Pourquoi le pourcentage affiché n'est-il qu'une estimation ?",
+    "choix": [
+     "Le convertisseur est trop lent",
+     "La courbe de décharge n'est pas une droite et la tension chute sous charge",
+     "Le pont est trop précis",
+     "Les batteries n'ont pas de tension"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le long plateau autour de 3,7 V rend la relation tension / charge non linéaire."
+   },
+   {
+    "question": "Quel courant consomme un pont 100 kΩ + 100 kΩ sur une batterie de 4,2 V ?",
+    "choix": [
+     "21 µA",
+     "0,21 mA",
+     "2,1 mA",
+     "21 mA"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "I = 4,2 / 200 000 = 0,000 021 A = 21 µA."
+   },
+   {
+    "question": "Que faire d'une LiPo gonflée ?",
+    "choix": [
+     "La recharger doucement",
+     "La percer pour la dégonfler",
+     "L'apporter au recyclage",
+     "La mettre au congélateur"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Une LiPo gonflée est dangereuse : on ne l'utilise plus."
+   },
+   {
+    "question": "Quelle chimie lithium est la plus sûre et dure plus de 2 000 cycles ?",
+    "choix": [
+     "LiPo",
+     "Li-ion 18650",
+     "LiFePO4",
+     "Alcaline"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "La LiFePO4 (3,2 V nominal) est très stable : idéale pour le stockage solaire."
+   }
+  ]
+ },
+ {
+  "id": "5.3",
+  "titre": "Le chargeur TP4056",
+  "resume": "Un petit module qui recharge une batterie Li-ion 3,7 V depuis un port USB 5 V. Tu apprends la charge CC / CV, le réglage du courant avec Rprog, la chaleur dégagée et le bon branchement des bornes B et OUT.",
+  "duree_minutes": 40,
+  "photo": {
+   "fichier": "5.3-photo.jpg",
+   "legende": "Un module TP4056 avec protection : entrée USB à gauche, pastilles IN, B (batterie) et OUT (montage), puces TP4056, DW01 et 8205A, résistance Rprog marquée 122.",
+   "credit": "Illustration : FOUNATEK"
+  },
+  "materiel": [
+   "1 × module TP4056 avec protection (6 pastilles, USB-C ou micro-USB)",
+   "1 × batterie 18650 et son support (ou une LiPo 1 cellule)",
+   "1 × chargeur de téléphone USB 5 V et son câble",
+   "1 × carte Arduino Uno et son câble USB",
+   "1 × multimètre",
+   "4 × câbles Dupont, un peu de fil à souder (les pastilles se soudent)"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le module de près : USB, pastilles IN, B et OUT, les trois puces, la résistance Rprog.\n2. Le branchement de la batterie sur B+ / B− et du montage sur OUT+ / OUT−.\n3. La charge : LED rouge, tension qui monte, puis LED bleue à 4,2 V.\n4. Le suivi de la charge dans le moniteur série, et la chaleur du module mesurée au doigt.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUn accu lithium ne se charge pas avec n'importe quelle source : il lui faut un courant limité puis une tension de **4,2 V exactement**. Le **TP4056** fait tout cela pour quelques centimes, à partir d'un simple port USB 5 V.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer les deux phases de la charge **CC / CV** ;\n- régler le courant de charge avec **Rprog** ;\n- estimer le temps de charge et la chaleur dégagée ;\n- brancher correctement IN, B et OUT ;\n- suivre la charge avec l'Arduino."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Les bornes du module\n\n| Pastilles | Rôle |\n|---|---|\n| USB ou IN+ / IN− | entrée 5 V (une seule source à la fois) |\n| **B+ / B−** | la **batterie** |\n| **OUT+ / OUT−** | le **montage** à alimenter (version avec protection) |\n\n| Version | Particularité |\n|---|---|\n| TP4056 seul (4 pastilles) | charge seulement : la batterie doit avoir son propre BMS |\n| TP4056 + DW01 (6 pastilles) | charge + protection (DW01 et double MOSFET 8205A) : le plus pratique |\n| USB-C ou micro-USB | même circuit ; l'USB-C est plus solide |\n\n> ⚠️ Le TP4056 ne charge **qu'une seule cellule** (4,2 V). Pour un pack 2S (8,4 V), il faut un chargeur 2S dédié."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. La charge CC / CV\n\n1. **CC — courant constant** : le module envoie le courant réglé (par exemple 1 A) ; la tension de la batterie monte.\n2. **CV — tension constante** : à 4,2 V, le module maintient cette tension ; le courant diminue peu à peu.\n3. **Fin** : quand le courant tombe à **1/10 du réglage**, la charge s'arrête. La LED passe du **rouge** au **bleu** (ou vert)."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.3-courbe-charge.svg",
+    "legende": "Charge d'une 18650 de 2 600 mAh réglée à 1 A : phase CC (courant constant, la tension monte), puis phase CV à 4,2 V (le courant baisse) jusqu'à I / 10."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Les formules du TP4056\n\n### Le courant de charge\n\n$$I_{charge} = \\frac{1200}{R_{prog}}$$\n\nAvec I en ampères et Rprog en ohms. D'usine, Rprog vaut 1,2 kΩ (CMS marqué **122**) : 1 A.\n\n| Rprog | Marquage CMS | Courant |\n|---|---|---|\n| 10 kΩ | 103 | ≈ 130 mA |\n| 5 kΩ | 502 | ≈ 250 mA |\n| 2,4 kΩ | 242 | ≈ 500 mA |\n| 2 kΩ | 202 | ≈ 580 mA |\n| 1,2 kΩ | 122 | 1 A |\n\nOn choisit un courant entre **0,5C et 1C** de la batterie (leçon 5.2). Pour une LiPo de 500 mAh : 2,4 kΩ, soit environ 500 mA.\n\n### Le temps de charge\n\n$$t \\approx \\frac{C}{I} \\times 1{,}2$$\n\nLe facteur 1,2 tient compte de la phase CV, plus lente. Une 18650 de 2 600 mAh à 1 A : \\( t \\approx 2{,}6 \\times 1{,}2 \\approx 3{,}1\\ \\text{h} \\).\n\n### La chaleur\n\nLe TP4056 est un chargeur **linéaire** : la différence entre 5 V et la tension de la batterie se transforme en chaleur.\n\n$$P = (5 - V_{bat}) \\times I$$\n\nAu début de la charge (3,0 V, 1 A) : \\( P = 2 \\times 1 = 2\\ \\text{W} \\) ; vers 3,7 V : 1,3 W. À 1 A le module devient chaud : c'est normal. Au-delà d'environ 120 °C, la puce réduit seule son courant (régulation thermique)."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : suivre la charge d'une batterie\n\nOUT+ est relié à la batterie à travers le circuit de protection : sa tension (3,0 à 4,2 V) reste sous 5 V, l'Uno peut la lire directement.\n\n### Le montage pas à pas\n\n1. Soude ou branche la 18650 sur **B+ / B−** (attention au sens : pas de protection contre l'inversion).\n2. **OUT+** → **A0** ; **OUT−** → **GND** de l'Arduino.\n3. Branche le chargeur USB sur le module : la LED rouge s'allume.\n4. Téléverse le programme et suis la tension dans le moniteur série."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.3-schema-tp4056.svg",
+    "legende": "Le chargeur USB sur IN, la 18650 sur B+ / B−, l'Arduino sur OUT+ / OUT−. OUT+ suit la tension de la batterie (3,0 à 4,2 V)."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 5.3 — suivi de charge : OUT+ (≈ B+) sur A0, OUT- sur GND\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  float v = analogRead(A0) * 5.0 / 1023.0;\n  Serial.print(\"Batterie : \");\n  Serial.print(v, 2);\n  Serial.print(\" V  \");\n  if (v >= 4.15)      Serial.println(\"pleine\");\n  else if (v >= 3.7)  Serial.println(\"moyenne\");\n  else                Serial.println(\"faible\");\n  delay(5000);        // une mesure toutes les 5 s\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Moment | LED du module | Moniteur série |\n|---|---|---|\n| début (batterie à moitié vide) | rouge | Batterie : 3.60 V  faible |\n| après environ 1 h | rouge | Batterie : 3.95 V  moyenne |\n| fin de charge | bleue | Batterie : 4.19 V  pleine |\n| batterie absente ou mal branchée | clignote | valeurs incohérentes |\n\n> 📌 **Et avec un ESP32 ?** La batterie dépasse 3,3 V : il faut un **pont 100 k / 100 k** vers GPIO 34 (leçon 5.2). Pour alimenter l'ESP32 depuis OUT+, passe par un **régulateur 3,3 V à faible chute** (HT7333, MCP1700).\n\n> 💡 **Changer Rprog** : c'est le petit CMS marqué 122 près de la puce. En le remplaçant par une 2,4 kΩ (marquée 242), on obtient environ 500 mA."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Montage branché sur B+ / B−** au lieu de OUT+ / OUT− : la protection DW01 ne sert plus.\n- **Batterie inversée** : le TP4056 peut griller (pas de protection contre l'inversion).\n- **IN+ et USB branchés ensemble** : une seule source 5 V à la fois.\n- **Rprog de 1,2 kΩ pour une petite LiPo** : elle chauffe et s'use vite.\n- **Panneau solaire de 12 V sur IN** : le module accepte 8 V au plus.\n\n## 📌 À retenir\n\n- Charge CC puis CV jusqu'à 4,2 V, arrêt à I / 10.\n- \\( I = 1200 / R_{prog} \\) (1,2 kΩ = 1 A) ; charger entre 0,5C et 1C.\n- \\( t \\approx C / I \\times 1{,}2 \\) ; chaleur \\( P = (5 - V_{bat}) \\times I \\).\n- Batterie sur B+ / B−, montage sur OUT+ / OUT−.\n- Une seule cellule Li-ion.\n\n## 🏆 Mini-défi\n\nTa LiPo fait **300 mAh** et doit se charger à **0,5C**. Quel courant viser, quelle valeur de **Rprog** choisir et quel **temps de charge** prévoir ?\n\n> ✅ Solution : \\( I = 0{,}5 \\times 300 = 150\\ \\text{mA} \\). \\( R_{prog} = 1200 / 0{,}15 = 8\\ \\text{k}\\Omega \\) : on prend la valeur normalisée **8,2 kΩ** (≈ 146 mA). Temps : \\( t \\approx 300 / 146 \\times 1{,}2 \\approx 2{,}5\\ \\text{h} \\)."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle tension finale le TP4056 applique-t-il à la batterie ?",
+    "choix": [
+     "3,7 V",
+     "4,2 V",
+     "5 V",
+     "8,4 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La phase CV maintient exactement 4,2 V."
+   },
+   {
+    "question": "Que signifie « CC / CV » ?",
+    "choix": [
+     "Courant continu / courant variable",
+     "Courant constant puis tension constante",
+     "Charge complète / charge vide",
+     "Circuit court / circuit vide"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "D'abord un courant constant, puis une tension constante de 4,2 V."
+   },
+   {
+    "question": "Quand la charge s'arrête-t-elle ?",
+    "choix": [
+     "Après exactement 1 h",
+     "Quand le courant tombe à 1/10 du réglage",
+     "Quand la batterie atteint 3,7 V",
+     "Jamais"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La LED passe alors du rouge au bleu."
+   },
+   {
+    "question": "Quel courant donne une Rprog de 1,2 kΩ ?",
+    "choix": [
+     "120 mA",
+     "500 mA",
+     "1 A",
+     "1,2 A"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "I = 1200 / 1200 = 1 A."
+   },
+   {
+    "question": "Quel courant donne une Rprog de 2,4 kΩ ?",
+    "choix": [
+     "≈ 250 mA",
+     "≈ 500 mA",
+     "≈ 1 A",
+     "≈ 2,4 A"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "I = 1200 / 2400 = 0,5 A."
+   },
+   {
+    "question": "Où brancher le montage à alimenter sur un TP4056 avec protection ?",
+    "choix": [
+     "Sur B+ / B−",
+     "Sur OUT+ / OUT−",
+     "Sur IN+ / IN−",
+     "Directement sur l'USB"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "OUT passe par la protection DW01 ; B est réservé à la batterie."
+   },
+   {
+    "question": "Combien de temps faut-il environ pour charger une 18650 de 2 600 mAh à 1 A ?",
+    "choix": [
+     "≈ 1 h",
+     "≈ 2 h",
+     "≈ 3 h",
+     "≈ 8 h"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "t ≈ 2,6 × 1,2 ≈ 3,1 h, la phase CV ralentissant la fin."
+   },
+   {
+    "question": "Quelle puissance chauffe le module au début de la charge (batterie à 3,0 V, 1 A) ?",
+    "choix": [
+     "0,5 W",
+     "1 W",
+     "2 W",
+     "5 W"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "P = (5 − 3) × 1 = 2 W : le module devient chaud."
+   },
+   {
+    "question": "La LED du module clignote. Que faut-il vérifier ?",
+    "choix": [
+     "Que la charge est finie",
+     "Que la batterie est présente et bien branchée",
+     "Que le chargeur USB est en 12 V",
+     "Rien, c'est normal"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le clignotement signale une batterie absente ou mal connectée."
+   },
+   {
+    "question": "Peut-on charger un pack 2S (8,4 V) avec un TP4056 ?",
+    "choix": [
+     "Oui",
+     "Non, il ne charge qu'une cellule",
+     "Oui, avec Rprog = 2,4 kΩ",
+     "Oui, en reliant IN+ au 12 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Il faut un chargeur 2S dédié."
+   },
+   {
+    "question": "Que se passe-t-il si on branche la batterie à l'envers ?",
+    "choix": [
+     "Rien",
+     "Le module peut griller",
+     "La batterie se charge plus vite",
+     "La LED devient verte"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le TP4056 n'a pas de protection contre l'inversion de la batterie."
+   },
+   {
+    "question": "Pour charger une LiPo de 300 mAh à 0,5C, quelle Rprog choisir ?",
+    "choix": [
+     "1,2 kΩ",
+     "2,4 kΩ",
+     "8,2 kΩ",
+     "100 kΩ"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "I = 150 mA ; Rprog = 1200 / 0,15 = 8 kΩ, soit la valeur normalisée 8,2 kΩ."
+   }
+  ]
+ },
+ {
+  "id": "5.4",
+  "titre": "Les convertisseurs DC-DC",
+  "resume": "Le LM2596 abaisse, le MT3608 élève : changer de tension avec peu de pertes. Tu apprends le principe du hachage, le rendement, les formules du buck et du boost, et tu règles puis surveilles un LM2596 avec l'Arduino.",
+  "duree_minutes": 45,
+  "photo": {
+   "fichier": "5.4-photo.jpg",
+   "legende": "Des bobines en cuivre et des condensateurs sur une carte électronique : la bobine est la pièce clé d'un convertisseur DC-DC, elle stocke l'énergie à chaque cycle.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × module abaisseur LM2596 (buck)",
+   "Facultatif : 1 × module élévateur MT3608 (boost) et une 18650",
+   "1 × alimentation 12 V (bloc secteur ou batterie)",
+   "1 × multimètre (indispensable pour le réglage)",
+   "1 × petit tournevis plat",
+   "1 × carte Arduino Uno, 2 × résistances 10 kΩ, 1 × condensateur 470 µF (facultatif)",
+   "6 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Pourquoi un 7805 chauffe et un buck reste tiède : le même calcul de puissance.\n2. Le principe du hachage : un interrupteur très rapide, une bobine, un condensateur.\n3. Le réglage du LM2596 au multimètre, vis multitour, AVANT de brancher le montage.\n4. La surveillance de la sortie par l'Arduino, puis un MT3608 qui élève 3,7 V à 5 V.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nUn régulateur linéaire comme le 7805 (leçon 2.8) jette en chaleur toute la tension en trop. Un **convertisseur DC-DC à découpage** change la tension en perdant très peu d'énergie : il **abaisse** (buck) ou **élève** (boost) la tension.\n\nÀ la fin de cette leçon, tu sauras :\n\n- expliquer le hachage et le rôle de la bobine ;\n- calculer un rendement et une puissance d'entrée ;\n- utiliser les formules du buck (\\( U_s = \\alpha U_e \\)) et du boost (\\( U_s = U_e / (1 - \\alpha) \\)) ;\n- calculer le courant tiré sur une batterie ;\n- régler un module au multimètre avant de le brancher."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Le principe du hachage\n\nUn transistor s'ouvre et se ferme des milliers de fois par seconde (**150 kHz** pour le LM2596). Une **bobine** stocke l'énergie quand il est fermé et la rend quand il est ouvert ; un **condensateur** lisse le résultat. La vis du potentiomètre règle la sortie.\n\nPériode de hachage du LM2596 :\n\n$$T = \\frac{1}{f} = \\frac{1}{150\\,000} \\approx 6{,}7\\ \\mu\\text{s}$$\n\n### Buck : abaisser\n\nAvec un rapport cyclique α (fraction du temps où le transistor conduit), la tension moyenne vaut :\n\n$$U_s = \\alpha \\times U_e \\qquad \\alpha = \\frac{5}{12} \\approx 42\\ \\% \\text{ pour passer de 12 V à 5 V}$$\n\n### Boost : élever\n\n$$U_s = \\frac{U_e}{1 - \\alpha} \\qquad 3{,}7\\ \\text{V} \\to 5\\ \\text{V} : \\alpha = 1 - \\frac{3{,}7}{5} = 26\\ \\%$$"
+   },
+   {
+    "type": "schema",
+    "fichier": "5.4-hachage.svg",
+    "legende": "En haut, les 12 V hachés par le transistor : allumé 42 % du temps, la moyenne vaut 5 V. En bas, la sortie lissée par la bobine et le condensateur : 5 V avec une petite ondulation."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Le rendement\n\n$$\\eta = \\frac{P_s}{P_e} \\qquad P_e = \\frac{P_s}{\\eta} \\qquad I_e = \\frac{P_e}{U_e}$$\n\nUn convertisseur à découpage a un rendement de 75 à 93 %. Exemple : 5 V × 1 A = 5 W en sortie avec η = 0,85 :\n\n$$P_e = \\frac{5}{0{,}85} \\approx 5{,}9\\ \\text{W} \\qquad I_e = \\frac{5{,}9}{12} \\approx 0{,}49\\ \\text{A}$$\n\nLe buck tire **moins de courant** sur le 12 V (0,49 A) qu'il n'en fournit en 5 V (1 A) : il échange de la tension contre du courant. Un 7805 tirerait 1 A sur le 12 V et perdrait \\( (12 - 5) \\times 1 = 7\\ \\text{W} \\), soit 58 % de l'énergie."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.4-pertes.svg",
+    "legende": "Pour fournir 5 W en 5 V à partir de 12 V : le 7805 prend 12 W et en perd 7 ; le LM2596 prend environ 5,9 W et n'en perd que 0,9. Il reste tiède."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Les modules courants\n\n| Module | Type | Entrée | Sortie | Courant |\n|---|---|---|---|---|\n| LM2596 | abaisseur (buck) | 4,5 à 40 V | 1,25 à 37 V | 2 A sans radiateur |\n| MP1584 | abaisseur miniature | 4,5 à 28 V | réglable | jusqu'à 3 A en crête |\n| MT3608 | élévateur (boost) | 2 à 24 V | jusqu'à 28 V | courant de sortie modeste |\n| XL6009 | élévateur costaud | 5 à 32 V | jusqu'à 35 V | ≈ 2 A |\n\n### Les règles de choix\n\n- Buck : \\( U_e \\ge U_s + 1{,}5\\ \\text{V} \\) environ.\n- Boost : \\( U_s > U_e \\), et le courant d'entrée **dépasse** celui de sortie.\n- Prévoir 20 % de marge sur le courant.\n\n> ⚠️ **Régler AVANT de brancher** : d'usine, la vis est n'importe où et la sortie peut approcher la tension d'entrée. Multimètre sur OUT, on tourne la vis (souvent 10 à 25 tours) jusqu'à la valeur voulue, puis seulement on branche le montage."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Expérience : régler et surveiller un LM2596\n\n### Le montage pas à pas\n\n1. Alimentation 12 V sur **IN+ / IN−**, **rien en sortie**.\n2. Multimètre sur **OUT+ / OUT−** : tourne la vis bleue jusqu'à **5,0 V**.\n3. Pont **10 kΩ / 10 kΩ** entre OUT+ et OUT− ; **point milieu → A0**.\n4. **OUT− → GND** de l'Arduino.\n5. Revérifie 5,0 V au multimètre, puis téléverse le programme.\n\nA0 doit lire environ 2,5 V (≈ 512)."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.4-schema-lm2596.svg",
+    "legende": "Le LM2596 abaisse 12 V à 5,0 V. Le pont R1 / R2 ramène la sortie à 2,5 V pour A0 ; OUT− est relié au GND de l'Arduino."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 5.4 — surveiller la sortie d'un LM2596 (pont 10k / 10k vers A0)\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  float vout = analogRead(A0) * 5.0 / 1023.0 * 2;   // x 2 : pont diviseur\n  Serial.print(\"Sortie : \");\n  Serial.print(vout, 2);\n  if (vout > 5.25)       Serial.println(\" V  TROP HAUT !\");\n  else if (vout < 4.75)  Serial.println(\" V  trop bas\");\n  else                   Serial.println(\" V  OK\");\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Action | Multimètre | Moniteur série |\n|---|---|---|\n| vis réglée à 5,0 V | 5,00 V | Sortie : 5.00 V  OK |\n| vis tournée d'un tour | ≈ 5,3 V | Sortie : 5.30 V  TROP HAUT ! |\n| entrée baissée à 6 V | ≈ 4,6 V | Sortie : 4.60 V  trop bas (marge de 1,5 V non respectée) |\n\n> 💡 **Condensateur** : pour un ESP32 ou un moteur, ajoute **470 µF** en sortie : les pics de courant ne feront plus chuter la tension.\n\n> 📌 **Et avec un ESP32 ?** Règle le LM2596 à 5 V et branche-le sur la broche **5V (VIN)** de la carte, ou à 3,3 V sur la broche **3V3**. Mesure sur GPIO 34 : `vout = analogReadMilliVolts(34) * 2 / 1000.0;`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Brancher avant de régler** : la sortie peut approcher la tension d'entrée et griller le montage.\n- **Inverser IN et OUT** : le module ne fonctionne pas et peut griller.\n- **Boost réglé sous Ue** : impossible, la sortie vaut alors environ Ue − 0,4 V.\n- **Vis qui « ne fait rien »** : elle fait souvent 25 tours ; continuer, puis essayer l'autre sens.\n- **Oublier de relier le GND** du module à celui de l'Arduino.\n\n## 📌 À retenir\n\n- Buck (LM2596) abaisse : \\( U_s = \\alpha U_e \\) ; boost (MT3608) élève : \\( U_s = U_e / (1 - \\alpha) \\).\n- \\( \\eta = P_s / P_e \\) ≈ 85 % ; \\( I_e = P_e / U_e \\).\n- Régler la sortie au multimètre AVANT de brancher.\n- Le courant d'entrée d'un boost dépasse celui de sortie.\n\n## 🏆 Mini-défi\n\nUne **18650 (3,7 V)** alimente un **MT3608 réglé à 5 V**. Le montage consomme **400 mA**. Avec un rendement de **85 %**, quel courant sort de la batterie ? Combien de temps tient une 18650 de 2 600 mAh ?\n\n> ✅ Solution : \\( P_s = 5 \\times 0{,}4 = 2\\ \\text{W} \\) ; \\( P_e = 2 / 0{,}85 \\approx 2{,}35\\ \\text{W} \\) ; \\( I_e = 2{,}35 / 3{,}7 \\approx 0{,}64\\ \\text{A} \\), plus que les 0,4 A de sortie. Autonomie : \\( 2600 / 640 \\approx 4\\ \\text{h} \\)."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Que fait un convertisseur buck comme le LM2596 ?",
+    "choix": [
+     "Il élève la tension",
+     "Il abaisse la tension",
+     "Il transforme le continu en alternatif",
+     "Il charge une batterie"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Buck = abaisseur ; boost = élévateur."
+   },
+   {
+    "question": "Quel composant stocke l'énergie à chaque cycle dans un convertisseur DC-DC ?",
+    "choix": [
+     "La résistance",
+     "La bobine",
+     "La LED",
+     "Le potentiomètre"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "La bobine stocke puis rend l'énergie ; le condensateur lisse."
+   },
+   {
+    "question": "Quelle est la période de hachage du LM2596 (150 kHz) ?",
+    "choix": [
+     "≈ 0,15 ms",
+     "≈ 6,7 µs",
+     "≈ 150 µs",
+     "≈ 1,5 s"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "T = 1 / 150 000 ≈ 0,000 006 7 s."
+   },
+   {
+    "question": "Un buck idéal reçoit 12 V avec α = 25 %. Quelle tension donne-t-il ?",
+    "choix": [
+     "3 V",
+     "4,8 V",
+     "9 V",
+     "16 V"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Us = α × Ue = 0,25 × 12 = 3 V."
+   },
+   {
+    "question": "Un boost idéal reçoit 5 V avec α = 50 %. Quelle tension donne-t-il ?",
+    "choix": [
+     "2,5 V",
+     "5 V",
+     "10 V",
+     "15 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Us = Ue / (1 − α) = 5 / 0,5 = 10 V."
+   },
+   {
+    "question": "Un convertisseur fournit 5 W avec un rendement de 80 %. Quelle puissance prend-il à l'entrée ?",
+    "choix": [
+     "4 W",
+     "5 W",
+     "6,25 W",
+     "8 W"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Pe = Ps / η = 5 / 0,8 = 6,25 W."
+   },
+   {
+    "question": "Quelle chaleur perd un 7805 qui passe de 12 V à 5 V sous 1 A ?",
+    "choix": [
+     "1 W",
+     "5 W",
+     "7 W",
+     "12 W"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "P = (12 − 5) × 1 = 7 W : il lui faut un gros radiateur."
+   },
+   {
+    "question": "Que faut-il faire AVANT de brancher le montage sur un LM2596 neuf ?",
+    "choix": [
+     "Rien",
+     "Régler la sortie au multimètre",
+     "Inverser IN et OUT",
+     "Ajouter une LED"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "D'usine, la sortie peut être proche de la tension d'entrée."
+   },
+   {
+    "question": "Pour un buck LM2596 réglé à 5 V, quelle entrée minimale faut-il environ ?",
+    "choix": [
+     "3,3 V",
+     "5 V",
+     "6,5 V",
+     "24 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Il faut Ue ≥ Us + 1,5 V environ."
+   },
+   {
+    "question": "Dans un boost, le courant d'entrée est :",
+    "choix": [
+     "Plus petit que le courant de sortie",
+     "Égal au courant de sortie",
+     "Plus grand que le courant de sortie",
+     "Nul"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "La puissance se conserve (aux pertes près) : moins de tension en entrée = plus de courant."
+   },
+   {
+    "question": "Un MT3608 donne 5 V × 0,4 A avec η = 85 % depuis une 18650 (3,7 V). Quel courant sort de la batterie ?",
+    "choix": [
+     "≈ 0,34 A",
+     "≈ 0,4 A",
+     "≈ 0,64 A",
+     "≈ 1,5 A"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "Pe = 2 / 0,85 ≈ 2,35 W ; Ie = 2,35 / 3,7 ≈ 0,64 A."
+   },
+   {
+    "question": "Pourquoi ajouter 470 µF en sortie pour un ESP32 ?",
+    "choix": [
+     "Pour augmenter la tension",
+     "Pour absorber les pics de courant et éviter les chutes de tension",
+     "Pour régler la fréquence",
+     "Pour mesurer le courant"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le condensateur fournit le courant des pics (Wi-Fi) pendant que le convertisseur réagit."
+   }
+  ]
+ },
+ {
+  "id": "5.5",
+  "titre": "Le panneau solaire",
+  "resume": "Il change la lumière du soleil en électricité continue, sans bruit ni carburant. Tu apprends à lire une étiquette (Wc, Voc, Isc), la courbe courant-tension, à dimensionner un panneau pour un capteur autonome et à mesurer sa tension avec l'Arduino.",
+  "duree_minutes": 45,
+  "photo": {
+   "fichier": "5.5-photo.jpg",
+   "legende": "Les cellules d'un panneau photovoltaïque monocristallin au soleil : chaque cellule en silicium donne environ 0,5 V, reliées en série elles forment le panneau.",
+   "credit": "Photo : Pixabay (licence Pixabay)"
+  },
+  "materiel": [
+   "1 × mini-panneau solaire 6 V, 1 à 2 W (enrobé de résine)",
+   "1 × carte Arduino Uno et son câble USB",
+   "2 × résistances 10 kΩ",
+   "1 × multimètre",
+   "Pour aller plus loin : 1 × module TP4056, 1 × 18650, 1 × diode Schottky 1N5819",
+   "Pour le mini-défi : 1 × photorésistance (LDR) et 1 × résistance 10 kΩ",
+   "4 × câbles Dupont"
+  ],
+  "video": "Ce que la vidéo va montrer :\n\n1. Le panneau de près : cellules, étiquette (Wc, Voc, Isc), fils + et −.\n2. La mesure au multimètre de Voc (à vide) et d'Isc (en court-circuit), au soleil puis à l'ombre.\n3. Le pont diviseur et la tension affichée par l'Arduino pendant qu'on cache le panneau.\n4. La chaîne complète panneau → TP4056 → 18650 → ESP32, et le calcul pour Conakry et pour Lille.",
+  "blocs": [
+   {
+    "type": "texte",
+    "contenu": "## 🎯 Dans cette leçon\n\nLe **panneau solaire** (photovoltaïque) transforme la lumière en courant continu. C'est la source idéale d'un capteur loin du réseau : station météo, suivi d'un champ ou d'un puits, alarme autonome.\n\nÀ la fin de cette leçon, tu sauras :\n\n- lire l'étiquette d'un panneau : Wc, Voc, Isc ;\n- comprendre la courbe courant-tension et le point de puissance maximale ;\n- calculer le rendement d'un panneau ;\n- dimensionner un panneau et une batterie pour un capteur autonome ;\n- mesurer la tension d'un panneau sans abîmer l'Arduino."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 1. Comment fonctionne une cellule\n\nChaque cellule en silicium donne environ **0,5 V** ; reliées **en série**, elles forment un panneau de 6 V, 12 V ou plus. La **tension** varie peu avec la lumière, mais le **courant** lui est presque **proportionnel**. Court-circuité, le panneau ne débite que son courant Isc : c'est sans danger pour lui.\n\n### Lire l'étiquette\n\n| Indication | Signification | Exemple |\n|---|---|---|\n| Wc (watt-crête) | puissance sous 1 000 W/m² à 25 °C (plein soleil idéal) | 2 W |\n| Voc | tension **à vide** (rien de branché) | 7,2 V |\n| Isc | courant **en court-circuit** | 0,4 A |\n| tension nominale | tension de travail | 6 V |\n\n### Les types de panneaux\n\n| Type | Aspect | Rendement |\n|---|---|---|\n| Monocristallin | noir uniforme, le plus courant | 18 à 22 % |\n| Polycristallin | bleu moucheté, moins cher | 15 à 17 % |\n| Couche mince | souple et léger (calculatrices) | plus faible |\n| Mini-panneau | 6 V, 1 à 3 W, enrobé de résine | idéal pour un capteur + TP4056 |"
+   },
+   {
+    "type": "texte",
+    "contenu": "## 2. Les formules clés\n\n### La puissance\n\n$$P = U \\times I \\qquad P_{max} \\approx 0{,}75 \\times V_{oc} \\times I_{sc}$$\n\nPour le panneau 6 V · 2 W : \\( P_{max} \\approx 0{,}75 \\times 7{,}2 \\times 0{,}4 \\approx 2{,}2\\ \\text{W} \\). Le coefficient 0,75 (le « facteur de forme ») vient de la courbe ci-dessous : on ne peut pas avoir en même temps Voc et Isc.\n\n### Le rendement\n\n$$\\eta = \\frac{P}{G \\times S}$$\n\nG est l'éclairement (1 000 W/m² en plein soleil), S la surface. Un panneau de 2 W et de 11 × 10 cm (0,011 m²) :\n\n$$\\eta = \\frac{2}{1000 \\times 0{,}011} \\approx 18\\ \\%$$\n\n### La puissance réelle\n\nLes Wc sont mesurés dans des conditions idéales : en usage réel, compter **50 à 70 %** de cette valeur (chaleur, angle, poussière, nuages)."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.5-courbe-iv.svg",
+    "legende": "Courbes du panneau 6 V · 2 W en plein soleil : le courant reste presque constant puis s'effondre près de Voc. La puissance est maximale vers 5,8 V : c'est là qu'un bon chargeur fait travailler le panneau."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 3. Dimensionner un capteur autonome\n\n### La chaîne\n\nLe panneau charge la batterie le jour à travers un chargeur ; la batterie alimente le montage la nuit."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.5-chaine-solaire.svg",
+    "legende": "Panneau 6 V → TP4056 (IN+ / IN−) → 18650 (B+ / B−) ; OUT+ / OUT− → régulateur 3,3 V → ESP32 en veille profonde."
+   },
+   {
+    "type": "texte",
+    "contenu": "### Le calcul\n\n**Étape 1 — l'énergie consommée par jour.** Un ESP32 qui consomme en moyenne 20 mA sous 3,7 V :\n\n$$E = U \\times I \\times t = 3{,}7 \\times 0{,}02 \\times 24 \\approx 1{,}8\\ \\text{Wh par jour}$$\n\n**Étape 2 — la puissance crête du panneau.** Avec h heures de plein soleil par jour et 60 % de puissance réelle :\n\n$$W_c \\approx \\frac{E}{h \\times 0{,}6}$$\n\n| Lieu | Plein soleil par jour | Panneau nécessaire |\n|---|---|---|\n| Conakry, Guinée | ≈ 5 h | \\( 1{,}8 / (5 \\times 0{,}6) = 0{,}6\\ \\text{W} \\) : un panneau de 1 W suffit |\n| Lille, en hiver | moins de 1 h | \\( 1{,}8 / (1 \\times 0{,}6) = 3\\ \\text{W} \\) au moins |\n\n**Étape 3 — la batterie**, pour tenir 3 jours sans soleil :\n\n$$C = \\frac{3 \\times 1{,}8\\ \\text{Wh}}{3{,}7\\ \\text{V}} \\approx 1{,}5\\ \\text{Ah}$$\n\nUne 18650 de 2 600 mAh suffit largement.\n\n> 💡 **Orientation** : en France, plein sud et incliné de 35 à 50° ; en Guinée, presque à plat (10 à 15°) : la pluie le nettoie.\n\n> ⚠️ Avec un TP4056, prends un panneau **5 ou 6 V** : son Voc reste sous les 8 V que le chargeur accepte. Un panneau 12 V le détruirait. Sans chargeur, une **diode Schottky 1N5819** (chute de 0,3 V) empêche la batterie de se vider dans le panneau la nuit."
+   },
+   {
+    "type": "texte",
+    "contenu": "## 4. Expérience : mesurer la tension d'un panneau\n\nUn panneau 6 V donne jusqu'à 7,2 V à vide : trop pour A0. Un pont diviseur par 2 ramène la tension sous 5 V.\n\n$$U = 2 \\times N \\times \\frac{5}{1023}$$\n\n- 7,2 V à vide → 3,6 V sur A0.\n- Tension maximale mesurable : \\( 2 \\times 5 = 10\\ \\text{V} \\).\n- Courant prélevé : \\( 7{,}2 / 20\\,000 \\approx 0{,}36\\ \\text{mA} \\).\n\n### Le montage pas à pas\n\n1. **+ du panneau** → **R1 (10 kΩ)** → point milieu → **R2 (10 kΩ)** → **GND**.\n2. **Point milieu** → **A0**.\n3. **− du panneau** → **GND** de l'Arduino.\n4. Téléverse, puis expose le panneau au soleil, à l'ombre et cache-le avec la main."
+   },
+   {
+    "type": "schema",
+    "fichier": "5.5-schema-panneau.svg",
+    "legende": "Le pont R1 / R2 divise la tension du panneau par deux pour A0. Le − du panneau est relié au GND de l'Arduino."
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Leçon 5.5 — tension d'un panneau solaire (pont 10 k / 10 k sur A0)\nconst float RAPPORT = 2.0;   // (R1 + R2) / R2\nconst float VREF = 5.0;      // référence du convertisseur (V)\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int n = analogRead(A0);                    // 0 à 1023\n  float u = n * VREF / 1023.0 * RAPPORT;     // en volts\n  Serial.print(\"Panneau : \");\n  Serial.print(u, 2);\n  Serial.println(\" V\");\n  delay(1000);\n}"
+   },
+   {
+    "type": "texte",
+    "contenu": "### Ce que tu dois observer\n\n| Situation | Tension à vide du panneau 6 V |\n|---|---|\n| plein soleil | 6,5 à 7,2 V |\n| ciel couvert | 5 à 6 V |\n| à l'intérieur, près d'une fenêtre | 3 à 5 V |\n| caché par la main | moins de 2 V |\n\nLa tension à vide baisse peu tant qu'il y a de la lumière : c'est le **courant** qui chute fortement à l'ombre. Pour mesurer l'ensoleillement, on mesure donc plutôt le courant (à travers une petite résistance).\n\n> 📌 **Et avec un ESP32 ?** Convertisseur en 3,3 V (0 à 4095), peu précis près des bords. Prends un pont **100 kΩ / 33 kΩ** (÷ 4) : 7,2 V → 1,8 V, sur **GPIO 34**, lu avec `analogReadMilliVolts(34)`, puis `u = mv * 133.0 / 33.0 / 1000.0`."
+   },
+   {
+    "type": "texte",
+    "contenu": "## ⚠️ Erreurs fréquentes\n\n- **Panneau branché directement sur A0** : 7 V détruisent l'entrée.\n- **GND du panneau non relié au GND de l'Arduino** : valeurs fausses.\n- **Panneau 12 V sur un TP4056** : le chargeur grille (8 V au plus).\n- **Une seule cellule à l'ombre** : tout le panneau chute (les cellules sont en série).\n- **Sans chargeur ni diode anti-retour** : la batterie se vide la nuit.\n\n## 📌 À retenir\n\n- Voc à vide, Isc en court-circuit, Wc en plein soleil ; \\( P_{max} \\approx 0{,}75 \\times V_{oc} \\times I_{sc} \\).\n- Puissance réelle ≈ 50 à 70 % des Wc ; \\( \\eta = P / (G \\times S) \\).\n- Dimensionner : \\( W_c \\approx E / (h \\times 0{,}6) \\).\n- Panneau 5 ou 6 V pour un TP4056 ; jamais plus de 5 V sur A0.\n\n## 🏆 Mini-défi\n\nAjoute une **LDR** (leçon 7.5) sur **A1** (pont LDR + 10 kΩ) et trace dans le **traceur série** la tension du panneau et la lumière pendant une journée. Les deux courbes se suivent-elles ?"
+   },
+   {
+    "type": "code",
+    "language": "cpp",
+    "code": "// Solution du mini-défi : panneau (A0) et lumière (A1) dans le traceur série\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  float panneau = analogRead(A0) * 5.0 / 1023.0 * 2;   // en volts\n  float lumiere = analogRead(A1) * 100.0 / 1023.0;     // en % (0 = noir)\n  Serial.print(\"panneau_V:\");  Serial.print(panneau, 2);\n  Serial.print(\" lumiere_pct:\"); Serial.println(lumiere, 0);\n  delay(60000);   // une mesure par minute\n}\n\n// Les courbes se suivent : toutes deux montent le matin et baissent le soir.\n// Mais la tension du panneau sature vite (dès qu'il y a un peu de soleil),\n// alors que la LDR continue de varier : la tension à vide mesure mal l'ensoleillement."
+   }
+  ],
+  "quiz": [
+   {
+    "question": "Quelle tension donne environ une cellule solaire en silicium ?",
+    "choix": [
+     "0,05 V",
+     "0,5 V",
+     "5 V",
+     "12 V"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Environ 0,5 V ; on en met une douzaine en série pour un panneau 6 V."
+   },
+   {
+    "question": "Que signifie Voc sur l'étiquette d'un panneau ?",
+    "choix": [
+     "La tension à vide",
+     "Le courant en court-circuit",
+     "La puissance crête",
+     "La tension minimale"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Voc = tension à vide (open circuit), quand rien n'est branché."
+   },
+   {
+    "question": "Que signifie Isc ?",
+    "choix": [
+     "La tension à vide",
+     "Le courant en court-circuit",
+     "La surface du panneau",
+     "Le rendement"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Isc = courant de court-circuit (short circuit)."
+   },
+   {
+    "question": "Quand la lumière diminue de moitié, qu'est-ce qui baisse le plus ?",
+    "choix": [
+     "La tension",
+     "Le courant",
+     "Rien",
+     "La surface"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Le courant est presque proportionnel à la lumière ; la tension varie peu."
+   },
+   {
+    "question": "Estimer Pmax d'un panneau avec Voc = 7,2 V et Isc = 0,4 A :",
+    "choix": [
+     "≈ 0,7 W",
+     "≈ 2,2 W",
+     "≈ 2,9 W",
+     "≈ 7,2 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Pmax ≈ 0,75 × 7,2 × 0,4 ≈ 2,2 W."
+   },
+   {
+    "question": "Un panneau de 2 W fait 0,011 m². Quel est son rendement sous 1 000 W/m² ?",
+    "choix": [
+     "≈ 2 %",
+     "≈ 18 %",
+     "≈ 50 %",
+     "≈ 90 %"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "η = 2 / (1000 × 0,011) ≈ 0,18."
+   },
+   {
+    "question": "En usage réel, quelle part de la puissance crête (Wc) obtient-on ?",
+    "choix": [
+     "100 %",
+     "50 à 70 %",
+     "10 %",
+     "Plus de 100 %"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Chaleur, angle, poussière et nuages réduisent la production."
+   },
+   {
+    "question": "Un capteur consomme 1,8 Wh par jour à Conakry (5 h de plein soleil). Quel panneau faut-il au minimum ?",
+    "choix": [
+     "≈ 0,06 W",
+     "≈ 0,6 W",
+     "≈ 6 W",
+     "≈ 60 W"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Wc ≈ 1,8 / (5 × 0,6) = 0,6 W : un panneau de 1 W suffit."
+   },
+   {
+    "question": "Quel panneau brancher sur un TP4056 ?",
+    "choix": [
+     "Un panneau 5 ou 6 V",
+     "Un panneau 12 V",
+     "Un panneau 24 V",
+     "N'importe lequel"
+    ],
+    "bonnes": [
+     "A"
+    ],
+    "explication": "Le TP4056 accepte 8 V au plus : le Voc d'un panneau 12 V le détruirait."
+   },
+   {
+    "question": "Avec un pont 10 k / 10 k, A0 lit 737 sur un Uno. Quelle est la tension du panneau ?",
+    "choix": [
+     "≈ 3,6 V",
+     "≈ 5 V",
+     "≈ 7,2 V",
+     "≈ 10 V"
+    ],
+    "bonnes": [
+     "C"
+    ],
+    "explication": "U = 2 × 737 × 5 / 1023 ≈ 7,2 V."
+   },
+   {
+    "question": "À quoi sert une diode Schottky 1N5819 entre un panneau et une batterie sans chargeur ?",
+    "choix": [
+     "À augmenter la tension",
+     "À empêcher la batterie de se vider dans le panneau la nuit",
+     "À mesurer le courant",
+     "À rien"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "C'est une diode anti-retour ; sa chute de 0,3 V est faible."
+   },
+   {
+    "question": "Comment orienter un panneau en Guinée ?",
+    "choix": [
+     "Vertical, face au nord",
+     "Presque à plat, incliné de 10 à 15°",
+     "Incliné à 70°",
+     "Face au sol"
+    ],
+    "bonnes": [
+     "B"
+    ],
+    "explication": "Près de l'équateur, le soleil est haut : presque à plat, et la pluie le nettoie."
+   }
+  ]
+ }
+]
