@@ -2,13 +2,15 @@
 from django.conf import settings
 from django.shortcuts import render
 
-from .academy_access import can_read_book_chapter, has_full_access
+from .academy_access import can_read_book_chapter
 from .book_catalog import BOOK_SLUG, CHAPTERS, PACK_PRICE_EUR
 from .models import AcademyBookLesson, Parcours
 
 
 def academy_book_home(request):
-    is_admin = has_full_access(request.user)
+    # Panneau d'indices admin (brouillons, commande de publication) : réservé
+    # au superutilisateur (createsuperuser), pas à n'importe quel compte staff.
+    is_admin = bool(request.user and request.user.is_authenticated and request.user.is_superuser)
     counts = {}
     book = AcademyBookLesson.objects.filter(lecon__parcours__slug=BOOK_SLUG)
     for row in book.filter(published=True).values_list("chapter_number", flat=True):

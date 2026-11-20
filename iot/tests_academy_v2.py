@@ -215,6 +215,15 @@ class AdminFullAccessTests(TestCase):
         self.client.force_login(self.learner)
         self.assertNotContains(self.client.get("/academy/livre-1/"), "Vue administrateur")
 
+    def test_staff_without_superuser_does_not_see_admin_panel(self):
+        """Le panneau admin (brouillons, commande de publication) est réservé
+        au superutilisateur (createsuperuser) : un compte is_staff seul n'y a pas droit."""
+        self.client.force_login(self.staff)
+        resp = self.client.get("/academy/livre-1/")
+        self.assertNotContains(resp, "Vue administrateur")
+        self.assertNotContains(resp, "leçon enrichie, pas encore publiée")
+        self.assertNotContains(resp, "publish_academy_chapter")
+
 
 class RawCanvaDraftTests(TestCase):
     """Les fiches brutes de l'ancien import Canva restent masquées, même pour l'admin."""
