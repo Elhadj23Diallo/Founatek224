@@ -269,6 +269,10 @@
                         <a href="{% url 'iot:lire_lecon' item.lecon.id %}" class="btn-action btn-start">
                             <i class="fas fa-play"></i> Démarrer
                         </a>
+                    {% elif item.needs_pack %}
+                        <a href="{% url 'iot:academy_book_home' %}" class="btn-action" style="background:#ffd700; color:#050a1f;">
+                            <i class="fas fa-lock"></i> Débloquer — {{ academy_pack_price }} €
+                        </a>
                     {% else %}
                         <div class="badge-locked">
                             <i class="fas fa-lock"></i> Verrouillé

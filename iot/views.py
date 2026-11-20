@@ -576,12 +576,16 @@ def liste_lecons(request, parcours_id):
     for lecon in lecons:
         progression = progressions.get(lecon.id)
         numero = f"{lecon.ordre // 100}.{lecon.ordre % 100}" if is_book else lecon.ordre
+        readable = can_read_lesson(request.user, lecon)
         lecons_data.append({
             "lecon": lecon,
             "numero": numero,
             "debloquee": has_full_access(request.user) or (
-                can_read_lesson(request.user, lecon) and lecon_est_debloquee(request.user, lecon)
+                readable and lecon_est_debloquee(request.user, lecon)
             ),
+            # Verrouillé spécifiquement par le paywall Academy (pas juste par la
+            # progression séquentielle) : on peut alors proposer le pack direct.
+            "needs_pack": is_book and not readable and not has_full_access(request.user),
             "completed": progression.completed if progression else False,
             "score": progression.score if progression else None,
         })
@@ -591,12 +595,15 @@ def liste_lecons(request, parcours_id):
     from .parcours_access import can_read_parcours
     has_parcours_access = can_read_parcours(request.user, parcours)
 
+    from .book_catalog import PACK_PRICE_EUR
+
     return render(request, "iot/liste_lecons.html", {
         "parcours": parcours,
         "lecons_data": lecons_data,
         "is_following": is_following,
         "parcours_is_paid": parcours.prix and parcours.prix > 0,
         "has_parcours_access": has_parcours_access,
+        "academy_pack_price": PACK_PRICE_EUR,
         "raw_hidden": raw_hidden if has_full_access(request.user) else 0,
         "raw_parts": ("partie " if len(raw_parts) == 1 else "parties ")
                      + " et ".join(", ".join(raw_parts).rsplit(", ", 1)) if raw_parts else "",

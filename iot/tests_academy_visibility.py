@@ -49,3 +49,35 @@ class AcademyLessonVisibilityTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("iot:lecons-detail", args=[self.paid.pk]))
         self.assertIn(response.status_code, (403, 404))
+
+
+class AcademyLessonListPackPromptTests(TestCase):
+    """La liste des leçons du Livre 1 doit proposer directement l'achat du
+    pack sur une fiche verrouillée par le paywall (pas juste « Verrouillé »,
+    qui n'explique rien et ne mène nulle part)."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("pack-prompt-user", password="testpass")
+        organisation = Organisation.objects.create(nom="Academy prompt test", type="Université")
+        self.parcours = Parcours.objects.create(
+            organisation=organisation, created_by=self.user, titre="Livre 1",
+            description="...", niveau="Débutant", is_published=True, slug=BOOK_SLUG,
+        )
+        self.free = Lecon.objects.create(parcours=self.parcours, titre="0.1 — Base", ordre=1)
+        self.paid = Lecon.objects.create(parcours=self.parcours, titre="1.1 — La résistance", ordre=101)
+        AcademyBookLesson.objects.create(lecon=self.free, chapter_number="00", published=True)
+        AcademyBookLesson.objects.create(lecon=self.paid, chapter_number="01", published=True)
+        self.client.force_login(self.user)
+
+    def test_locked_academy_lesson_shows_buy_prompt(self):
+        response = self.client.get(reverse("iot:liste_lecons", args=[self.parcours.pk]))
+        self.assertContains(response, "Débloquer")
+        self.assertContains(response, reverse("iot:academy_book_home"))
+
+    def test_buyer_does_not_see_buy_prompt(self):
+        AcademyPackAccess.objects.create(
+            user=self.user, pack_slug=BOOK_SLUG, provider="stripe",
+            amount_eur=Decimal("9.99"), active=True,
+        )
+        response = self.client.get(reverse("iot:liste_lecons", args=[self.parcours.pk]))
+        self.assertNotContains(response, reverse("iot:academy_book_home"))
