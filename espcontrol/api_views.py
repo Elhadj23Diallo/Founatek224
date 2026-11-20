@@ -1662,10 +1662,12 @@ def mobile_education_materiel_pdf(request, parcours_id):
 def mobile_monetisation_dashboard(request):
     try:
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
-        from monetisation.utils import PLAN_LIMITS, PLAN_PRICES, check_device_quota
+        from monetisation.utils import PLAN_LIMITS, PLAN_PRICES, check_device_quota, sync_subscription_expiry
         from monetisation.quota import check_iot_quota, IOT_LIMITS
         wallet = Wallet.objects.filter(user=request.user).first()
         sub = Subscription.objects.filter(user=request.user).first()
+        if sub:
+            sub = sync_subscription_expiry(sub)
         txns = Transaction.objects.filter(user=request.user).order_by("-timestamp")[:20]
         payments = PaymentRequest.objects.filter(user=request.user).order_by("-created_at")[:10]
 
@@ -1689,6 +1691,7 @@ def mobile_monetisation_dashboard(request):
                 "plan": plan,
                 "start_date": sub.start_date.isoformat() if sub else None,
                 "end_date": sub.end_date.isoformat() if sub and sub.end_date else None,
+                "cancel_at_period_end": bool(sub and sub.cancel_at_period_end),
             },
             "usage": {
                 "iot_calls": iot_calls_used,
@@ -1768,11 +1771,41 @@ def mobile_monetisation_upgrade(request):
             sub.plan = plan
             sub.start_date = timezone.now().date()
             sub.end_date = (timezone.now() + timedelta(days=30)).date() if plan != "free" else None
+            sub.cancel_at_period_end = False
             sub.save()
         return Response({
             "plan": sub.plan,
             "end_date": sub.end_date.isoformat() if sub.end_date else None,
+            "cancel_at_period_end": sub.cancel_at_period_end,
             "balance": wallet.balance,
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_monetisation_cancel_subscription(request):
+    """Body: { "cancel": true } résilie (garde le plan payant jusqu'à end_date,
+    puis retour automatique au gratuit) ; { "cancel": false } annule la résiliation."""
+    try:
+        from monetisation.models import Subscription
+        from monetisation.utils import sync_subscription_expiry
+        cancel = bool(request.data.get("cancel", True))
+        sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
+        sub = sync_subscription_expiry(sub)
+        if cancel:
+            if sub.plan == "free" or not sub.end_date:
+                return Response({"error": "Aucun abonnement payant actif à résilier."}, status=400)
+            sub.cancel_at_period_end = True
+        else:
+            sub.cancel_at_period_end = False
+        sub.save(update_fields=["cancel_at_period_end"])
+        return Response({
+            "plan": sub.plan,
+            "end_date": sub.end_date.isoformat() if sub.end_date else None,
+            "cancel_at_period_end": sub.cancel_at_period_end,
         })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -2090,6 +2123,7 @@ def mobile_monetisation_paypal_capture_order(request):
                 sub, _ = Subscription.objects.select_for_update().get_or_create(user=request.user, defaults={"plan": "free"})
                 sub.plan = plan
                 sub.end_date = _timezone.now().date() + _timedelta(days=30)
+                sub.cancel_at_period_end = False
                 sub.save()
                 Transaction.objects.create(user=request.user, type="subscription", amount=captured_amount, description=f"Abonnement {plan} via PayPal")
 

@@ -144,6 +144,7 @@ def capture_paypal_order(request):
             sub = Subscription.objects.select_for_update().get(user=request.user)
             sub.plan = plan
             sub.end_date = timezone.now().date() + timedelta(days=30)
+            sub.cancel_at_period_end = False
             sub.save()
             Transaction.objects.create(
                 user=request.user,
@@ -229,10 +230,26 @@ def _render_subscription(request, sub, wallet, error=None):
 @login_required
 @never_cache
 def subscription_view(request):
-    sub = Subscription.objects.get(user=request.user)
+    from .utils import sync_subscription_expiry
+    from django.contrib import messages
+    sub = sync_subscription_expiry(Subscription.objects.get(user=request.user))
     wallet = Wallet.objects.get(user=request.user)
 
     if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'cancel_at_period_end':
+            if sub.plan == 'free' or not sub.end_date:
+                return _render_subscription(request, sub, wallet, "Aucun abonnement payant actif à résilier.")
+            sub.cancel_at_period_end = True
+            sub.save(update_fields=['cancel_at_period_end'])
+            messages.success(request, f"Abonnement résilié : vous gardez le plan {sub.plan.upper()} jusqu'au {sub.end_date}, puis retour automatique au gratuit.")
+            return redirect('monetisation:monetisation_abonnement')
+        if action == 'reactivate':
+            sub.cancel_at_period_end = False
+            sub.save(update_fields=['cancel_at_period_end'])
+            messages.success(request, "Résiliation annulée : votre abonnement continue normalement.")
+            return redirect('monetisation:monetisation_abonnement')
+
         new_plan = request.POST.get('plan')
         provider = request.POST.get('provider')
         if new_plan not in PLAN_PRICES:
@@ -243,6 +260,7 @@ def subscription_view(request):
         if amount == 0:
             sub.plan = 'free'
             sub.end_date = None
+            sub.cancel_at_period_end = False
             sub.save()
             Transaction.objects.create(
                 user=request.user,
@@ -270,6 +288,7 @@ def subscription_view(request):
 
                 sub.plan = new_plan
                 sub.end_date = timezone.now().date() + timedelta(days=30)
+                sub.cancel_at_period_end = False
                 sub.save()
 
                 Transaction.objects.create(

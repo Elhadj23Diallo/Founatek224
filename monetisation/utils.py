@@ -36,6 +36,20 @@ PLAN_PRICES = {
     'pro': 15,
 }
 
+
+def sync_subscription_expiry(sub):
+    """Pas de reconduction automatique dans ce système (chaque renouvellement
+    est un nouveau paiement manuel) : une fois end_date dépassée, le plan
+    repasse au gratuit — que l'utilisateur ait explicitement résilié
+    (cancel_at_period_end) ou simplement laissé expirer sans repayer.
+    Vérifié à la lecture (lazy), pas via une tâche planifiée. Retourne sub."""
+    if sub.plan != 'free' and sub.end_date and sub.end_date < timezone.now().date():
+        sub.plan = 'free'
+        sub.end_date = None
+        sub.cancel_at_period_end = False
+        sub.save(update_fields=['plan', 'end_date', 'cancel_at_period_end'])
+    return sub
+
 # Recharge wallet via PayPal : fourchette anti-abus (pas de minimum "metier",
 # juste pour eviter les montants absurdes/negatifs/a 10 decimales).
 CREDIT_TOPUP_MIN_EUR = 1

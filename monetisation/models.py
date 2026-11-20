@@ -46,6 +46,11 @@ class Subscription(models.Model):
     plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default='free')
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
+    # Résiliation différée : l'utilisateur garde le plan payant jusqu'à end_date,
+    # mais ne sera plus jamais relancé pour renouveler (pas de reconduction
+    # automatique dans ce systeme, donc ce champ est purement informatif/UX —
+    # voir monetisation.utils.sync_subscription_expiry pour le retour au gratuit).
+    cancel_at_period_end = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.username} - {self.plan}"

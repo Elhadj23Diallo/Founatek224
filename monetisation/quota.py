@@ -14,9 +14,10 @@ DEFAULT_LIMITS = {
 }
 
 def get_limits_for_user(user):
+    from .utils import sync_subscription_expiry
     try:
         sub = Subscription.objects.get(user=user)
-        plan = sub.plan
+        plan = sync_subscription_expiry(sub).plan
     except Exception:
         plan = 'free'
     return DEFAULT_LIMITS.get(plan, DEFAULT_LIMITS['free']), plan

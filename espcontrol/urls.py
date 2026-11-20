@@ -188,6 +188,7 @@ urlpatterns = [
     path('api/mobile/monetisation/', api_views.mobile_monetisation_dashboard, name='mobile_monetisation_dashboard'),
     path('api/mobile/monetisation/recharge/', api_views.mobile_monetisation_recharge, name='mobile_monetisation_recharge'),
     path('api/mobile/monetisation/upgrade/', api_views.mobile_monetisation_upgrade, name='mobile_monetisation_upgrade'),
+    path('api/mobile/monetisation/cancel-subscription/', api_views.mobile_monetisation_cancel_subscription, name='mobile_monetisation_cancel_subscription'),
     path('api/mobile/monetisation/referral/', api_views.mobile_monetisation_referral, name='mobile_monetisation_referral'),
     path('api/mobile/monetisation/convert/', api_views.mobile_monetisation_convert, name='mobile_monetisation_convert'),
     path('api/mobile/monetisation/transactions/', api_views.mobile_monetisation_transactions, name='mobile_monetisation_transactions'),

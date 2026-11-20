@@ -78,6 +78,7 @@ def _downgrade_to_free(user):
     sub, _ = Subscription.objects.select_for_update().get_or_create(user=user)
     sub.plan = "free"
     sub.end_date = None
+    sub.cancel_at_period_end = False
     sub.save()
 
 
