@@ -163,3 +163,86 @@ class ImportV2Tests(TestCase):
         self.client.force_login(self.learner)
         resp = self.client.get(f"/lecon/{lecon.id}/")
         self.assertRedirects(resp, "/academy/livre-1/", fetch_redirect_response=False)
+
+
+class AdminFullAccessTests(TestCase):
+    """L'administrateur (createsuperuser) lit tout ; les autres comptes restent limités."""
+    write = ImportV2Tests.write
+    run_import = ImportV2Tests.run_import
+
+    def setUp(self):
+        ImportV2Tests.setUp(self)
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(username="admin", password="p", email="a@example.com")
+        self.write(lesson(id="0.9"), lesson(id="0.10", titre="Deuxième leçon"))
+        self.run_import("--apply")
+        # Une partie payante publiée (07), sans achat
+        self.paid = Lecon.objects.get(titre__contains="Deuxième leçon")
+        AcademyBookLesson.objects.filter(lecon=self.paid).update(published=True, chapter_number="07")
+
+    def test_admin_reads_paid_and_draft_lessons(self):
+        from .academy_access import can_read_book_chapter, filter_readable_lessons
+        draft = Lecon.objects.exclude(pk=self.paid.pk).get()
+        for lecon in (draft, self.paid):
+            self.assertTrue(can_read_lesson(self.admin, lecon))
+        self.assertTrue(can_read_book_chapter(self.admin, "07"))
+        self.assertEqual(filter_readable_lessons(Lecon.objects.all(), self.admin).count(), Lecon.objects.count())
+        self.client.force_login(self.admin)
+        for lecon in (draft, self.paid):
+            self.assertEqual(self.client.get(f"/lecon/{lecon.id}/").status_code, 200)
+
+    def test_learner_still_needs_the_pack(self):
+        from .academy_access import can_read_book_chapter
+        self.assertFalse(can_read_lesson(self.learner, self.paid))
+        self.assertFalse(can_read_book_chapter(self.learner, "07"))
+        self.client.force_login(self.learner)
+        resp = self.client.get(f"/lecon/{self.paid.id}/")
+        self.assertRedirects(resp, "/academy/livre-1/", fetch_redirect_response=False)
+
+    def test_admin_sees_unpublished_parcours_and_book_link(self):
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get("/parcours/"), "Non publié")
+        liste = self.client.get(f"/parcours/{self.parcours.id}/")
+        import re
+        html = liste.content.decode()
+        self.assertRegex(html, r'lesson-marker">\s*0\.10\s*<')
+        self.assertIsNone(re.search(r'lesson-marker">\s*10\s*<', html))
+        resp = self.client.get("/academy/livre-1/")
+        self.assertContains(resp, "Vue administrateur")
+        self.assertContains(resp, "1 leçon enrichie, pas encore publiée")
+        self.assertContains(resp, "publish_academy_chapter --chapter 00 --apply")
+        self.assertContains(resp, f"/parcours/{self.parcours.id}/")
+        self.client.force_login(self.learner)
+        self.assertNotContains(self.client.get("/academy/livre-1/"), "Vue administrateur")
+
+
+class RawCanvaDraftTests(TestCase):
+    """Les fiches brutes de l'ancien import Canva restent masquées, même pour l'admin."""
+    write = ImportV2Tests.write
+    run_import = ImportV2Tests.run_import
+
+    def setUp(self):
+        ImportV2Tests.setUp(self)
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(username="admin", password="p", email="a@example.com")
+        self.raw = Lecon.objects.create(parcours=self.parcours, titre="7.1 — Version brute", ordre=701)
+        AcademyBookLesson.objects.create(lecon=self.raw, chapter_number="07", published=False)
+        self.write(lesson())
+        self.run_import("--apply")
+
+    def test_raw_draft_hidden_from_admin_list_and_page(self):
+        self.client.force_login(self.admin)
+        liste = self.client.get(f"/parcours/{self.parcours.id}/")
+        self.assertNotContains(liste, "Version brute")
+        self.assertContains(liste, "fiche brute du livre Canva masquée (partie 07)")
+        self.assertContains(liste, "Leçon de test")
+        resp = self.client.get(f"/lecon/{self.raw.id}/")
+        self.assertRedirects(resp, f"/parcours/{self.parcours.id}/", fetch_redirect_response=False)
+
+    def test_reimport_v2_makes_it_visible(self):
+        self.write(lesson(id="7.1", titre="Les DHT11 et DHT22"))
+        self.run_import("--apply")
+        self.raw.refresh_from_db()
+        self.assertTrue(self.raw.titre.startswith("7.1 — Les DHT11"))
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(f"/lecon/{self.raw.id}/").status_code, 200)

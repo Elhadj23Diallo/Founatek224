@@ -50,7 +50,7 @@ from .serializers import (
     ProgressionSerializer, ProjectSerializer
 )
 
-from .academy_access import can_read_lesson, filter_readable_lessons
+from .academy_access import can_read_lesson, filter_readable_lessons, has_full_access, is_raw_book_draft, raw_book_draft_q
 from .utils.pedagogy import lecon_est_debloquee, valider_lecon
 from .utils.certification import parcours_est_certifiable, calculer_score_parcours
 from .utils.pdf import generer_certificat_pdf
@@ -199,6 +199,9 @@ class LeconViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Administrateur → toutes les leçons, parcours non publiés compris
+        if has_full_access(self.request.user):
+            return Lecon.objects.exclude(raw_book_draft_q()).select_related("parcours")
         return filter_readable_lessons(Lecon.objects.filter(
             parcours__is_published=True
         ), self.request.user).select_related("parcours")
@@ -209,7 +212,7 @@ class LeconViewSet(viewsets.ReadOnlyModelViewSet):
         if not can_read_lesson(request.user, lecon):
             raise PermissionDenied("Cette leçon nécessite un accès Academy actif.")
 
-        if not lecon_est_debloquee(request.user, lecon):
+        if not has_full_access(request.user) and not lecon_est_debloquee(request.user, lecon):
             raise PermissionDenied(
                 "Vous devez valider la leçon précédente pour continuer."
             )
@@ -343,18 +346,20 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
                 status=400
             )
 
-        # 🔐 Sécurité multi-tenant + publication
-        lecon = get_object_or_404(
-            Lecon,
-            id=lecon_id,
-            parcours__is_published=True
-        )
-
-        if not can_read_lesson(request.user, lecon):
-            raise PermissionDenied("Cette leçon nécessite un accès payant actif.")
+        # 🔐 Sécurité multi-tenant + publication (l'administrateur voit tout)
+        if has_full_access(request.user):
+            lecon = get_object_or_404(Lecon, id=lecon_id)
+        else:
+            lecon = get_object_or_404(
+                Lecon,
+                id=lecon_id,
+                parcours__is_published=True
+            )
+            if not can_read_lesson(request.user, lecon):
+                raise PermissionDenied("Cette leçon nécessite un accès payant actif.")
 
         # 🔒 Vérification progression
-        if not lecon_est_debloquee(request.user, lecon):
+        if not has_full_access(request.user) and not lecon_est_debloquee(request.user, lecon):
             raise PermissionDenied(
                 "Vous devez valider la leçon précédente."
             )
@@ -492,7 +497,9 @@ def parcours_materiel_pdf(request, parcours_id):
 @never_cache
 def liste_parcours(request):
     from django.db.models import Q
-    parcours = Parcours.objects.filter(is_published=True).select_related("created_by", "organisation")
+    # L'administrateur voit aussi les parcours non publiés (ex. Livre 1 en relecture).
+    parcours = Parcours.objects.all() if has_full_access(request.user) else Parcours.objects.filter(is_published=True)
+    parcours = parcours.select_related("created_by", "organisation")
 
     query = request.GET.get("q", "").strip()
     if query:
@@ -553,11 +560,28 @@ def liste_lecons(request, parcours_id):
 
     lecons_data = []
 
+    # Livre 1 : l'ordre interne vaut partie × 100 + fiche (1103 = fiche 11.3).
+    from .book_catalog import BOOK_SLUG
+    is_book = parcours.slug == BOOK_SLUG
+
+    # Les fiches brutes de Canva (pas encore enrichies) ne s'affichent pas.
+    raw_hidden = 0
+    raw_parts = []
+    if is_book:
+        raw = lecons.filter(raw_book_draft_q())
+        raw_hidden = raw.count()
+        raw_parts = sorted(set(raw.values_list("academy_book_entry__chapter_number", flat=True)))
+        lecons = lecons.exclude(raw_book_draft_q())
+
     for lecon in lecons:
         progression = progressions.get(lecon.id)
+        numero = f"{lecon.ordre // 100}.{lecon.ordre % 100}" if is_book else lecon.ordre
         lecons_data.append({
             "lecon": lecon,
-            "debloquee": can_read_lesson(request.user, lecon) and lecon_est_debloquee(request.user, lecon),
+            "numero": numero,
+            "debloquee": has_full_access(request.user) or (
+                can_read_lesson(request.user, lecon) and lecon_est_debloquee(request.user, lecon)
+            ),
             "completed": progression.completed if progression else False,
             "score": progression.score if progression else None,
         })
@@ -573,6 +597,9 @@ def liste_lecons(request, parcours_id):
         "is_following": is_following,
         "parcours_is_paid": parcours.prix and parcours.prix > 0,
         "has_parcours_access": has_parcours_access,
+        "raw_hidden": raw_hidden if has_full_access(request.user) else 0,
+        "raw_parts": ("partie " if len(raw_parts) == 1 else "parties ")
+                     + " et ".join(", ".join(raw_parts).rsplit(", ", 1)) if raw_parts else "",
     })
 
 
@@ -580,6 +607,10 @@ def liste_lecons(request, parcours_id):
 def lire_lecon(request, lecon_id):
 
     lecon = get_object_or_404(Lecon, id=lecon_id)
+
+    if is_raw_book_draft(lecon):
+        messages.info(request, "Cette fiche est encore la version brute du livre Canva : elle sera visible une fois enrichie.")
+        return redirect("iot:liste_lecons", parcours_id=lecon.parcours_id)
 
     # Vue HTML : on redirige avec un message plutôt que de lever l'exception DRF
     # (non gérée par Django, elle produisait une erreur 500).
@@ -590,8 +621,8 @@ def lire_lecon(request, lecon_id):
         messages.warning(request, f"Ce parcours est payant ({lecon.parcours.prix} €). Débloquez-le pour continuer.")
         return redirect("iot:liste_lecons", parcours_id=lecon.parcours_id)
 
-    # L'équipe peut relire n'importe quelle leçon sans valider les précédentes.
-    if not request.user.is_staff and not lecon_est_debloquee(request.user, lecon):
+    # L'administrateur peut lire n'importe quelle leçon sans valider les précédentes.
+    if not has_full_access(request.user) and not lecon_est_debloquee(request.user, lecon):
         messages.warning(request, "Valide d'abord la leçon précédente pour débloquer celle-ci.")
         return redirect("iot:liste_lecons", parcours_id=lecon.parcours_id)
 

@@ -243,6 +243,11 @@
                                 <i class="fas fa-certificate"></i> Certifiant
                             </span>
                         {% endif %}
+                        {% if not p.is_published %}
+                            <span class="tech-badge" style="border-color:#f59e0b;color:#fbbf24">
+                                <i class="fas fa-eye-slash"></i> Non publié · visible par l'admin
+                            </span>
+                        {% endif %}
                     </div>
 
                     <p class="course-desc">
