@@ -37,6 +37,34 @@ PLAN_PRICES = {
 }
 
 
+def send_cancellation_confirmation_email(user, sub):
+    """Email de confirmation après résiliation différée (voir sync_subscription_expiry
+    pour le retour effectif au gratuit, qui a lieu plus tard, à end_date)."""
+    if not user.email:
+        return
+    try:
+        from django.conf import settings
+        from django.core.mail import send_mail
+        send_mail(
+            subject=f"FOUNATEK — Résiliation de votre abonnement {sub.plan.upper()} confirmée",
+            message=(
+                f"Bonjour {user.username},\n\n"
+                f"Votre abonnement {sub.plan.upper()} a bien été résilié.\n"
+                f"Vous gardez l'accès à toutes ses fonctionnalités jusqu'au {sub.end_date}, "
+                f"puis votre compte repassera automatiquement au plan gratuit. "
+                f"Aucun autre prélèvement n'aura lieu d'ici là.\n\n"
+                f"Vous pouvez annuler cette résiliation à tout moment avant cette date, "
+                f"depuis la page Abonnement (site) ou l'onglet Monétisation (application).\n\n"
+                f"— FOUNATEK NEXUS"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
 def sync_subscription_expiry(sub):
     """Pas de reconduction automatique dans ce système (chaque renouvellement
     est un nouveau paiement manuel) : une fois end_date dépassée, le plan

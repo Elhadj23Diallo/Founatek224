@@ -4,6 +4,7 @@ automatique dans ce système, donc l'expiration est vérifiée à la lecture).""
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -68,7 +69,7 @@ class SyncSubscriptionExpiryTests(TestCase):
 
 class WebSubscriptionCancelTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("web-cancel-user", password="testpass")
+        self.user = User.objects.create_user("web-cancel-user", password="testpass", email="web-cancel@example.com")
         self.client.force_login(self.user)
 
     def test_cancel_keeps_plan_until_end_date(self):
@@ -80,6 +81,21 @@ class WebSubscriptionCancelTests(TestCase):
         self.assertEqual(sub.plan, "pro")
         self.assertEqual(sub.end_date, end_date)
         self.assertTrue(sub.cancel_at_period_end)
+
+    def test_cancel_sends_confirmation_email(self):
+        set_sub(self.user, plan="pro", end_date=timezone.now().date() + timedelta(days=10))
+        self.client.post(reverse("monetisation:monetisation_abonnement"), {"action": "cancel_at_period_end"})
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("résiliation", mail.outbox[0].subject.lower())
+        self.assertEqual(mail.outbox[0].to, ["web-cancel@example.com"])
+
+    def test_reactivate_sends_no_email(self):
+        set_sub(
+            self.user, plan="pro", end_date=timezone.now().date() + timedelta(days=10),
+            cancel_at_period_end=True,
+        )
+        self.client.post(reverse("monetisation:monetisation_abonnement"), {"action": "reactivate"})
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_cancel_rejected_for_free_plan(self):
         set_sub(self.user, plan="free")
@@ -111,7 +127,7 @@ class WebSubscriptionCancelTests(TestCase):
 
 class MobileSubscriptionCancelTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("mobile-cancel-user", password="testpass")
+        self.user = User.objects.create_user("mobile-cancel-user", password="testpass", email="mobile-cancel@example.com")
         token, _ = Token.objects.get_or_create(user=self.user)
         self.client = APIClient()
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
@@ -127,6 +143,24 @@ class MobileSubscriptionCancelTests(TestCase):
         self.assertEqual(data["plan"], "basic")
         self.assertTrue(data["cancel_at_period_end"])
         self.assertEqual(data["end_date"], end_date.isoformat())
+
+    def test_cancel_sends_confirmation_email(self):
+        set_sub(self.user, plan="basic", end_date=timezone.now().date() + timedelta(days=10))
+        self.client.post(
+            reverse("mobile_monetisation_cancel_subscription"), {"cancel": True}, format="json",
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["mobile-cancel@example.com"])
+
+    def test_reactivate_sends_no_email(self):
+        set_sub(
+            self.user, plan="basic", end_date=timezone.now().date() + timedelta(days=10),
+            cancel_at_period_end=True,
+        )
+        self.client.post(
+            reverse("mobile_monetisation_cancel_subscription"), {"cancel": False}, format="json",
+        )
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_cancel_rejected_for_free_plan(self):
         set_sub(self.user, plan="free")

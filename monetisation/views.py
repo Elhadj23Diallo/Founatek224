@@ -230,7 +230,7 @@ def _render_subscription(request, sub, wallet, error=None):
 @login_required
 @never_cache
 def subscription_view(request):
-    from .utils import sync_subscription_expiry
+    from .utils import sync_subscription_expiry, send_cancellation_confirmation_email
     from django.contrib import messages
     sub = sync_subscription_expiry(Subscription.objects.get(user=request.user))
     wallet = Wallet.objects.get(user=request.user)
@@ -242,6 +242,7 @@ def subscription_view(request):
                 return _render_subscription(request, sub, wallet, "Aucun abonnement payant actif à résilier.")
             sub.cancel_at_period_end = True
             sub.save(update_fields=['cancel_at_period_end'])
+            send_cancellation_confirmation_email(request.user, sub)
             messages.success(request, f"Abonnement résilié : vous gardez le plan {sub.plan.upper()} jusqu'au {sub.end_date}, puis retour automatique au gratuit.")
             return redirect('monetisation:monetisation_abonnement')
         if action == 'reactivate':

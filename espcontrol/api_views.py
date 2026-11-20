@@ -1791,7 +1791,7 @@ def mobile_monetisation_cancel_subscription(request):
     puis retour automatique au gratuit) ; { "cancel": false } annule la résiliation."""
     try:
         from monetisation.models import Subscription
-        from monetisation.utils import sync_subscription_expiry
+        from monetisation.utils import sync_subscription_expiry, send_cancellation_confirmation_email
         cancel = bool(request.data.get("cancel", True))
         sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
         sub = sync_subscription_expiry(sub)
@@ -1802,6 +1802,8 @@ def mobile_monetisation_cancel_subscription(request):
         else:
             sub.cancel_at_period_end = False
         sub.save(update_fields=["cancel_at_period_end"])
+        if cancel:
+            send_cancellation_confirmation_email(request.user, sub)
         return Response({
             "plan": sub.plan,
             "end_date": sub.end_date.isoformat() if sub.end_date else None,
