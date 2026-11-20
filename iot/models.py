@@ -342,6 +342,45 @@ class PlatformModule(models.Model):
 
 
 
+class ParcoursAccess(models.Model):
+    """Droit d'accès à un parcours payant (formateur), accordé après paiement vérifié.
+
+    La création de cette ligne n'est PAS une preuve de paiement : seuls les
+    handlers Stripe/PayPal vérifiés ou une action admin auditée peuvent l'accorder.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="parcours_accesses")
+    parcours = models.ForeignKey("Parcours", on_delete=models.CASCADE, related_name="accesses")
+    provider = models.CharField(max_length=20, choices=[
+        ("stripe", "Stripe"),
+        ("paypal", "PayPal"),
+        ("admin", "Attribution administrative"),
+    ])
+    payment_reference = models.CharField(max_length=255, blank=True)
+    amount_eur = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    active = models.BooleanField(default=False)
+    granted_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("user", "parcours")
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.parcours.titre}"
+
+
+class ParcoursPayment(models.Model):
+    """Checkout pour un parcours payant ; aucun accès n'est accordé avant webhook signé."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="parcours_payments")
+    parcours = models.ForeignKey("Parcours", on_delete=models.CASCADE, related_name="payments")
+    provider = models.CharField(max_length=20, default="stripe")
+    checkout_id = models.CharField(max_length=255, unique=True)
+    payment_reference = models.CharField(max_length=255, blank=True)
+    amount_eur = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class AcademyPackAccess(models.Model):
     """Droit d'accès à un pack pédagogique, accordé après paiement vérifié.
 

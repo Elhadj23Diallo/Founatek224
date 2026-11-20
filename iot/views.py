@@ -272,10 +272,11 @@ class ProjectViewSet(viewsets.ReadOnlyModelViewSet):
                 parcours__organisation=user.formateur_profile.organisation
             )
 
-        # 🟢 Étudiant → parcours publiés
+        # 🟢 Étudiant → parcours publiés et accès vérifié (parcours payants)
+        from .parcours_access import readable_parcours_filter
         return queryset.filter(
             parcours__is_published=True
-        )
+        ).filter(readable_parcours_filter(user))
 
 
 
@@ -325,9 +326,10 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
                 lecon__parcours__organisation=user.formateur_profile.organisation
             )
 
-        # 🟢 Étudiant → parcours publiés
+        # 🟢 Étudiant → parcours publiés et accès vérifié (Academy + parcours payants)
+        allowed_ids = filter_readable_lessons(Lecon.objects.all(), user).values("pk")
         return queryset.filter(
-            lecon__parcours__is_published=True
+            lecon__parcours__is_published=True, lecon_id__in=allowed_ids
         )
 
     @action(detail=False, methods=["post"])
@@ -347,6 +349,9 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
             id=lecon_id,
             parcours__is_published=True
         )
+
+        if not can_read_lesson(request.user, lecon):
+            raise PermissionDenied("Cette leçon nécessite un accès payant actif.")
 
         # 🔒 Vérification progression
         if not lecon_est_debloquee(request.user, lecon):
@@ -419,6 +424,11 @@ def verifier_certificat(request, uuid):
 @login_required
 def parcours_materiel_pdf(request, parcours_id):
     parcours = get_object_or_404(Parcours, id=parcours_id)
+
+    from .parcours_access import can_read_parcours
+    if not can_read_parcours(request.user, parcours):
+        messages.warning(request, f"Ce parcours est payant ({parcours.prix} €). Débloquez-le pour continuer.")
+        return redirect("iot:liste_lecons", parcours_id=parcours.id)
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = (
@@ -554,10 +564,15 @@ def liste_lecons(request, parcours_id):
 
     is_following = FormateurFollow.objects.filter(follower=request.user, formateur=parcours.created_by).exists()
 
+    from .parcours_access import can_read_parcours
+    has_parcours_access = can_read_parcours(request.user, parcours)
+
     return render(request, "iot/liste_lecons.html", {
         "parcours": parcours,
         "lecons_data": lecons_data,
         "is_following": is_following,
+        "parcours_is_paid": parcours.prix and parcours.prix > 0,
+        "has_parcours_access": has_parcours_access,
     })
 
 
@@ -572,7 +587,7 @@ def lire_lecon(request, lecon_id):
         if hasattr(lecon, "academy_book_entry"):
             messages.info(request, "Cette leçon fait partie du pack « Livre 1 » de la FOUNATEK Academy.")
             return redirect("iot:academy_book_home")
-        messages.warning(request, "Cette leçon nécessite un accès Academy actif.")
+        messages.warning(request, f"Ce parcours est payant ({lecon.parcours.prix} €). Débloquez-le pour continuer.")
         return redirect("iot:liste_lecons", parcours_id=lecon.parcours_id)
 
     # L'équipe peut relire n'importe quelle leçon sans valider les précédentes.

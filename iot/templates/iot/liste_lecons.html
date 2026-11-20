@@ -216,8 +216,20 @@
         </div>
     </div>
 
+    {% if parcours_is_paid and not has_parcours_access %}
+    <div style="background:rgba(255,215,0,0.08); border:1px solid #ffd700; border-radius:14px; padding:18px 22px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+            <div style="color:#ffd700; font-weight:700; font-size:0.95rem;"><i class="fas fa-lock"></i> Parcours payant</div>
+            <div style="color:#8892b0; font-size:0.85rem; margin-top:4px;">Débloquez l'accès complet pour {{ parcours.prix }} €.</div>
+        </div>
+        <a href="{% url 'monetisation:parcours_checkout_page' parcours.id %}" style="background:#ffd700; color:#050a1f; font-weight:800; padding:10px 20px; border-radius:10px; text-decoration:none; white-space:nowrap;">
+            Débloquer pour {{ parcours.prix }} €
+        </a>
+    </div>
+    {% endif %}
+
     <div class="timeline">
-        
+
         {% for item in lecons_data %}
             <div class="lesson-card 
                 {% if item.completed %}status-completed{% elif item.debloquee %}status-unlocked{% else %}status-locked{% endif %}">

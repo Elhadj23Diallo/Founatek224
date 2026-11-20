@@ -1,11 +1,16 @@
 from django.urls import path
 from . import views
-from . import stripe_payments, refunds, academy_checkout
+from . import stripe_payments, refunds, academy_checkout, parcours_checkout
 
 app_name = 'monetisation'
 urlpatterns = [
     path('academy/create-checkout/', academy_checkout.create_academy_checkout, name='academy_create_checkout'),
     path('academy/status/', academy_checkout.academy_checkout_status, name='academy_checkout_status'),
+    path('parcours/<int:parcours_id>/checkout/', parcours_checkout.parcours_checkout_page, name='parcours_checkout_page'),
+    path('parcours/<int:parcours_id>/create-checkout/', parcours_checkout.create_parcours_checkout, name='parcours_create_checkout'),
+    path('parcours/<int:parcours_id>/status/', parcours_checkout.parcours_checkout_status, name='parcours_checkout_status'),
+    path('parcours/<int:parcours_id>/paypal/create-order/', parcours_checkout.create_parcours_paypal_order_view, name='parcours_create_paypal_order'),
+    path('parcours/<int:parcours_id>/paypal/capture-order/', parcours_checkout.capture_parcours_paypal_order_view, name='parcours_capture_paypal_order'),
     path('', views.dashboard, name='monetisation_dashboard'),
     path('acheter-credit/', views.init_mobile_money, name='monetisation_acheter_credit'),
     path('transactions/', views.transactions, name='monetisation_transactions'),

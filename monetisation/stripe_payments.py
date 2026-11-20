@@ -188,6 +188,9 @@ def stripe_webhook(request):
         if kind == "academy_book_pack":
             from .academy_checkout import handle_academy_stripe_event
             handle_academy_stripe_event(event_type, session)
+        elif kind == "parcours_access":
+            from .parcours_checkout import handle_parcours_stripe_event
+            handle_parcours_stripe_event(event_type, session)
         elif kind == "shop_order":
             from founatekapp.stripe_checkout import handle_shop_order_expired
             handle_shop_order_expired(session)
@@ -203,6 +206,11 @@ def stripe_webhook(request):
     if kind == "academy_book_pack":
         from .academy_checkout import handle_academy_stripe_event
         handle_academy_stripe_event(event_type, session)
+        return JsonResponse({"received": True}, status=200)
+
+    if kind == "parcours_access":
+        from .parcours_checkout import handle_parcours_stripe_event
+        handle_parcours_stripe_event(event_type, session)
         return JsonResponse({"received": True}, status=200)
 
     if kind == "shop_order":

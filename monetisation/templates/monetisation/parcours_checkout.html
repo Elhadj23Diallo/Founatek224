@@ -1,0 +1,89 @@
+{% extends "iot/base.html" %}
+{% block content %}
+<style>
+.pc-shell{max-width:720px;margin:25px auto;padding:22px;color:#e9f6ff;font-family:system-ui,sans-serif}
+.pc-card{border:1px solid #26475b;background:#0d2134;border-radius:16px;padding:clamp(20px,5vw,40px)}
+.pc-eyebrow{color:#60dffa;letter-spacing:.12em;font-weight:700;text-transform:uppercase;font-size:.82rem}
+.pc-card h1{font-size:clamp(1.4rem,4vw,2rem);margin:12px 0}
+.pc-price{font-size:2rem;font-weight:800;color:#fff;margin:10px 0}
+.pc-action{display:inline-block;border:0;border-radius:10px;padding:13px 20px;background:#00c8e8;color:#032032;font-weight:800;cursor:pointer}
+.pc-action:disabled{opacity:.55;cursor:not-allowed}
+.pc-notice{color:#c4d6df;font-size:.92rem;margin-top:14px}
+</style>
+<main class="pc-shell">
+<section class="pc-card">
+  <div class="pc-eyebrow">Parcours payant</div>
+  <h1>{{ parcours.titre }}</h1>
+  {% if already_owned %}
+    <p class="pc-notice">✅ Vous avez déjà accès à ce parcours.</p>
+    <a class="pc-action" href="{% url 'iot:liste_lecons' parcours.id %}">Accéder aux leçons</a>
+  {% else %}
+    <p class="pc-price">{{ parcours.prix }} € <small style="font-size:.9rem;font-weight:400;color:#bad2e1">· achat unique</small></p>
+    {% if stripe_enabled %}
+      <form id="parcours-buy-form" method="post" action="{% url 'monetisation:parcours_create_checkout' parcours.id %}">
+        {% csrf_token %}
+        <button type="submit" class="pc-action">Payer avec Stripe</button>
+      </form>
+      <p id="parcours-buy-feedback" role="status" class="pc-notice"></p>
+    {% endif %}
+    {% if paypal_enabled %}
+      <div style="margin-top:16px; max-width:320px;">
+        <div id="paypal-button-container"></div>
+        <p id="parcours-paypal-feedback" role="status" class="pc-notice"></p>
+      </div>
+    {% endif %}
+    {% if not stripe_enabled and not paypal_enabled %}
+      <p class="pc-notice">Paiement indisponible pour le moment.</p>
+    {% endif %}
+  {% endif %}
+</section>
+</main>
+{% if paypal_enabled and not already_owned %}
+<script src="https://www.paypal.com/sdk/js?client-id={{ PAYPAL_CLIENT_ID }}&currency=EUR"></script>
+<script>
+(function(){
+ const feedback=document.getElementById("parcours-paypal-feedback");
+ paypal.Buttons({
+  createOrder: function(){
+   return fetch("{% url 'monetisation:parcours_create_paypal_order' parcours.id %}", {
+    method:"POST", headers:{"X-CSRFToken":"{{ csrf_token }}"},
+   }).then(function(res){return res.json();}).then(function(data){
+    if(!data.id){ if(feedback)feedback.textContent=data.error||"Erreur PayPal."; throw new Error(data.error||"Erreur PayPal."); }
+    return data.id;
+   });
+  },
+  onApprove: function(data){
+   return fetch("{% url 'monetisation:parcours_capture_paypal_order' parcours.id %}", {
+    method:"POST",
+    headers:{"X-CSRFToken":"{{ csrf_token }}", "Content-Type":"application/json"},
+    body: JSON.stringify({order_id: data.orderID}),
+   }).then(function(res){return res.json();}).then(function(result){
+    if(result.error){ if(feedback)feedback.textContent=result.error; return; }
+    window.location.reload();
+   });
+  },
+ }).render("#paypal-button-container");
+})();
+</script>
+{% endif %}
+{% if stripe_enabled and not already_owned %}
+<script>
+(function(){
+ const form=document.getElementById("parcours-buy-form");
+ if(!form)return;
+ form.addEventListener("submit",async function(e){
+  e.preventDefault();
+  const button=form.querySelector("button");
+  const feedback=document.getElementById("parcours-buy-feedback");
+  button.disabled=true;feedback.textContent="Préparation du paiement sécurisé…";
+  try{
+   const response=await fetch(form.action,{method:"POST",headers:{"X-CSRFToken":form.querySelector("[name=csrfmiddlewaretoken]").value,"Accept":"application/json"},credentials:"same-origin"});
+   const data=await response.json();
+   if(!response.ok||!data.url)throw new Error(data.error||"Paiement indisponible.");
+   window.location.assign(data.url);
+  }catch(error){feedback.textContent=error.message;button.disabled=false;}
+ });
+})();
+</script>
+{% endif %}
+{% endblock %}

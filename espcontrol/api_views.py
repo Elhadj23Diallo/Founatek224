@@ -1285,6 +1285,7 @@ def mobile_education_parcours(request):
     try:
         from django.db.models import Q
         from iot.models import Parcours, Lecon, Progression, Certification, FormateurFollow
+        from iot.parcours_access import can_read_parcours
         parcours_qs = Parcours.objects.select_related("organisation", "created_by").filter(is_published=True)
 
         query = (request.query_params.get("q") or "").strip()
@@ -1315,6 +1316,8 @@ def mobile_education_parcours(request):
                 "description": p.description,
                 "niveau": p.niveau,
                 "certifiant": p.certifiant,
+                "prix": p.prix,
+                "access_active": can_read_parcours(request.user, p),
                 "organisation": p.organisation.nom if p.organisation else "",
                 "formateur_id": p.created_by_id,
                 "formateur_username": p.created_by.username if p.created_by else "",
@@ -1360,7 +1363,20 @@ def mobile_toggle_follow_formateur(request, formateur_id):
 @permission_classes([IsAuthenticated])
 def mobile_education_lecons(request, parcours_id):
     try:
-        from iot.models import Lecon, BlocPedagogique, Progression, Quiz
+        from iot.models import Lecon, BlocPedagogique, Progression, Quiz, Parcours
+        from iot.parcours_access import can_read_parcours
+
+        parcours = Parcours.objects.filter(id=parcours_id).first()
+        if parcours is None:
+            return Response({"error": "Parcours introuvable"}, status=404)
+        if not can_read_parcours(request.user, parcours):
+            return Response({
+                "error": "Ce parcours est payant.",
+                "code": "payment_required",
+                "price": parcours.prix,
+                "parcours_id": parcours.id,
+            }, status=402)
+
         lecons = Lecon.objects.filter(parcours_id=parcours_id).order_by("ordre")
         data = []
         for l in lecons:
@@ -1409,7 +1425,13 @@ def mobile_education_lecons(request, parcours_id):
 @permission_classes([IsAuthenticated])
 def mobile_education_quiz(request, lecon_id):
     try:
-        from iot.models import Quiz
+        from iot.models import Quiz, Lecon
+        from iot.academy_access import can_read_lesson
+        lecon = Lecon.objects.filter(id=lecon_id).select_related("parcours").first()
+        if lecon is None:
+            return Response({"error": "Leçon introuvable"}, status=404)
+        if not can_read_lesson(request.user, lecon):
+            return Response({"error": "Accès payant requis.", "code": "payment_required"}, status=402)
         quizzes = Quiz.objects.filter(lecon_id=lecon_id)
         data = []
         for q in quizzes:
@@ -1439,6 +1461,12 @@ def mobile_education_submit_quiz(request, lecon_id):
     """
     try:
         from iot.models import Quiz, Lecon, Progression
+        from iot.academy_access import can_read_lesson
+        lecon_check = Lecon.objects.filter(id=lecon_id).select_related("parcours").first()
+        if lecon_check is None:
+            return Response({"error": "Leçon introuvable"}, status=404)
+        if not can_read_lesson(request.user, lecon_check):
+            return Response({"error": "Accès payant requis.", "code": "payment_required"}, status=402)
         answers = request.data.get("answers", {})
         quizzes = Quiz.objects.filter(lecon_id=lecon_id)
         total = quizzes.count()
@@ -1507,7 +1535,13 @@ def mobile_education_submit_quiz(request, lecon_id):
 @permission_classes([IsAuthenticated])
 def mobile_education_projects(request, parcours_id):
     try:
-        from iot.models import Project
+        from iot.models import Project, Parcours
+        from iot.parcours_access import can_read_parcours
+        parcours = Parcours.objects.filter(id=parcours_id).first()
+        if parcours is None:
+            return Response({"error": "Parcours introuvable"}, status=404)
+        if not can_read_parcours(request.user, parcours):
+            return Response({"error": "Ce parcours est payant.", "code": "payment_required", "price": parcours.prix}, status=402)
         projects = Project.objects.filter(parcours_id=parcours_id).order_by("ordre")
         data = [{
             "id": p.id,
@@ -1558,7 +1592,10 @@ def mobile_education_materiel_pdf(request, parcours_id):
         from reportlab.pdfgen import canvas
         from reportlab.lib.units import cm
 
+        from iot.parcours_access import can_read_parcours
         parcours = Parcours.objects.get(id=parcours_id)
+        if not can_read_parcours(request.user, parcours):
+            return Response({"error": "Ce parcours est payant.", "code": "payment_required", "price": parcours.prix}, status=402)
 
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="materiel_{parcours.slug}.pdf"'
@@ -2198,6 +2235,69 @@ def mobile_academy_checkout(request):
     except _stripe.StripeError:
         return Response({"error": "Impossible de créer le paiement."}, status=502)
     return Response({"url": session.url, "session_id": session.id})
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_parcours_checkout(request, parcours_id):
+    """Lance l'achat d'un parcours payant par carte (Stripe) -> {"url", "session_id"}.
+    Mêmes vérifications que le site (create_parcours_checkout_session)."""
+    import stripe as _stripe
+    from django.urls import reverse
+    from iot.models import Parcours
+    from monetisation.parcours_checkout import create_parcours_checkout_session, ParcoursCheckoutError
+
+    parcours = Parcours.objects.filter(id=parcours_id).first()
+    if parcours is None:
+        return Response({"error": "Parcours introuvable"}, status=404)
+
+    status_url = request.build_absolute_uri(reverse("monetisation:parcours_checkout_status", args=[parcours.id]))
+    try:
+        session = create_parcours_checkout_session(request.user, parcours, status_url, status_url)
+    except ParcoursCheckoutError as exc:
+        return Response({"error": str(exc)}, status=exc.status)
+    except _stripe.StripeError:
+        return Response({"error": "Impossible de créer le paiement."}, status=502)
+    return Response({"url": session.url, "session_id": session.id})
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_parcours_paypal_create_order(request, parcours_id):
+    """Crée un ordre PayPal pour un parcours payant -> l'ordre JSON PayPal (id, …)."""
+    import requests as _requests
+    from iot.models import Parcours
+    from monetisation.parcours_checkout import create_parcours_paypal_order, ParcoursCheckoutError
+
+    parcours = Parcours.objects.filter(id=parcours_id).first()
+    if parcours is None:
+        return Response({"error": "Parcours introuvable"}, status=404)
+    try:
+        order = create_parcours_paypal_order(request.user, parcours)
+    except ParcoursCheckoutError as exc:
+        return Response({"error": str(exc)}, status=exc.status)
+    except _requests.RequestException:
+        return Response({"error": "PayPal est injoignable, réessayez."}, status=502)
+    return Response(order)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mobile_parcours_paypal_capture_order(request, parcours_id):
+    """Body: {"order_id": "..."}. Capture l'ordre et accorde l'accès si valide."""
+    from monetisation.parcours_checkout import capture_parcours_paypal_order, ParcoursCheckoutError
+
+    order_id = request.data.get("order_id")
+    if not order_id:
+        return Response({"error": "order_id requis"}, status=400)
+    try:
+        capture_parcours_paypal_order(request.user, order_id)
+    except ParcoursCheckoutError as exc:
+        return Response({"error": str(exc)}, status=exc.status)
+    return Response({"success": True})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
