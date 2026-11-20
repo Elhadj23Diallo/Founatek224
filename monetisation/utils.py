@@ -65,6 +65,29 @@ def send_cancellation_confirmation_email(user, sub):
         pass
 
 
+def send_reactivation_confirmation_email(user, sub):
+    """Email de confirmation après annulation d'une résiliation programmée."""
+    if not user.email:
+        return
+    try:
+        from django.conf import settings
+        from django.core.mail import send_mail
+        send_mail(
+            subject=f"FOUNATEK — Résiliation de votre abonnement {sub.plan.upper()} annulée",
+            message=(
+                f"Bonjour {user.username},\n\n"
+                f"Vous aviez programmé la résiliation de votre abonnement {sub.plan.upper()} : "
+                f"c'est annulé, il continue normalement au-delà du {sub.end_date}.\n\n"
+                f"— FOUNATEK NEXUS"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
 def sync_subscription_expiry(sub):
     """Pas de reconduction automatique dans ce système (chaque renouvellement
     est un nouveau paiement manuel) : une fois end_date dépassée, le plan

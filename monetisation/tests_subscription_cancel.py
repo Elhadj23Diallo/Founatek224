@@ -89,10 +89,20 @@ class WebSubscriptionCancelTests(TestCase):
         self.assertIn("résiliation", mail.outbox[0].subject.lower())
         self.assertEqual(mail.outbox[0].to, ["web-cancel@example.com"])
 
-    def test_reactivate_sends_no_email(self):
+    def test_reactivate_sends_confirmation_email(self):
         set_sub(
             self.user, plan="pro", end_date=timezone.now().date() + timedelta(days=10),
             cancel_at_period_end=True,
+        )
+        self.client.post(reverse("monetisation:monetisation_abonnement"), {"action": "reactivate"})
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("annulée", mail.outbox[0].subject.lower())
+        self.assertEqual(mail.outbox[0].to, ["web-cancel@example.com"])
+
+    def test_reactivate_without_prior_cancellation_sends_no_email(self):
+        set_sub(
+            self.user, plan="pro", end_date=timezone.now().date() + timedelta(days=10),
+            cancel_at_period_end=False,
         )
         self.client.post(reverse("monetisation:monetisation_abonnement"), {"action": "reactivate"})
         self.assertEqual(len(mail.outbox), 0)
@@ -152,10 +162,21 @@ class MobileSubscriptionCancelTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["mobile-cancel@example.com"])
 
-    def test_reactivate_sends_no_email(self):
+    def test_reactivate_sends_confirmation_email(self):
         set_sub(
             self.user, plan="basic", end_date=timezone.now().date() + timedelta(days=10),
             cancel_at_period_end=True,
+        )
+        self.client.post(
+            reverse("mobile_monetisation_cancel_subscription"), {"cancel": False}, format="json",
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["mobile-cancel@example.com"])
+
+    def test_reactivate_without_prior_cancellation_sends_no_email(self):
+        set_sub(
+            self.user, plan="basic", end_date=timezone.now().date() + timedelta(days=10),
+            cancel_at_period_end=False,
         )
         self.client.post(
             reverse("mobile_monetisation_cancel_subscription"), {"cancel": False}, format="json",
