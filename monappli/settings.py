@@ -41,6 +41,11 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET)
 
+# Interrupteur de sécurité indépendant des clés Stripe : même avec Stripe
+# configuré (boutique, wallet…), les achats Academy restent bloqués tant que
+# ACADEMY_BOOK_CHECKOUT_ENABLED=true n'est pas explicitement mis dans le .env.
+ACADEMY_BOOK_CHECKOUT_ENABLED = os.getenv("ACADEMY_BOOK_CHECKOUT_ENABLED", "false").strip().lower() == "true"
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
