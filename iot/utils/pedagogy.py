@@ -6,10 +6,20 @@ PASS_SCORE = 70  # score minimum en %
 
 
 def lecon_precedente(lecon):
-    return Lecon.objects.filter(
+    """La leçon juste avant, dans l'ordre global du parcours — en sautant les
+    fiches Livre 1 non publiées (brouillons en attente de relecture/quiz) :
+    personne ne peut jamais les valider, donc les compter bloquerait pour
+    toujours tout ce qui suit, même une fois payé."""
+    candidats = Lecon.objects.filter(
         parcours=lecon.parcours,
         ordre__lt=lecon.ordre
-    ).order_by('-ordre').first()
+    ).select_related("academy_book_entry").order_by('-ordre')
+    for candidat in candidats:
+        entry = getattr(candidat, "academy_book_entry", None)
+        if entry is not None and not entry.published:
+            continue
+        return candidat
+    return None
 
 
 def lecon_est_debloquee(user, lecon):
