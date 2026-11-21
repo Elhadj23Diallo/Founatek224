@@ -1,0 +1,37 @@
+{% extends "iot/base.html" %}
+{% block content %}
+<style>
+.legal-shell{max-width:860px;margin:28px auto;padding:0 18px 40px;color:#e3eef5;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.65}
+.legal-card{border:1px solid #26475b;background:#0d2134;border-radius:16px;padding:clamp(20px,4vw,40px)}
+.legal-card h1{font-size:clamp(1.5rem,4vw,2.1rem);margin:0 0 6px;color:#fff}
+.legal-card h2{font-size:1.15rem;margin:30px 0 8px;color:#60dffa}
+.legal-card h3{font-size:1rem;margin:18px 0 6px;color:#fff}
+.legal-card p,.legal-card li{font-size:.95rem}
+.legal-card a{color:#60dffa}
+.legal-card ul{padding-left:1.2rem}
+.legal-meta{color:#9fb6c3;font-size:.88rem;margin-bottom:22px}
+.legal-nav{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 18px;font-size:.9rem}
+.legal-nav a{color:#60dffa}
+.legal-todo{border:1px solid #b45309;background:#2b1d08;color:#fcd34d;border-radius:12px;padding:14px 18px;margin-bottom:22px;font-size:.9rem}
+.legal-todo code{color:#fde68a}
+.legal-table{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:.9rem}
+.legal-table th,.legal-table td{border-bottom:1px solid #26475b;padding:8px 6px;text-align:left;vertical-align:top}
+.legal-table th{color:#9fb6c3;font-weight:600}
+</style>
+<main class="legal-shell">
+  <nav class="legal-nav" aria-label="Pages légales">
+    <a href="{% url 'legal_mentions' %}">Mentions légales</a>
+    <a href="{% url 'legal_cgv' %}">Conditions générales de vente</a>
+    <a href="{% url 'legal_confidentialite' %}">Confidentialité et cookies</a>
+  </nav>
+  {% if missing %}
+  <div class="legal-todo" role="note">
+    <strong>Visible seulement par l'administrateur :</strong> ces informations manquent encore. Ajoute-les dans le fichier <code>.env</code> du serveur, puis fais un Reload.
+    <ul>{% for env, label in missing %}<li><code>{{ env }}</code> : {{ label }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  <article class="legal-card">
+    {% block legal_body %}{% endblock %}
+  </article>
+</main>
+{% endblock %}

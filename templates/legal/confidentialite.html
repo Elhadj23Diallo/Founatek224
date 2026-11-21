@@ -1,0 +1,59 @@
+{% extends "legal/_layout.html" %}
+{% block title %}Confidentialité et cookies — FOUNATEK{% endblock %}
+{% block legal_body %}
+<h1>Politique de confidentialité et cookies</h1>
+<p class="legal-meta">Dernière mise à jour : {{ last_update }}</p>
+
+<h2>Responsable du traitement</h2>
+<p>{{ legal.name }} — {{ legal.owner }}, {{ legal.address }}. Contact pour tes données : {{ legal.email }}.</p>
+
+<h2>Données collectées et utilisations</h2>
+<table class="legal-table">
+  <thead><tr><th>Données</th><th>Pourquoi</th><th>Base légale</th></tr></thead>
+  <tbody>
+    <tr><td>Compte : nom d'utilisateur, e-mail, mot de passe (jamais enregistré en clair), profil</td><td>Créer et gérer ton compte</td><td>Exécution du contrat</td></tr>
+    <tr><td>Progression : leçons suivies, quiz, scores, certificats</td><td>Te donner accès aux cours et suivre ta progression</td><td>Exécution du contrat</td></tr>
+    <tr><td>Achats et abonnements : produit, montant, date, référence de paiement (jamais tes données de carte)</td><td>Fournir ce que tu as acheté, facturer, gérer les remboursements</td><td>Exécution du contrat, obligations légales</td></tr>
+    <tr><td>Objets connectés : mesures des capteurs, état des relais, images des caméras que tu relies, journaux d'accès</td><td>Faire fonctionner les services IoT que tu utilises</td><td>Exécution du contrat</td></tr>
+    <tr><td>Messages envoyés à l'assistant IA</td><td>Te répondre et améliorer les réponses</td><td>Exécution du contrat</td></tr>
+    <tr><td>Contenus publiés (vidéos, lives, commentaires)</td><td>Les afficher aux autres membres</td><td>Exécution du contrat</td></tr>
+    <tr><td>Données techniques : adresse IP, journaux du serveur</td><td>Sécurité du site, prévention des abus et de la fraude</td><td>Intérêt légitime</td></tr>
+  </tbody>
+</table>
+
+<h2>Qui reçoit tes données</h2>
+<p>Tes données ne sont jamais vendues. Elles sont transmises uniquement aux prestataires nécessaires au service :</p>
+<ul>
+  <li><strong>{{ host.name }}</strong> (Royaume-Uni) : hébergement du site et de la base de données ;</li>
+  <li><strong>Stripe</strong> et <strong>PayPal</strong> : paiements et remboursements ;</li>
+  <li><strong>Google</strong> : envoi des e-mails du site (Gmail) et assistant IA (Gemini), qui reçoit les messages que tu lui écris ;</li>
+  <li>les services de visioconférence utilisés pour les lives.</li>
+</ul>
+<p>Certains de ces prestataires traitent des données hors de l'Union européenne : au Royaume-Uni, qui bénéficie d'une décision d'adéquation de la Commission européenne, et aux États-Unis, dans le cadre des garanties prévues par le RGPD (Data Privacy Framework ou clauses contractuelles types).</p>
+
+<h2>Durées de conservation</h2>
+<ul>
+  <li>Compte et progression : tant que ton compte existe ; tu peux demander sa suppression à tout moment ;</li>
+  <li>Pièces comptables liées aux achats : 10 ans, comme l'impose la loi ;</li>
+  <li>Mesures des capteurs : pendant la durée d'historique prévue par ton offre ;</li>
+  <li>Journaux techniques du serveur : conservés par l'hébergeur pendant une durée limitée.</li>
+</ul>
+
+<h2>Cookies</h2>
+<p>Le site utilise uniquement des cookies nécessaires à son fonctionnement, qui ne demandent pas ton consentement :</p>
+<ul>
+  <li><code>sessionid</code> : te garder connecté ;</li>
+  <li><code>csrftoken</code> : protéger les formulaires contre les attaques.</li>
+</ul>
+<p>Aucun cookie publicitaire ni outil de mesure d'audience n'est utilisé. Sur les pages de paiement, Stripe et PayPal peuvent déposer leurs propres cookies pour sécuriser la transaction.</p>
+
+<h2>Mineurs</h2>
+<p>Si tu as moins de 15 ans, l'accord de l'un de tes parents est nécessaire pour créer un compte et pour tout achat.</p>
+
+<h2>Tes droits</h2>
+<p>Tu peux demander l'accès à tes données, leur rectification, leur effacement, leur portabilité, la limitation de leur traitement ou t'opposer à celui-ci, et donner des directives sur leur sort après ton décès. Écris à {{ legal.email }} ; nous répondons dans un délai d'un mois.</p>
+<p>Si tu estimes que tes droits ne sont pas respectés, tu peux adresser une réclamation à la CNIL : <a href="https://www.cnil.fr" rel="noopener" target="_blank">www.cnil.fr</a>.</p>
+
+<h2>Sécurité</h2>
+<p>Le site fonctionne en HTTPS, les mots de passe ne sont jamais enregistrés en clair (ils sont hachés) et l'accès aux données est limité à ce qui est nécessaire au service.</p>
+{% endblock %}

@@ -2268,10 +2268,13 @@ def mobile_academy_checkout(request):
     import stripe as _stripe
     from django.urls import reverse
     from monetisation.academy_checkout import create_academy_checkout_session, AcademyCheckoutError
+    from monetisation.consumer_law import waiver_from_request
 
     status_url = request.build_absolute_uri(reverse("monetisation:academy_checkout_status"))
     try:
-        session = create_academy_checkout_session(request.user, status_url, status_url)
+        session = create_academy_checkout_session(
+            request.user, status_url, status_url, waiver_accepted=waiver_from_request(request)
+        )
     except AcademyCheckoutError as exc:
         return Response({"error": str(exc)}, status=exc.status)
     except _stripe.StripeError:
@@ -2289,6 +2292,7 @@ def mobile_parcours_checkout(request, parcours_id):
     from django.urls import reverse
     from iot.models import Parcours
     from monetisation.parcours_checkout import create_parcours_checkout_session, ParcoursCheckoutError
+    from monetisation.consumer_law import waiver_from_request
 
     parcours = Parcours.objects.filter(id=parcours_id).first()
     if parcours is None:
@@ -2296,7 +2300,9 @@ def mobile_parcours_checkout(request, parcours_id):
 
     status_url = request.build_absolute_uri(reverse("monetisation:parcours_checkout_status", args=[parcours.id]))
     try:
-        session = create_parcours_checkout_session(request.user, parcours, status_url, status_url)
+        session = create_parcours_checkout_session(
+            request.user, parcours, status_url, status_url, waiver_accepted=waiver_from_request(request)
+        )
     except ParcoursCheckoutError as exc:
         return Response({"error": str(exc)}, status=exc.status)
     except _stripe.StripeError:
@@ -2312,12 +2318,15 @@ def mobile_parcours_paypal_create_order(request, parcours_id):
     import requests as _requests
     from iot.models import Parcours
     from monetisation.parcours_checkout import create_parcours_paypal_order, ParcoursCheckoutError
+    from monetisation.consumer_law import waiver_from_request
 
     parcours = Parcours.objects.filter(id=parcours_id).first()
     if parcours is None:
         return Response({"error": "Parcours introuvable"}, status=404)
     try:
-        order = create_parcours_paypal_order(request.user, parcours)
+        order = create_parcours_paypal_order(
+            request.user, parcours, waiver_accepted=waiver_from_request(request)
+        )
     except ParcoursCheckoutError as exc:
         return Response({"error": str(exc)}, status=exc.status)
     except _requests.RequestException:

@@ -1,0 +1,61 @@
+{% extends "legal/_layout.html" %}
+{% block title %}Conditions générales de vente — FOUNATEK{% endblock %}
+{% block legal_body %}
+<h1>Conditions générales de vente</h1>
+<p class="legal-meta">Dernière mise à jour : {{ last_update }}</p>
+
+<h2>1. Objet</h2>
+<p>Les présentes conditions générales de vente (CGV) s'appliquent à tout achat effectué sur ce site auprès de {{ legal.name }} ({{ legal.form }}, SIRET {{ legal.siret }}, {{ legal.address }}, {{ legal.email }}). Elles concernent :</p>
+<ul>
+  <li>les <strong>contenus numériques</strong> de Founatek Academy : pack Livre 1 et parcours payants ;</li>
+  <li>les <strong>abonnements</strong> aux services en ligne (offres Basic et Pro) ;</li>
+  <li>les <strong>recharges du portefeuille</strong> (wallet) du site ;</li>
+  <li>les <strong>produits physiques</strong> vendus dans la boutique.</li>
+</ul>
+<p>Passer une commande implique l'acceptation des CGV en vigueur à la date de la commande.</p>
+
+<h2>2. Prix</h2>
+<p>Les prix sont indiqués en euros. TVA : {{ legal.vat }}. Le prix applicable est celui affiché au moment de la commande. Pour les produits physiques, les frais de livraison sont indiqués avant la validation du paiement.</p>
+
+<h2>3. Commande et paiement</h2>
+<p>Un compte sur le site est nécessaire pour acheter. Le paiement se fait par carte bancaire via <strong>Stripe</strong> ou par <strong>PayPal</strong>. {{ legal.name }} ne reçoit ni ne conserve tes données de carte bancaire : elles sont traitées directement par ces prestataires de paiement. La commande est ferme dès la confirmation du paiement.</p>
+
+<h2>4. Contenus numériques (Founatek Academy)</h2>
+<p>L'accès est ouvert dès la confirmation du paiement, depuis ton compte. Il est personnel : partager tes identifiants, copier ou revendre les contenus est interdit.</p>
+<p>Le pack Livre 1 donne accès aux chapitres publiés du livre, y compris ceux ajoutés ensuite, tant que le service Founatek Academy est en ligne.</p>
+<h3>Droit de rétractation</h3>
+<p>Avant de payer, tu coches une case par laquelle tu demandes l'accès immédiat au contenu et tu renonces expressément à ton droit de rétractation. Conformément à l'article L221-28, 13° du Code de la consommation, le droit de rétractation de 14 jours ne s'applique donc plus une fois l'accès ouvert. La date de ton accord est enregistrée avec ton paiement.</p>
+
+<h2>5. Abonnements</h2>
+<p>Les abonnements sont mensuels et sans engagement. Tu peux résilier à tout moment depuis la page Abonnement : la résiliation prend effet à la fin de la période déjà payée, et tu gardes l'accès jusque-là. La période en cours n'est pas remboursée au prorata.</p>
+<p>Tu disposes de 14 jours après la souscription pour te rétracter. Si tu as demandé à utiliser le service pendant ce délai, le montant correspondant au service déjà fourni jusqu'à ta rétractation reste dû (article L221-25 du Code de la consommation).</p>
+
+<h2>6. Portefeuille (wallet)</h2>
+<p>Les sommes rechargées servent à payer des services du site. Tu disposes de 14 jours après une recharge pour demander le remboursement de la partie non utilisée.</p>
+
+<h2>7. Produits physiques (boutique)</h2>
+<h3>Livraison</h3>
+<p>Les délais et frais de livraison sont indiqués avant le paiement. En cas de retard important ou de colis abîmé, contacte-nous à {{ legal.email }}.</p>
+<h3>Droit de rétractation</h3>
+<p>Tu disposes de 14 jours à compter de la réception du produit pour te rétracter, sans avoir à te justifier, en nous écrivant à {{ legal.email }}. Le produit doit être renvoyé dans les 14 jours suivant ta demande, complet et dans son état d'origine ; les frais de retour sont à ta charge. Nous te remboursons, frais de livraison initiaux compris (au tarif standard), dans les 14 jours suivant ta demande, après réception du produit ou d'une preuve de son expédition.</p>
+<h3>Garanties légales</h3>
+<p>Les produits bénéficient de la garantie légale de conformité (articles L217-3 et suivants du Code de la consommation), pendant 2 ans à compter de la livraison, et de la garantie des vices cachés (articles 1641 et suivants du Code civil).</p>
+
+<h2>8. Remboursements</h2>
+<p>Un remboursement est effectué avec le moyen de paiement utilisé pour l'achat (Stripe ou PayPal). Le remboursement d'un contenu numérique ou d'un parcours met fin à l'accès correspondant.</p>
+
+<h2>9. Sécurité des montages électroniques</h2>
+<p>Les cours expliquent des montages électroniques. Tu les réalises sous ta responsabilité, en respectant les consignes de sécurité données, en particulier pour la tension du secteur (230 V), les batteries lithium et les outils chauffants comme le fer à souder. Les montages sur le secteur doivent être faits par un adulte compétent.</p>
+
+<h2>10. Responsabilité</h2>
+<p>{{ legal.name }} s'efforce d'assurer un service disponible et des contenus exacts, sans pouvoir garantir l'absence totale d'interruption ou d'erreur. Sa responsabilité ne peut pas être engagée pour une mauvaise utilisation des contenus ou du matériel.</p>
+
+<h2>11. Données personnelles</h2>
+<p>Voir la page <a href="{% url 'legal_confidentialite' %}">Confidentialité et cookies</a>.</p>
+
+<h2>12. Réclamations et médiation</h2>
+<p>Pour toute réclamation, écris à {{ legal.email }}. Si aucune solution n'est trouvée, tu peux recourir gratuitement au médiateur de la consommation : {{ legal.mediator }}.</p>
+
+<h2>13. Droit applicable</h2>
+<p>Les présentes CGV sont soumises au droit français. En cas de litige, et à défaut d'accord amiable, les tribunaux français sont compétents, sous réserve des règles protégeant le consommateur.</p>
+{% endblock %}

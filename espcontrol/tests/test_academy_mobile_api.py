@@ -86,7 +86,8 @@ class AcademyMobileCheckoutTests(TestCase):
         lesson_filter.return_value.exclude.return_value.exists.return_value = True
         create.return_value = SimpleNamespace(id="cs_test_mobile_academy", url="https://checkout.stripe.com/test-mobile")
 
-        resp = self.client.post(reverse("mobile_academy_checkout"))
+        # L'appli doit envoyer l'accord (case CGV + renonciation au droit de rétractation).
+        resp = self.client.post(reverse("mobile_academy_checkout"), {"accept_conditions": True}, format="json")
 
         self.assertEqual(resp.status_code, 200)
         data = resp.json()

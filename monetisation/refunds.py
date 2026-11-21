@@ -191,8 +191,9 @@ def apply_dispute_closed(payment_id, won, source):
 
 def _stripe_payment_for(payment_intent_id):
     """Retrouve ce que paie un PaymentIntent : ("wallet", PaymentRequest),
-    ("shop", Order) ou (None, None)."""
+    ("shop", Order), ("academy" | "parcours", paiement de contenu) ou (None, None)."""
     from founatekapp.models import Order
+    from .content_refunds import find_content_payment
 
     if not payment_intent_id:
         return None, None
@@ -202,6 +203,9 @@ def _stripe_payment_for(payment_intent_id):
     order = Order.objects.filter(card_payment_id=payment_intent_id).first()
     if order:
         return "shop", order
+    kind, content = find_content_payment("stripe", reference=payment_intent_id)
+    if content:
+        return kind, content
     # Paiements confirmés avant l'enregistrement du PaymentIntent : on
     # demande à Stripe quelle session Checkout correspond.
     try:
@@ -220,6 +224,9 @@ def _stripe_payment_for(payment_intent_id):
         if order:
             Order.objects.filter(pk=order.pk).update(card_payment_id=payment_intent_id)
             return "shop", order
+        kind, content = find_content_payment("stripe", checkout_id=session_id)
+        if content:
+            return kind, content
     return None, None
 
 
@@ -242,6 +249,12 @@ def handle_stripe_charge_refunded(charge):
     elif kind == "shop":
         from founatekapp.stripe_checkout import handle_shop_order_refunded
         handle_shop_order_refunded(target.pk, refunded_cents, total_cents)
+    elif kind in ("academy", "parcours"):
+        from .content_refunds import partial_refund_alert, revoke_content_access
+        if total_cents and refunded_cents >= total_cents:
+            revoke_content_access(kind, target.pk, "refunded", "Stripe", detail=f"PaymentIntent {pi}")
+        else:
+            partial_refund_alert(kind, target, f"{refunded_cents / 100:.2f} €", "Stripe")
     else:
         _unknown_payment_alert("Remboursement", pi, f"{refunded_cents / 100:.2f} {str(charge.get('currency', '')).upper()}")
 
@@ -259,6 +272,12 @@ def handle_stripe_dispute(dispute, closed):
     elif kind == "shop":
         from founatekapp.stripe_checkout import handle_shop_order_dispute
         handle_shop_order_dispute(target.pk, closed=closed, won=won)
+    elif kind in ("academy", "parcours"):
+        from .content_refunds import close_content_dispute, revoke_content_access
+        if closed:
+            close_content_dispute(kind, target.pk, won, "Stripe")
+        else:
+            revoke_content_access(kind, target.pk, "disputed", "Stripe", detail=f"PaymentIntent {pi}")
     else:
         _unknown_payment_alert("Litige", pi, f"{(dispute.get('amount') or 0) / 100:.2f} {str(dispute.get('currency', '')).upper()}")
 
@@ -318,7 +337,8 @@ def handle_paypal_event(event):
         capture_id = _capture_id_from_links(resource)
         payment = _paypal_payment(capture_id)
         if payment is None:
-            _unknown_paypal(event_type, capture_id or resource.get("id"))
+            if not _paypal_content_event(event_type, resource, capture_id):
+                _unknown_paypal(event_type, capture_id or resource.get("id"))
             return
         breakdown = (resource.get("seller_payable_breakdown") or {}).get("total_refunded_amount") or {}
         if breakdown.get("value"):
@@ -335,7 +355,8 @@ def handle_paypal_event(event):
         # Paiement annulé par PayPal (ex. rétrofacturation) : remboursement total.
         payment = _paypal_payment(resource.get("id"))
         if payment is None:
-            _unknown_paypal(event_type, resource.get("id"))
+            if not _paypal_content_event(event_type, resource, resource.get("id")):
+                _unknown_paypal(event_type, resource.get("id"))
             return
         apply_refund(payment.pk, payment.amount, "PayPal")
 
@@ -344,7 +365,8 @@ def handle_paypal_event(event):
         capture_id = transactions[0].get("seller_transaction_id") if transactions else None
         payment = _paypal_payment(capture_id)
         if payment is None:
-            _unknown_paypal(event_type, capture_id or resource.get("dispute_id"))
+            if not _paypal_content_event(event_type, resource, capture_id):
+                _unknown_paypal(event_type, capture_id or resource.get("dispute_id"))
             return
         if event_type == "CUSTOMER.DISPUTE.CREATED":
             amount = (resource.get("dispute_amount") or {}).get("value") or payment.amount
@@ -352,6 +374,31 @@ def handle_paypal_event(event):
         else:
             outcome = (resource.get("dispute_outcome") or {}).get("outcome_code", "")
             apply_dispute_closed(payment.pk, outcome in PAYPAL_SELLER_WINS, "PayPal")
+
+
+def _paypal_content_event(event_type, resource, capture_id):
+    """Pack Livre 1 ou parcours payé par PayPal. Retourne True si traité."""
+    from .content_refunds import (
+        close_content_dispute, find_content_payment, partial_refund_alert, revoke_content_access,
+    )
+    kind, content = find_content_payment("paypal", reference=capture_id)
+    if content is None:
+        return False
+    if event_type == "PAYMENT.CAPTURE.REFUNDED":
+        breakdown = (resource.get("seller_payable_breakdown") or {}).get("total_refunded_amount") or {}
+        refunded = round_money(breakdown.get("value") or (resource.get("amount") or {}).get("value") or 0)
+        if refunded >= content.amount_eur:
+            revoke_content_access(kind, content.pk, "refunded", "PayPal", detail=f"Capture {capture_id}")
+        else:
+            partial_refund_alert(kind, content, f"{refunded} €", "PayPal")
+    elif event_type == "PAYMENT.CAPTURE.REVERSED":
+        revoke_content_access(kind, content.pk, "refunded", "PayPal", detail=f"Capture {capture_id}")
+    elif event_type == "CUSTOMER.DISPUTE.CREATED":
+        revoke_content_access(kind, content.pk, "disputed", "PayPal", detail=f"Capture {capture_id}")
+    elif event_type == "CUSTOMER.DISPUTE.RESOLVED":
+        outcome = (resource.get("dispute_outcome") or {}).get("outcome_code", "")
+        close_content_dispute(kind, content.pk, outcome in PAYPAL_SELLER_WINS, "PayPal")
+    return True
 
 
 def _unknown_paypal(event_type, reference):

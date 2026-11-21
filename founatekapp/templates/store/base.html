@@ -113,6 +113,7 @@
     <p class="mb-1 fw-bold">FOUNATEK <span class="text-warning">SHOP</span></p>
     <p class="mb-0 text-secondary small">Votre marketplace en ligne, sans frontières</p>
     <small class="text-secondary">Lille, France &mdash; {{ request.user.username|default:"" }}</small>
+    {% include "legal/_footer_links.html" %}
   </div>
 </footer>
 

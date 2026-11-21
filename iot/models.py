@@ -378,6 +378,8 @@ class ParcoursPayment(models.Model):
     payment_reference = models.CharField(max_length=255, blank=True)
     amount_eur = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, default="pending")
+    # Accord exprès pour l'accès immédiat + renonciation au droit de rétractation
+    waiver_accepted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -419,6 +421,8 @@ class AcademyPackPayment(models.Model):
     payment_reference = models.CharField(max_length=255, blank=True)
     amount_eur = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, default="pending")
+    # Accord exprès pour l'accès immédiat + renonciation au droit de rétractation
+    waiver_accepted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

@@ -89,7 +89,9 @@ class ParcoursStripeWebhookTests(TestCase):
     def test_checkout_uses_parcours_price(self, create):
         create.return_value = SimpleNamespace(id="cs_test_new", url="https://checkout.stripe.com/test")
         self.client.force_login(self.user)
-        response = self.client.post(reverse("monetisation:parcours_create_checkout", args=[self.parcours.id]))
+        response = self.client.post(
+            reverse("monetisation:parcours_create_checkout", args=[self.parcours.id]), {"accept_conditions": "1"}
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(create.call_args.kwargs["line_items"][0]["price_data"]["unit_amount"], 1999)
         self.assertTrue(ParcoursPayment.objects.filter(checkout_id="cs_test_new", status="pending").exists())

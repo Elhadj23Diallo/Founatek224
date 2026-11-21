@@ -11,6 +11,8 @@ from django.views.decorators.http import require_POST
 
 from iot.book_catalog import BOOK_SLUG, PACK_PRICE_EUR
 from iot.models import AcademyPackAccess, AcademyPackPayment, AcademyBookLesson
+from django.utils import timezone
+from .consumer_law import STRIPE_SUBMIT_MESSAGE, WAIVER_ERROR, waiver_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ class AcademyCheckoutError(Exception):
         self.status = status
 
 
-def create_academy_checkout_session(user, success_url, cancel_url):
+def create_academy_checkout_session(user, success_url, cancel_url, waiver_accepted=False):
     """Cœur partagé web + mobile : mêmes vérifications, même session Stripe.
     Lève AcademyCheckoutError (message + status à renvoyer tel quel) ou
     stripe.StripeError. Retourne la Session Stripe créée."""
@@ -37,6 +39,8 @@ def create_academy_checkout_session(user, success_url, cancel_url):
         user=user, pack_slug=BOOK_SLUG, active=True, revoked_at__isnull=True
     ).exists():
         raise AcademyCheckoutError("Pack déjà acquis.", 409)
+    if not waiver_accepted:
+        raise AcademyCheckoutError(WAIVER_ERROR, 400)
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
     session = stripe.checkout.Session.create(
@@ -50,7 +54,11 @@ def create_academy_checkout_session(user, success_url, cancel_url):
             "quantity": 1,
         }],
         client_reference_id=str(user.pk),
-        metadata={"kind": "academy_book_pack", "pack_slug": BOOK_SLUG, "user_id": str(user.pk)},
+        metadata={
+            "kind": "academy_book_pack", "pack_slug": BOOK_SLUG, "user_id": str(user.pk),
+            "withdrawal_waiver": "accepted",
+        },
+        custom_text={"submit": {"message": STRIPE_SUBMIT_MESSAGE}},
         success_url=success_url,
         cancel_url=cancel_url,
     )
@@ -58,6 +66,7 @@ def create_academy_checkout_session(user, success_url, cancel_url):
     AcademyPackPayment.objects.create(
         user=user, pack_slug=BOOK_SLUG, provider="stripe",
         checkout_id=session.id, amount_eur=PACK_PRICE_EUR,
+        waiver_accepted_at=timezone.now(),
     )
     return session
 
@@ -68,7 +77,9 @@ def create_academy_checkout(request):
     """Le serveur fixe le prix. CSRF Django et session utilisateur requis."""
     status_url = request.build_absolute_uri(reverse("monetisation:academy_checkout_status"))
     try:
-        session = create_academy_checkout_session(request.user, status_url, status_url)
+        session = create_academy_checkout_session(
+            request.user, status_url, status_url, waiver_accepted=waiver_from_request(request)
+        )
     except AcademyCheckoutError as exc:
         return JsonResponse({"error": str(exc)}, status=exc.status)
     except stripe.StripeError:

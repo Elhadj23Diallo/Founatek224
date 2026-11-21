@@ -69,7 +69,7 @@ class AcademyCheckoutTests(TestCase):
         lesson_filter.return_value.exclude.return_value.exists.return_value = True
         create.return_value = SimpleNamespace(id="cs_test_new", url="https://checkout.stripe.com/test")
         self.client.force_login(self.user)
-        response = self.client.post(reverse("monetisation:academy_create_checkout"))
+        response = self.client.post(reverse("monetisation:academy_create_checkout"), {"accept_conditions": "1"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(create.call_args.kwargs["line_items"][0]["price_data"]["unit_amount"], 999)
         self.assertTrue(AcademyPackPayment.objects.filter(checkout_id="cs_test_new", status="pending").exists())

@@ -17,6 +17,8 @@ from django.views.decorators.http import require_POST
 
 from iot.models import Parcours, ParcoursAccess, ParcoursPayment
 from iot.parcours_access import can_read_parcours
+from django.utils import timezone
+from .consumer_law import STRIPE_SUBMIT_MESSAGE, WAIVER_ERROR, waiver_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class ParcoursCheckoutError(Exception):
         self.status = status
 
 
-def create_parcours_checkout_session(user, parcours, success_url, cancel_url):
+def create_parcours_checkout_session(user, parcours, success_url, cancel_url, waiver_accepted=False):
     """Cœur partagé web + mobile : mêmes vérifications, même session Stripe.
     Lève ParcoursCheckoutError (message + status à renvoyer tel quel) ou
     stripe.StripeError. Retourne la Session Stripe créée."""
@@ -43,6 +45,8 @@ def create_parcours_checkout_session(user, parcours, success_url, cancel_url):
         raise ParcoursCheckoutError("Accès déjà acquis.", 409)
     if not getattr(settings, "STRIPE_ENABLED", False):
         raise ParcoursCheckoutError("Paiement indisponible.", 503)
+    if not waiver_accepted:
+        raise ParcoursCheckoutError(WAIVER_ERROR, 400)
 
     amount_cents = int(round(parcours.prix * 100))
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -61,7 +65,9 @@ def create_parcours_checkout_session(user, parcours, success_url, cancel_url):
             "kind": "parcours_access",
             "parcours_id": str(parcours.pk),
             "user_id": str(user.pk),
+            "withdrawal_waiver": "accepted",
         },
+        custom_text={"submit": {"message": STRIPE_SUBMIT_MESSAGE}},
         success_url=success_url,
         cancel_url=cancel_url,
     )
@@ -69,6 +75,7 @@ def create_parcours_checkout_session(user, parcours, success_url, cancel_url):
     ParcoursPayment.objects.create(
         user=user, parcours=parcours, provider="stripe",
         checkout_id=session.id, amount_eur=parcours.prix,
+        waiver_accepted_at=timezone.now(),
     )
     return session
 
@@ -83,7 +90,9 @@ def create_parcours_checkout(request, parcours_id):
         reverse("monetisation:parcours_checkout_status", args=[parcours.id])
     )
     try:
-        session = create_parcours_checkout_session(request.user, parcours, status_url, status_url)
+        session = create_parcours_checkout_session(
+            request.user, parcours, status_url, status_url, waiver_accepted=waiver_from_request(request)
+        )
     except ParcoursCheckoutError as exc:
         return JsonResponse({"error": str(exc)}, status=exc.status)
     except stripe.StripeError:
@@ -113,7 +122,7 @@ def parcours_checkout_status(request, parcours_id):
     return JsonResponse({"parcours_id": parcours.id, "access_active": acquired})
 
 
-def create_parcours_paypal_order(user, parcours):
+def create_parcours_paypal_order(user, parcours, waiver_accepted=False):
     """Cœur partagé web + mobile. Crée l'ordre PayPal (intent CAPTURE) et le
     ParcoursPayment 'pending' associé. Retourne le dict JSON de l'ordre créé.
     Lève ParcoursCheckoutError ou requests.RequestException."""
@@ -125,6 +134,8 @@ def create_parcours_paypal_order(user, parcours):
         raise ParcoursCheckoutError("Accès déjà acquis.", 409)
     if not getattr(settings, "PAYPAL_CLIENT_ID", ""):
         raise ParcoursCheckoutError("Paiement indisponible.", 503)
+    if not waiver_accepted:
+        raise ParcoursCheckoutError(WAIVER_ERROR, 400)
 
     url = f"{settings.PAYPAL_API_BASE}/v2/checkout/orders"
     auth = (settings.PAYPAL_CLIENT_ID, settings.PAYPAL_SECRET)
@@ -145,6 +156,7 @@ def create_parcours_paypal_order(user, parcours):
     ParcoursPayment.objects.create(
         user=user, parcours=parcours, provider="paypal",
         checkout_id=order["id"], amount_eur=parcours.prix,
+        waiver_accepted_at=timezone.now(),
     )
     return order
 
@@ -220,7 +232,9 @@ def capture_parcours_paypal_order(user, order_id):
 def create_parcours_paypal_order_view(request, parcours_id):
     parcours = get_object_or_404(Parcours, id=parcours_id)
     try:
-        order = create_parcours_paypal_order(request.user, parcours)
+        order = create_parcours_paypal_order(
+            request.user, parcours, waiver_accepted=waiver_from_request(request)
+        )
     except ParcoursCheckoutError as exc:
         return JsonResponse({"error": str(exc)}, status=exc.status)
     except requests.RequestException:

@@ -1,0 +1,38 @@
+{% extends "legal/_layout.html" %}
+{% block title %}Mentions légales — FOUNATEK{% endblock %}
+{% block legal_body %}
+<h1>Mentions légales</h1>
+<p class="legal-meta">Dernière mise à jour : {{ last_update }}</p>
+
+<h2>Éditeur du site</h2>
+<p>
+  <strong>{{ legal.name }}</strong><br>
+  Responsable : {{ legal.owner }}<br>
+  Forme juridique : {{ legal.form }}<br>
+  Adresse : {{ legal.address }}<br>
+  SIRET : {{ legal.siret }}<br>
+  TVA : {{ legal.vat }}<br>
+  E-mail : {{ legal.email }}<br>
+  Téléphone : {{ legal.phone }}
+</p>
+
+<h2>Directeur de la publication</h2>
+<p>{{ legal.owner }}</p>
+
+<h2>Hébergement</h2>
+<p>
+  {{ host.name }}<br>
+  {{ host.address }}<br>
+  <a href="{{ host.website }}" rel="noopener" target="_blank">{{ host.website }}</a>
+</p>
+
+<h2>Propriété intellectuelle</h2>
+<p>Les cours, livres, fiches, schémas, illustrations, vidéos, textes et logos publiés sur ce site sont la propriété de {{ legal.name }}, sauf mention contraire. Toute reproduction, diffusion ou revente, totale ou partielle, sans autorisation écrite est interdite.</p>
+<p>Certaines photos proviennent de Pixabay et sont utilisées selon la licence Pixabay ; elles sont signalées comme telles sous chaque image.</p>
+
+<h2>Données personnelles et cookies</h2>
+<p>Le traitement de tes données et l'usage des cookies sont expliqués dans la page <a href="{% url 'legal_confidentialite' %}">Confidentialité et cookies</a>.</p>
+
+<h2>Contact</h2>
+<p>Pour toute question sur le site : {{ legal.email }}.</p>
+{% endblock %}

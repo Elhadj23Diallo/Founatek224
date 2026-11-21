@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from core import legal
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -39,6 +40,10 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/logout/', TokenBlacklistView.as_view(), name='token_blacklist'),
+    # Pages légales (mentions, CGV, confidentialité)
+    path('mentions-legales/', legal.mentions_legales, name='legal_mentions'),
+    path('cgv/', legal.cgv, name='legal_cgv'),
+    path('confidentialite/', legal.confidentialite, name='legal_confidentialite'),
     path('', include('espcontrol.urls')),
     path('', include('iot.urls')),
     path('', include('acount.urls')),  # si ton app s'appelle users

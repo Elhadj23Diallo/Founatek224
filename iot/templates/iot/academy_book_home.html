@@ -27,6 +27,7 @@
     {% if request.user.is_authenticated %}
     <form id="academy-buy-form" method="post" action="{% url 'monetisation:academy_create_checkout' %}">
       {% csrf_token %}
+      {% include "legal/_waiver_checkbox.html" %}
       <button type="submit" class="academy-action">Acheter le pack avec Stripe</button>
     </form>
     <p id="academy-buy-feedback" role="status" class="academy-notice"></p>
@@ -70,9 +71,10 @@
   e.preventDefault();
   const button=form.querySelector("button");
   const feedback=document.getElementById("academy-buy-feedback");
+  if(!form.querySelector("#accept-conditions").checked){feedback.textContent="Coche la case pour accepter les CGV et l\u2019accès immédiat avant de payer.";return;}
   button.disabled=true;feedback.textContent="Préparation du paiement sécurisé…";
   try{
-   const response=await fetch(form.action,{method:"POST",headers:{"X-CSRFToken":form.querySelector("[name=csrfmiddlewaretoken]").value,"Accept":"application/json"},credentials:"same-origin"});
+   const response=await fetch(form.action,{method:"POST",headers:{"X-CSRFToken":form.querySelector("[name=csrfmiddlewaretoken]").value,"Accept":"application/json"},body:new FormData(form),credentials:"same-origin"});
    const data=await response.json();
    if(!response.ok||!data.url)throw new Error(data.error||"Paiement indisponible.");
    window.location.assign(data.url);

@@ -335,3 +335,41 @@ CACHES = {
         }
     }
 }
+
+# ---------------------------------------------------------------------------
+# Alertes d'erreur : un e-mail à l'administrateur à chaque erreur 500 et à
+# chaque erreur des paiements (logger « monetisation »). Adresse : variable
+# DJANGO_ADMIN_EMAIL du .env, sinon l'adresse d'envoi du site.
+# Les données sensibles sont masquées (monappli/reporting.py).
+# ---------------------------------------------------------------------------
+ADMINS = [("FOUNATEK", os.getenv("DJANGO_ADMIN_EMAIL", "").strip() or DEFAULT_FROM_EMAIL)]
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+EMAIL_SUBJECT_PREFIX = "[FOUNATEK] "
+DEFAULT_EXCEPTION_REPORTER_FILTER = "monappli.reporting.SensitiveDataFilter"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "require_debug_false": {"()": "django.utils.log.RequireDebugFalse"},
+    },
+    "formatters": {
+        "simple": {"format": "{asctime} {levelname} {name} : {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "simple"},
+        "mail_admins": {
+            "level": "ERROR",
+            "filters": ["require_debug_false"],
+            "class": "django.utils.log.AdminEmailHandler",
+            "include_html": False,
+        },
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "django": {"handlers": ["console", "mail_admins"], "level": "INFO", "propagate": False},
+        # Requêtes de robots avec un mauvais nom de domaine : pas d'e-mail.
+        "django.security.DisallowedHost": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "monetisation": {"handlers": ["console", "mail_admins"], "level": "INFO", "propagate": False},
+    },
+}
