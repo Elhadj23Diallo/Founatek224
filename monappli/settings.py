@@ -51,12 +51,36 @@ ACADEMY_BOOK_CHECKOUT_ENABLED = os.getenv("ACADEMY_BOOK_CHECKOUT_ENABLED", "fals
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-1au1y&pvu8#)0-gn**c1g7f(fu+rqsw_ru#9tj($8bz_y@*1nd')
+# Aucune clé de secours dans le code (le dépôt est public) : sans
+# DJANGO_SECRET_KEY dans le .env, le site refuse de démarrer.
+from django.core.exceptions import ImproperlyConfigured
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY manquante : ajoute-la dans le fichier .env (jamais dans le code)."
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
 ALLOWED_HOSTS = ['founatek224.pythonanywhere.com', 'localhost', '127.0.0.1', '192.168.43.11', '192.168.1.18']
+
+# HTTPS : cookies de session et CSRF envoyés seulement en HTTPS, et HSTS.
+# En local sans HTTPS (runserver sur 192.168.x.x), mettre
+# DJANGO_SECURE_COOKIES=false dans le .env local, sinon la connexion échoue.
+# La redirection HTTP → HTTPS se fait sur PythonAnywhere : onglet Web,
+# option « Force HTTPS » (plus fiable que SECURE_SSL_REDIRECT derrière leur proxy).
+SECURE_COOKIES = os.getenv("DJANGO_SECURE_COOKIES", "true").strip().lower() == "true"
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
+# HSTS d'une heure pour commencer ; passer à 31536000 (un an) une fois
+# « Force HTTPS » activé et vérifié.
+SECURE_HSTS_SECONDS = 3600 if SECURE_COOKIES else 0
+SILENCED_SYSTEM_CHECKS = [
+    "security.W008",  # redirection HTTPS gérée par PythonAnywhere (« Force HTTPS »)
+    "security.W005",  # pas de sous-domaines sous founatek224.pythonanywhere.com
+    "security.W021",  # préchargement HSTS : réservé aux noms de domaine propres
+]
 
 
 # Application definition

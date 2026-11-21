@@ -8,8 +8,6 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 
-print("🔥 PDF FILE LOADED :", __file__)
-
 # ==============================
 # 📅 Mois en français
 # ==============================
