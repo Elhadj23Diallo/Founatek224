@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import google.generativeai as genai
 from django.conf import settings
 import json
@@ -45,5 +49,5 @@ def analyze_iot_command(command_text, user_relais):
         
         return json.loads(clean_text)
     except Exception as e:
-        print(f"Erreur IA: {e}")
+        logger.exception("Erreur IA : %s", e)
         return {"safe": False, "message": "Erreur de traitement IA", "relais_num": None}

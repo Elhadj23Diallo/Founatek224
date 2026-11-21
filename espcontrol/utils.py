@@ -7,7 +7,6 @@ from rest_framework.exceptions import AuthenticationFailed
 # Vérification de permission d'accès API avec le token
 def api_permission_required(view_func):
     def _wrapped_view(request, *args, **kwargs):
-        print(f"Request headers: {request.headers}")  # Pour voir les en-têtes
         if request.user.is_authenticated:
             try:
                 TokenAuthentication().authenticate(request)

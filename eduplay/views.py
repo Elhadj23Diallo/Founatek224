@@ -1,11 +1,20 @@
 # eduplay/views.py
+import json
+
+def _json_body(request):
+    """Corps JSON de la requête, ou None s'il est absent ou invalide (évite une erreur 500)."""
+    try:
+        data = json.loads(request.body or b"{}")
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Question, Answer, Score, UserAnswer, ElectroUserAnswer, ArduinoUserAnswer, IotUserAnswer
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 import json
-from django.views.decorators.csrf import csrf_exempt
 
 def score_page(request):
     scores = Score.objects.all().order_by('-score')
@@ -35,12 +44,16 @@ def quiz_view(request):
 
 #vues pour stocker les reponses données par l'utilisateur
 @login_required
-@csrf_exempt
 def save_user_answers(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         answers = data.get("answers", {})
-        attempt = data.get("attempt", 1)
+        try:
+            attempt = int(data.get("attempt", 1))
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Tentative invalide"}, status=400)
 
         # Vérifie si l'utilisateur a dépassé la limite de tentatives (max 2)
         previous_attempts = UserAnswer.objects.filter(user=request.user).values('attempt').distinct()
@@ -63,7 +76,6 @@ def save_user_answers(request):
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 @login_required
-@csrf_exempt
 def reset_quiz(request):
     if request.method == 'POST':
         # Supprimer uniquement les réponses attempt=1 (première tentative)
@@ -109,17 +121,8 @@ def answers_page(request):
 
 
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import json
 
-@csrf_exempt
-def save_score(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        score = data.get('score')
-        # Tu peux sauvegarder le score ici (en base de données ou ailleurs)
-        return JsonResponse({'success': True})
-    return JsonResponse({'success': False}, status=400)
 
 
 
@@ -127,7 +130,6 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import json
 
 # Importation des modèles pour chaque domaine
@@ -175,10 +177,11 @@ def submit_electronique(request):
 
 
 
-@csrf_exempt
 def save_score_electro(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         score = data.get('score')
         # Tu peux sauvegarder le score ici (en base de données ou ailleurs)
         return JsonResponse({'success': True})
@@ -214,12 +217,16 @@ def quiz_view_arduino(request):
 
 #vues pour stocker les reponses données par l'utilisateur
 @login_required
-@csrf_exempt
 def arduino_save_user_answers(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         answers = data.get("answers", {})
-        attempt = data.get("attempt", 1)
+        try:
+            attempt = int(data.get("attempt", 1))
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Tentative invalide"}, status=400)
 
         # Vérifie si l'utilisateur a dépassé la limite de tentatives (max 2)
         previous_attempts = ArduinoUserAnswer.objects.filter(user=request.user).values('attempt').distinct()
@@ -242,7 +249,6 @@ def arduino_save_user_answers(request):
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 @login_required
-@csrf_exempt
 def reset_quiz_arduino(request):
     if request.method == 'POST':
         # Supprimer uniquement les réponses attempt=1 (première tentative)
@@ -252,10 +258,11 @@ def reset_quiz_arduino(request):
 
 
 
-@csrf_exempt
 def save_score_arduino(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         score = data.get('score')
         # Tu peux sauvegarder le score ici (en base de données ou ailleurs)
         return JsonResponse({'success': True})
@@ -335,12 +342,16 @@ def quiz_view_electro(request):
 
 #vues pour stocker les reponses données par l'utilisateur
 @login_required
-@csrf_exempt
 def electro_save_user_answers(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         answers = data.get("answers", {})
-        attempt = data.get("attempt", 1)
+        try:
+            attempt = int(data.get("attempt", 1))
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Tentative invalide"}, status=400)
 
         # Vérifie si l'utilisateur a dépassé la limite de tentatives (max 2)
         previous_attempts = ElectroUserAnswer.objects.filter(user=request.user).values('attempt').distinct()
@@ -363,7 +374,6 @@ def electro_save_user_answers(request):
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 @login_required
-@csrf_exempt
 def reset_quiz_electro(request):
     if request.method == 'POST':
         # Supprimer uniquement les réponses attempt=1 (première tentative)
@@ -377,8 +387,6 @@ def reset_quiz_electro(request):
 # =================
 # === IOT QUIZ ===
 # =================
-@login_required
-
 @login_required
 def submit_iot(request):
     if request.method == 'POST':
@@ -416,10 +424,11 @@ def score_iot(request):
 # ================================
 # === Autres fonctions utiles ===
 # ================================
-@csrf_exempt
 def save_score(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         score = data.get('score')
         return JsonResponse({'success': True})
     return JsonResponse({'success': False}, status=400)
@@ -454,12 +463,16 @@ def quiz_view_iot(request):
 
 #vues pour stocker les reponses données par l'utilisateur
 @login_required
-@csrf_exempt
 def iot_save_user_answers(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         answers = data.get("answers", {})
-        attempt = data.get("attempt", 1)
+        try:
+            attempt = int(data.get("attempt", 1))
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Tentative invalide"}, status=400)
 
         # Vérifie si l'utilisateur a dépassé la limite de tentatives (max 2)
         previous_attempts = ArduinoUserAnswer.objects.filter(user=request.user).values('attempt').distinct()
@@ -482,7 +495,6 @@ def iot_save_user_answers(request):
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 @login_required
-@csrf_exempt
 def reset_quiz_iot(request):
     if request.method == 'POST':
         # Supprimer uniquement les réponses attempt=1 (première tentative)
@@ -491,10 +503,11 @@ def reset_quiz_iot(request):
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
-@csrf_exempt
 def save_score_iot(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
+        data = _json_body(request)
+        if data is None:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
         score = data.get('score')
         # Tu peux sauvegarder le score ici (en base de données ou ailleurs)
         return JsonResponse({'success': True})

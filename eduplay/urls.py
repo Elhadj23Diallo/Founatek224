@@ -27,7 +27,6 @@ urlpatterns = [
 
     # Optionnel : pour API ou Ajax
      # Quiz general
-    path('save-score/', views.save_score, name='save_score'),
     path("save-answers/", views.save_user_answers, name="save_user_answers"),
     path('reset-quiz/', views.reset_quiz, name='reset_quiz'),
      # Quiz Arduino

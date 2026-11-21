@@ -103,7 +103,7 @@ def soil_data(request):
     humidity = request.GET.get('humidity')
 
     # Afficher l'humidité reçue dans les logs pour déboguer
-    print(f"Received humidity: {humidity}")
+    logger.debug("Humidité reçue : %s", humidity)
 
     # Vérifier si l'humidité a bien été reçue et si elle peut être convertie en entier
     if humidity is not None:
@@ -125,7 +125,7 @@ def soil_data(request):
                 ['isaacdiallo30@gmail.com'],  # Liste des destinataires
                 fail_silently=False,
             )
-        print(f"New DHTData created with Temperature: Humidity: {humidity}")
+        logger.debug("Mesure DHT enregistrée, humidité : %s", humidity)
         # Retourner une réponse JSON avec le statut de succès
         return JsonResponse({'status': 'success', 'humidity': humidity})
     else:
@@ -186,6 +186,7 @@ class ComptageAPIView(APIView):
 
 
 
+from monappli.csrf import csrf_exempt_for_token
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 import requests
@@ -707,7 +708,7 @@ def led_control(request):
 
     temperature = request.GET.get('temperature')
     humidity = request.GET.get('humidity')
-    print(f"Temperature: {temperature}, Humidity: {humidity}")  # Debug ici
+    logger.debug("Température : %s, humidité : %s", temperature, humidity)
 
     if temperature and humidity:
         try:
@@ -827,7 +828,7 @@ class ImageUploadView(APIView):
                 f.write(new_image_data)
             os.replace(tmp_path, live_file_path)
         except Exception as e:
-            print(f"Erreur live: {e}")
+            logger.warning("Erreur du flux live : %s", e)
 
         # 2. DÉTECTION (à partir des bytes déjà en mémoire, pas de relecture disque)
         motion_score = self.detect_motion(previous_image_data, new_image_data)
@@ -849,7 +850,7 @@ class ImageUploadView(APIView):
                 # potentiellement plusieurs fois par seconde).
                 live_cache.set(f"alert_{request.user.id}_{camera_id}", True, 5)
             except Exception as e:
-                print(f"Erreur DB: {e}")
+                logger.exception("Erreur base de données (surveillance) : %s", e)
 
         return Response({"status": "ok"}, status=200)
 
@@ -1167,7 +1168,7 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 
-@csrf_exempt
+@csrf_exempt_for_token
 @login_required
 def get_relais_etat(request, num):
     try:
@@ -1177,7 +1178,7 @@ def get_relais_etat(request, num):
         return JsonResponse({"error": "Relais non trouvé"}, status=404)
 
 
-@csrf_exempt
+@csrf_exempt_for_token
 @login_required
 def set_relais_etat(request, num):
     try:
@@ -1206,7 +1207,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from .models import Relais  # Assure-toi que ce modèle est bien importé
 
-@csrf_exempt
+@csrf_exempt_for_token
 @login_required
 def get_all_relais_etats(request):
     relais_list = Relais.objects.filter(user=request.user)
@@ -1373,7 +1374,7 @@ from .models import SensorData
 from datetime import datetime, timedelta
 import json
 
-@csrf_exempt
+@csrf_exempt_for_token
 @login_required
 def receive_sensor_data(request):
     if request.method == 'POST':
@@ -1463,7 +1464,7 @@ from django.utils.timezone import now
 from datetime import datetime, timedelta
 import json
 
-@csrf_exempt
+@csrf_exempt_for_token
 @login_required
 def receive_sensor_NTC(request):
     if request.method == 'POST':
@@ -2354,7 +2355,7 @@ from .models import Badge, Door, AccessRule, AccessLog
 from .utils import api_permission_required
 from django.views.decorators.csrf import csrf_exempt
 
-@csrf_exempt
+@csrf_exempt_for_token
 @api_permission_required
 def check_access(request):
     if request.method != "POST":
@@ -2775,7 +2776,7 @@ def menu_page(request):
 
 
 
-@csrf_exempt
+@login_required
 def mark_alert_read(request, alert_id):
     if request.method == 'POST':
         try:

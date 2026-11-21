@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from django.contrib.auth import get_user_model
 from espcontrol.agent.agent import FounatekAgent
 from espcontrol.models import Device
@@ -23,7 +27,8 @@ def enqueue_agent_for_all_users(enqueue_func=None):
             enqueue_func(agent.run)
         else:
             result = agent.run()
-            print(
-                f"Agent exécuté pour {user.username} → "
-                f"{len(result.get('results', [])) if result else 0}"
+            logger.info(
+                "Agent exécuté pour %s → %s actions",
+                user.username,
+                len(result.get('results', [])) if result else 0,
             )

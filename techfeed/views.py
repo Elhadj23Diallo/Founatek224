@@ -315,7 +315,6 @@ def friends_view(request):
 #                     UPLOAD VIDEO (API)
 # ============================================================
 
-@csrf_exempt
 @login_required
 @require_POST
 def api_upload_video(request):
@@ -819,10 +818,12 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 
 @login_required
-@csrf_exempt # Pour faciliter l'appel JS
 def update_live_status(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body or b"{}")
+        except ValueError:
+            return JsonResponse({"success": False, "error": "JSON invalide"}, status=400)
         status = data.get('status') # 'start' ou 'stop'
         room_name = data.get('room_name')
 
@@ -880,10 +881,12 @@ def join_live(request, username):
 
 
 @login_required
-@csrf_exempt
 def send_live_command(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body or b"{}")
+        except ValueError:
+            return JsonResponse({"success": False, "error": "JSON invalide"}, status=400)
         command_text = data.get('command')
 
         # 1. Récupérer les relais DE L'UTILISATEUR QUI EST EN LIVE (l'hôte)

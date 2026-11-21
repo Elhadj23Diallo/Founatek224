@@ -1,4 +1,8 @@
 # espcontrol/agent/agent.py
+import logging
+
+logger = logging.getLogger(__name__)
+
 from espcontrol.agent.observer import get_latest_observations
 from espcontrol.agent.rules import evaluate_rules
 from espcontrol.agent.actions import execute_actions
@@ -12,16 +16,16 @@ class FounatekAgent:
         self.brain = FounatekBrain(user)
 
     def run(self):
-        print(f"--- 🤖 Démarrage de l'agent pour {self.user.username} ---")
+        logger.info("Démarrage de l'agent pour %s", self.user.username)
 
         # 1️⃣ OBSERVER
         observations = get_latest_observations(self.user)
-        print(f"Observations collectées : {len(observations.get('iot_devices', []))} appareils trouvés.")
+        logger.info("Observations collectées : %s appareils", len(observations.get('iot_devices', [])))
 
         # 2️⃣ DÉCIDER (Règles fixes SensorRule)
         actions = evaluate_rules(observations=observations, user=self.user)
         if actions:
-            print(f"Décisions basées sur les règles : {len(actions)} actions prévues.")
+            logger.info("Règles : %s actions prévues", len(actions))
 
         # 3️⃣ APPRENDRE & DÉTECTER (Intelligence Artificielle)
         ia_alerts_count = 0
@@ -38,12 +42,12 @@ class FounatekAgent:
                     created_alerts = self.brain.generate_alerts_from_anomalies(device_obj, anomalies)
                     ia_alerts_count += created_alerts
             except Device.DoesNotExist:
-                print(f"⚠️ Erreur : Device {dev_obs['device_id']} introuvable en base.")
+                logger.warning("Appareil %s introuvable en base", dev_obs['device_id'])
             except Exception as e:
-                print(f"❌ Erreur IA sur {dev_obs.get('device_id')} : {e}")
+                logger.exception("Erreur IA sur l'appareil %s : %s", dev_obs.get('device_id'), e)
 
         if ia_alerts_count > 0:
-            print(f"Intelligence : {ia_alerts_count} nouvelles alertes d'anomalies créées.")
+            logger.info("%s nouvelles alertes d'anomalie créées", ia_alerts_count)
 
         # 4️⃣ AGIR (Exécution des actions physiques ou log d'alertes)
         results = execute_actions(actions, self.user)
