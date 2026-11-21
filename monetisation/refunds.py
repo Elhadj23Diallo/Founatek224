@@ -76,9 +76,16 @@ def _wallet(user):
 
 def _downgrade_to_free(user):
     sub, _ = Subscription.objects.select_for_update().get_or_create(user=user)
+    stripe_subscription_id = sub.stripe_subscription_id if sub.billing == "stripe_auto" else ""
     sub.plan = "free"
     sub.end_date = None
     sub.cancel_at_period_end = False
+    if stripe_subscription_id:
+        # Abonnement remboursé : on arrête aussi les prélèvements automatiques.
+        from .saas_billing import cancel_stripe_subscription_now
+        sub.billing = "manual"
+        sub.stripe_subscription_id = ""
+        transaction.on_commit(lambda: cancel_stripe_subscription_now(stripe_subscription_id))
     sub.save()
 
 

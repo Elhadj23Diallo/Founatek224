@@ -46,6 +46,11 @@ STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET)
 # ACADEMY_BOOK_CHECKOUT_ENABLED=true n'est pas explicitement mis dans le .env.
 ACADEMY_BOOK_CHECKOUT_ENABLED = os.getenv("ACADEMY_BOOK_CHECKOUT_ENABLED", "false").strip().lower() == "true"
 
+# Abonnements Basic/Pro par carte avec renouvellement automatique (Stripe).
+# Désactivé par défaut : à activer (true) une fois les événements de webhook
+# d'abonnement et le portail client configurés dans le tableau de bord Stripe.
+STRIPE_AUTO_RENEW_ENABLED = os.getenv("STRIPE_AUTO_RENEW_ENABLED", "false").strip().lower() == "true"
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

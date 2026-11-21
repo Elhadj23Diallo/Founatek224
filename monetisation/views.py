@@ -23,6 +23,8 @@ from .utils import (
     verify_paypal_capture,
 )
 from .quota import IOT_LIMITS
+import stripe
+from .saas_billing import auto_renew_enabled, set_stripe_cancel_at_period_end
 
 #integration paypal
 # monetisation/views.py
@@ -52,6 +54,11 @@ def create_paypal_order(request):
         amount, plan = validate_paypal_order_params(payment_type, plan, data.get("amount"))
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
+
+    if payment_type == "subscription":
+        current = Subscription.objects.filter(user=request.user).first()
+        if current and current.auto_renew_active:
+            return JsonResponse({"error": "Ton abonnement est déjà prélevé automatiquement par carte."}, status=409)
 
     custom_id = f"{payment_type}|{plan}|{request.user.id}"
 
@@ -223,6 +230,8 @@ def _render_subscription(request, sub, wallet, error=None):
         'plans': _plans_info(),
         'wallet': wallet,
         'stripe_enabled': settings.STRIPE_ENABLED,
+        'auto_renew_enabled': auto_renew_enabled(),
+        'card_status': request.GET.get('carte', ''),
         'error': error,
     })
 
@@ -240,12 +249,24 @@ def subscription_view(request):
         if action == 'cancel_at_period_end':
             if sub.plan == 'free' or not sub.end_date:
                 return _render_subscription(request, sub, wallet, "Aucun abonnement payant actif à résilier.")
+            if sub.billing == 'stripe_auto' and sub.stripe_subscription_id:
+                try:
+                    set_stripe_cancel_at_period_end(sub, True)
+                except stripe.StripeError:
+                    logger.exception("Résiliation Stripe impossible pour %s", request.user.username)
+                    return _render_subscription(request, sub, wallet, "La résiliation n'a pas pu être enregistrée chez Stripe. Réessaie dans un instant.")
             sub.cancel_at_period_end = True
             sub.save(update_fields=['cancel_at_period_end'])
             send_cancellation_confirmation_email(request.user, sub)
             messages.success(request, f"Abonnement résilié : vous gardez le plan {sub.plan.upper()} jusqu'au {sub.end_date}, puis retour automatique au gratuit.")
             return redirect('monetisation:monetisation_abonnement')
         if action == 'reactivate':
+            if sub.billing == 'stripe_auto' and sub.stripe_subscription_id and sub.cancel_at_period_end:
+                try:
+                    set_stripe_cancel_at_period_end(sub, False)
+                except stripe.StripeError:
+                    logger.exception("Réactivation Stripe impossible pour %s", request.user.username)
+                    return _render_subscription(request, sub, wallet, "L'annulation de la résiliation n'a pas pu être enregistrée chez Stripe. Réessaie dans un instant.")
             was_cancelled = sub.cancel_at_period_end
             sub.cancel_at_period_end = False
             sub.save(update_fields=['cancel_at_period_end'])
@@ -259,6 +280,13 @@ def subscription_view(request):
         if new_plan not in PLAN_PRICES:
             return _render_subscription(request, sub, wallet, "Plan d'abonnement invalide.")
         amount = PLAN_PRICES[new_plan]
+
+        if sub.auto_renew_active:
+            return _render_subscription(
+                request, sub, wallet,
+                "Ton abonnement est prélevé automatiquement par carte. Pour changer de formule, "
+                "résilie-le : tu gardes l'accès jusqu'à la fin de la période payée, puis tu pourras en choisir une autre."
+            )
 
         # --- Plan gratuit ---
         if amount == 0:

@@ -170,6 +170,12 @@ def stripe_webhook(request):
             handle_stripe_dispute(obj, closed=(event_type == "charge.dispute.closed"))
         return JsonResponse({"received": True}, status=200)
 
+    # Abonnements par carte avec renouvellement automatique : voir saas_billing.py
+    from .saas_billing import EVENT_HANDLERS as SAAS_EVENT_HANDLERS, SAAS_KIND, handle_checkout_completed
+    if event_type in SAAS_EVENT_HANDLERS:
+        SAAS_EVENT_HANDLERS[event_type](event["data"]["object"].to_dict())
+        return JsonResponse({"received": True}, status=200)
+
     if event_type not in ("checkout.session.completed", "checkout.session.expired"):
         return JsonResponse({"received": True}, status=200)
 
@@ -182,6 +188,12 @@ def stripe_webhook(request):
     # Un seul webhook Stripe pour tout le projet : on route selon
     # metadata.kind plutôt que de dupliquer un endpoint/secret par app.
     kind = (session.get("metadata") or {}).get("kind")
+
+    if kind == SAAS_KIND:
+        # La période d'essai (jours encore payés) donne « no_payment_required ».
+        if event_type == "checkout.session.completed" and session.get("status") == "complete":
+            handle_checkout_completed(session)
+        return JsonResponse({"received": True}, status=200)
 
     if event_type == "checkout.session.expired":
         # Session jamais payée (abandon) : on clôt ce qui l'attendait.

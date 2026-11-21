@@ -52,6 +52,24 @@ class Subscription(models.Model):
     # voir monetisation.utils.sync_subscription_expiry pour le retour au gratuit).
     cancel_at_period_end = models.BooleanField(default=False)
 
+    # Paiement : « manual » = 30 jours payés une fois (wallet ou PayPal), sans
+    # renouvellement ; « stripe_auto » = carte enregistrée chez Stripe et
+    # prélèvement automatique chaque mois (voir monetisation/saas_billing.py).
+    BILLING_CHOICES = [
+        ("manual", "Paiement ponctuel (30 jours)"),
+        ("stripe_auto", "Carte, renouvellement automatique"),
+    ]
+    billing = models.CharField(max_length=20, choices=BILLING_CHOICES, default="manual")
+    stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
+    stripe_subscription_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    last_stripe_invoice_id = models.CharField(max_length=255, blank=True, default="")
+    # Accord exprès : CGV, renouvellement automatique, début immédiat du service
+    auto_renew_consent_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def auto_renew_active(self):
+        return self.billing == "stripe_auto" and bool(self.stripe_subscription_id) and not self.cancel_at_period_end
+
     def __str__(self):
         return f"{self.user.username} - {self.plan}"
 

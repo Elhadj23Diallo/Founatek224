@@ -159,6 +159,15 @@ body {
     {% if error %}
         <div class="alert alert-danger">{{ error }}</div>
     {% endif %}
+    {% if card_status == 'ok' %}
+        <div class="alert" style="background:rgba(34,197,94,0.1); border:1px solid #22c55e; color:#bbf7d0; border-radius:12px; padding:14px 18px;">
+            <i class="fas fa-check-circle"></i> Paiement par carte enregistré. L'activation peut prendre quelques secondes : recharge la page si ton abonnement n'apparaît pas encore.
+        </div>
+    {% elif card_status == 'annule' %}
+        <div class="alert" style="background:rgba(148,163,184,0.1); border:1px solid #64748b; color:#cbd5e1; border-radius:12px; padding:14px 18px;">
+            Paiement par carte annulé : aucun prélèvement n'a été fait.
+        </div>
+    {% endif %}
 
     {% if subscription.plan != 'free' and subscription.end_date %}
     <div class="alert" style="background:rgba(34,211,238,0.08); border:1px solid #22d3ee; border-radius:12px; padding:16px 20px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -168,11 +177,21 @@ body {
                 <div style="color:#94a3b8; font-size:0.9rem; margin-top:4px;">
                     Vous gardez le plan {{ subscription.plan|upper }} jusqu'au {{ subscription.end_date }}, puis retour automatique au gratuit. Aucun autre prélèvement n'aura lieu.
                 </div>
+            {% elif subscription.auto_renew_active %}
+                <strong style="color:#22d3ee">Abonnement {{ subscription.plan|upper }} actif — prélèvement automatique par carte</strong>
+                <div style="color:#94a3b8; font-size:0.9rem; margin-top:4px;">Payé jusqu'au {{ subscription.end_date }}. Prochain prélèvement à cette date, puis chaque mois.</div>
             {% else %}
                 <strong style="color:#22d3ee">Abonnement {{ subscription.plan|upper }} actif</strong>
-                <div style="color:#94a3b8; font-size:0.9rem; margin-top:4px;">Valide jusqu'au {{ subscription.end_date }}.</div>
+                <div style="color:#94a3b8; font-size:0.9rem; margin-top:4px;">Valide jusqu'au {{ subscription.end_date }}.{% if subscription.billing == 'stripe_auto' and subscription.stripe_subscription_id %} Ensuite, prélèvement automatique par carte chaque mois.{% endif %}</div>
             {% endif %}
         </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        {% if auto_renew_enabled and subscription.stripe_customer_id %}
+        <form method="POST" action="{% url 'monetisation:saas_billing_portal' %}" style="margin:0">
+            {% csrf_token %}
+            <button type="submit" style="background:transparent; color:#e2e8f0; font-weight:700; border:1px solid #64748b; border-radius:10px; padding:10px 18px; cursor:pointer;"><i class="fas fa-credit-card"></i> Gérer ma carte</button>
+        </form>
+        {% endif %}
         <form method="POST" style="margin:0">
             {% csrf_token %}
             {% if subscription.cancel_at_period_end %}
@@ -185,8 +204,16 @@ body {
                     style="background:transparent; color:#fbbf24; font-weight:700; border:1px solid #fbbf24; border-radius:10px; padding:10px 18px; cursor:pointer;">Résilier (garder l'accès jusqu'au {{ subscription.end_date }})</button>
             {% endif %}
         </form>
+        </div>
     </div>
     {% endif %}
+
+    {% if subscription.auto_renew_active %}
+    <p style="color:#94a3b8; text-align:center; margin:10px 0 0;">
+        <i class="fas fa-circle-info"></i> Ton abonnement est prélevé automatiquement par carte. Pour changer de formule, résilie-le :
+        tu gardes l'accès jusqu'à la fin de la période payée, puis tu pourras en choisir une autre.
+    </p>
+    {% else %}
 
     <form method="POST" id="plan-form">
         {% csrf_token %}
@@ -230,7 +257,20 @@ body {
             <select name="provider" class="form-control-dark" id="provider-select">
                 <option value="wallet">Wallet (Solde : {{ wallet.balance|floatformat:2 }} EUR)</option>
                 <option value="paypal">PayPal / Carte Bancaire</option>
+                {% if auto_renew_enabled %}<option value="card_auto">Carte bancaire — prélèvement automatique chaque mois</option>{% endif %}
             </select>
+            {% if auto_renew_enabled %}
+            <div id="card-auto-box" style="display:none; margin-top:12px; padding:14px; border-radius:10px; border:1px solid #334155; background:rgba(34,211,238,0.05);">
+                <label style="display:flex; gap:10px; align-items:flex-start; color:#cbd5e1; font-size:0.9rem; line-height:1.45; cursor:pointer;">
+                    <input type="checkbox" id="auto-renew-consent" name="accept_conditions" value="1" style="margin-top:4px; width:18px; height:18px; flex:none;">
+                    <span>J'accepte les <a href="{% url 'legal_cgv' %}" target="_blank" rel="noopener" style="color:#22d3ee;">conditions générales de vente</a>
+                    et le <strong>renouvellement automatique chaque mois</strong> de mon abonnement, résiliable à tout moment depuis cette page.
+                    Je demande que le service commence immédiatement.</span>
+                </label>
+                <small style="display:block; margin-top:8px; color:#94a3b8;">Paiement sécurisé par Stripe : FOUNATEK ne voit jamais le numéro de ta carte. Si ton abonnement actuel est déjà payé, le premier prélèvement aura lieu à la fin de cette période.</small>
+                <p id="card-auto-feedback" role="status" style="color:#fbbf24; margin:8px 0 0;"></p>
+            </div>
+            {% endif %}
             <div id="wallet-insufficient" style="display:none; margin-top:12px; padding:14px; border-radius:10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.08); color:#fde68a;">
                 <i class="fas fa-exclamation-triangle"></i>
                 Solde insuffisant : il vous manque <strong id="missing-amount"></strong>.
@@ -252,9 +292,13 @@ body {
             </p>
             {% endcomment %}
             <p style="color:#94a3b8; font-size:0.8rem; margin-top:8px;">
-                <i class="fas fa-circle-info"></i> Pour payer par carte bancaire, rechargez d'abord votre wallet
+                <i class="fas fa-circle-info"></i>
+                {% if auto_renew_enabled %}Sans prélèvement automatique : rechargez votre wallet par carte
                 (<a href="{% url 'monetisation:wallet_dashboard' %}#recharge-carte" style="color:#22d3ee;">Recharger par carte</a>),
-                puis payez votre abonnement avec le solde.
+                puis payez 30 jours avec le solde.
+                {% else %}Pour payer par carte bancaire, rechargez d'abord votre wallet
+                (<a href="{% url 'monetisation:wallet_dashboard' %}#recharge-carte" style="color:#22d3ee;">Recharger par carte</a>),
+                puis payez votre abonnement avec le solde.{% endif %}
             </p>
         </div>
 
@@ -269,8 +313,10 @@ body {
             <i class="fab fa-paypal"></i> Paiement sécurisé via PayPal
         </p>
     </div>
+    {% endif %}
 </div>
 
+{% if not subscription.auto_renew_active %}
 <script src="https://www.paypal.com/sdk/js?client-id={{ PAYPAL_CLIENT_ID }}&currency=EUR"></script>
 <script>
 const form = document.getElementById("plan-form");
@@ -417,5 +463,49 @@ form.addEventListener("submit", function (e) {
     }).render("#paypal-button-container");
 });
 </script>
+{% if auto_renew_enabled %}
+<script>
+(function () {
+    const box = document.getElementById("card-auto-box");
+    const consent = document.getElementById("auto-renew-consent");
+    const feedback = document.getElementById("card-auto-feedback");
+    function syncCardBox() {
+        const on = providerSelect.value === "card_auto";
+        box.style.display = on ? "block" : "none";
+        if (on) {
+            submitBtn.innerHTML = '<i class="fas fa-credit-card"></i> Payer par carte (prélèvement mensuel)';
+            insufficientBox.style.display = "none";
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = "";
+        }
+    }
+    providerSelect.addEventListener("change", syncCardBox);
+    planRadios.forEach(function (radio) { radio.addEventListener("change", syncCardBox); });
+    syncCardBox();
+    form.addEventListener("submit", async function (e) {
+        if (providerSelect.value !== "card_auto") return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (getSelectedPlan().price <= 0) { feedback.textContent = "Choisis la formule Basic ou Pro."; return; }
+        if (!consent.checked) { feedback.textContent = "Coche la case pour accepter le renouvellement automatique."; return; }
+        submitBtn.disabled = true;
+        feedback.textContent = "Préparation du paiement sécurisé…";
+        try {
+            const response = await fetch("{% url 'monetisation:saas_create_checkout' %}", {
+                method: "POST", body: new FormData(form), credentials: "same-origin",
+                headers: {"X-CSRFToken": "{{ csrf_token }}", "Accept": "application/json"},
+            });
+            const data = await response.json();
+            if (!response.ok || !data.url) throw new Error(data.error || "Paiement indisponible.");
+            window.location.assign(data.url);
+        } catch (error) {
+            feedback.textContent = error.message;
+            submitBtn.disabled = false;
+        }
+    }, true);
+})();
+</script>
+{% endif %}
+{% endif %}
 
 {% endblock %}

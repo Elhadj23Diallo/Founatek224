@@ -88,13 +88,19 @@ def send_reactivation_confirmation_email(user, sub):
         pass
 
 
+AUTO_RENEW_GRACE_DAYS = 3
+
+
 def sync_subscription_expiry(sub):
     """Pas de reconduction automatique dans ce système (chaque renouvellement
     est un nouveau paiement manuel) : une fois end_date dépassée, le plan
     repasse au gratuit — que l'utilisateur ait explicitement résilié
     (cancel_at_period_end) ou simplement laissé expirer sans repayer.
     Vérifié à la lecture (lazy), pas via une tâche planifiée. Retourne sub."""
-    if sub.plan != 'free' and sub.end_date and sub.end_date < timezone.now().date():
+    # Prélèvement automatique par carte : quelques jours de grâce pendant que
+    # Stripe réessaie un paiement refusé (le webhook invoice.paid prolonge).
+    grace = timedelta(days=AUTO_RENEW_GRACE_DAYS) if getattr(sub, "auto_renew_active", False) else timedelta(0)
+    if sub.plan != 'free' and sub.end_date and sub.end_date + grace < timezone.now().date():
         sub.plan = 'free'
         sub.end_date = None
         sub.cancel_at_period_end = False

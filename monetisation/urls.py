@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from . import stripe_payments, refunds, academy_checkout, parcours_checkout
+from . import stripe_payments, refunds, academy_checkout, parcours_checkout, saas_billing
 
 app_name = 'monetisation'
 urlpatterns = [
@@ -15,6 +15,8 @@ urlpatterns = [
     path('acheter-credit/', views.init_mobile_money, name='monetisation_acheter_credit'),
     path('transactions/', views.transactions, name='monetisation_transactions'),
     path('abonnement/', views.subscription_view, name='monetisation_abonnement'),
+    path('abonnement/carte/', saas_billing.create_saas_checkout, name='saas_create_checkout'),
+    path('abonnement/carte/gerer/', saas_billing.billing_portal, name='saas_billing_portal'),
     path('wallet/', views.wallet_dashboard, name='wallet_dashboard'),
     path('wallet/init/', views.init_mobile_money, name='init_mobile_money'),
     # wallet/callback/ (mobile_money_callback) retiré : faille de sécurité, voir
