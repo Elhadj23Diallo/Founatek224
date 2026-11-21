@@ -37,10 +37,12 @@ def create_parcours_checkout_session(user, parcours, success_url, cancel_url):
         raise ParcoursCheckoutError("Ce parcours n'est pas disponible.", 404)
     if not parcours.prix or parcours.prix <= 0:
         raise ParcoursCheckoutError("Ce parcours est gratuit.", 400)
-    if not getattr(settings, "STRIPE_ENABLED", False):
-        raise ParcoursCheckoutError("Paiement indisponible.", 503)
+    # « Déjà acquis » passe avant « paiement indisponible » : un acheteur
+    # n'a pas à apprendre que Stripe est coupé pour un cours qu'il possède.
     if can_read_parcours(user, parcours):
         raise ParcoursCheckoutError("Accès déjà acquis.", 409)
+    if not getattr(settings, "STRIPE_ENABLED", False):
+        raise ParcoursCheckoutError("Paiement indisponible.", 503)
 
     amount_cents = int(round(parcours.prix * 100))
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -119,10 +121,10 @@ def create_parcours_paypal_order(user, parcours):
         raise ParcoursCheckoutError("Ce parcours n'est pas disponible.", 404)
     if not parcours.prix or parcours.prix <= 0:
         raise ParcoursCheckoutError("Ce parcours est gratuit.", 400)
-    if not getattr(settings, "PAYPAL_CLIENT_ID", ""):
-        raise ParcoursCheckoutError("Paiement indisponible.", 503)
     if can_read_parcours(user, parcours):
         raise ParcoursCheckoutError("Accès déjà acquis.", 409)
+    if not getattr(settings, "PAYPAL_CLIENT_ID", ""):
+        raise ParcoursCheckoutError("Paiement indisponible.", 503)
 
     url = f"{settings.PAYPAL_API_BASE}/v2/checkout/orders"
     auth = (settings.PAYPAL_CLIENT_ID, settings.PAYPAL_SECRET)

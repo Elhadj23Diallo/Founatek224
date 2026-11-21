@@ -103,8 +103,24 @@ class ParcoursStripeWebhookTests(TestCase):
     def test_checkout_rejects_already_owned(self):
         ParcoursAccess.objects.create(user=self.user, parcours=self.parcours, provider="stripe", active=True)
         self.client.force_login(self.user)
+        for enabled in (True, False):
+            with self.subTest(stripe_enabled=enabled), override_settings(STRIPE_ENABLED=enabled):
+                response = self.client.post(reverse("monetisation:parcours_create_checkout", args=[self.parcours.id]))
+                self.assertEqual(response.status_code, 409)
+
+    @override_settings(STRIPE_ENABLED=False)
+    def test_checkout_unavailable_when_stripe_off(self):
+        self.client.force_login(self.user)
         response = self.client.post(reverse("monetisation:parcours_create_checkout", args=[self.parcours.id]))
-        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.status_code, 503)
+
+    def test_paypal_order_rejects_already_owned_even_if_paypal_off(self):
+        from monetisation.parcours_checkout import create_parcours_paypal_order
+        ParcoursAccess.objects.create(user=self.user, parcours=self.parcours, provider="paypal", active=True)
+        with override_settings(PAYPAL_CLIENT_ID=""):
+            with self.assertRaises(ParcoursCheckoutError) as ctx:
+                create_parcours_paypal_order(self.user, self.parcours)
+        self.assertEqual(ctx.exception.status, 409)
 
     def test_anonymous_checkout_requires_login(self):
         response = self.client.post(reverse("monetisation:parcours_create_checkout", args=[self.parcours.id]))
