@@ -400,6 +400,9 @@ def mobile_access_check(request):
     except Door.DoesNotExist:
         return Response({"allowed": False, "message": "Porte inconnue"}, status=status.HTTP_404_NOT_FOUND)
 
+    if not request.user.is_authenticated or (door.owner_id != request.user.pk and not request.user.is_staff):
+        return Response({"allowed": False, "action": "deny", "message": "Accès refusé"}, status=403)
+
     try:
         badge = Badge.objects.get(uid=uid, is_active=True)
         owner_name = badge.owner.username if badge.owner else "inconnu"
