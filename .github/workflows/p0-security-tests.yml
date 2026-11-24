@@ -1,0 +1,45 @@
+name: P0 security regression checks
+
+on:
+  push:
+    branches:
+      - security/p0-audit-fixes-20261124
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-for-production-long-random-looking-test-key-2026
+      DJANGO_SECURE_COOKIES: "false"
+      STRIPE_AUTO_RENEW_ENABLED: "false"
+      ACADEMY_BOOK_CHECKOUT_ENABLED: "false"
+      PAYPAL_MODE: sandbox
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip check
+      - name: Compile Python source
+        run: python -m compileall -q espcontrol iot product_transparency monetisation middleware monappli
+      - name: Django system checks
+        run: python manage.py check
+      - name: Run isolated regression tests
+        run: |
+          python manage.py test \
+            espcontrol.tests.test_action_log_redaction \
+            iot.tests_parcours_access \
+            espcontrol.tests.test_academy_mobile_api \
+            monetisation.tests_mobile_parity \
+            --noinput --verbosity 2
