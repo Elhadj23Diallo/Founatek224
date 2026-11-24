@@ -30,7 +30,8 @@ def search_course_content(query, limit=3, excerpt_len=320, *, user=None):
     laisser le prompt tel quel plutot que d'injecter du contenu non pertinent.
     """
     from iot.models import BlocPedagogique, Lecon
-    from iot.academy_access import filter_readable_lessons
+    from iot.academy_access import filter_readable_lessons, has_full_access, raw_book_draft_q
+    from iot.utils.pedagogy import lecon_est_debloquee, lecon_precedente
 
     words = _keywords(query)
     if not words:
@@ -45,9 +46,17 @@ def search_course_content(query, limit=3, excerpt_len=320, *, user=None):
     # Apply the same lesson-level entitlements as Academy before extracting text.
     # Without a user, only public/free content can be searched.
     readable = filter_readable_lessons(
-        Lecon.objects.filter(parcours__is_published=True), user
+        Lecon.objects.filter(parcours__is_published=True).exclude(raw_book_draft_q()), user
     ).values('pk')
     candidates = {}
+    staff = has_full_access(user)
+
+    def unlocked(lesson):
+        if staff:
+            return True
+        if not getattr(user, "is_authenticated", False):
+            return lesson.ordre == 1 or lecon_precedente(lesson) is None
+        return lecon_est_debloquee(user, lesson)
 
     blocs = (
         BlocPedagogique.objects.filter(q_blocs, lecon_id__in=readable)
@@ -55,6 +64,8 @@ def search_course_content(query, limit=3, excerpt_len=320, *, user=None):
         .select_related("lecon", "lecon__parcours")[:50]
     )
     for b in blocs:
+        if not unlocked(b.lecon):
+            continue
         text = normalize(f"{b.lecon.titre} {b.contenu or ''} {b.code or ''}")
         score = sum(text.count(w) for w in words)
         if score <= 0:
@@ -74,6 +85,8 @@ def search_course_content(query, limit=3, excerpt_len=320, *, user=None):
         .select_related("parcours")[:50]
     )
     for l in lecons:
+        if not unlocked(l):
+            continue
         text = normalize(f"{l.titre} {l.resume or ''}")
         score = sum(text.count(w) for w in words)
         if score <= 0:

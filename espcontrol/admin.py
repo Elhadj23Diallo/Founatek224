@@ -131,13 +131,19 @@ class AirReadingAdmin(admin.ModelAdmin):
 # ACTION LOG & AGENT CONFIG
 # =========================
 from .models import ActionLog, AgentConfig
+from .audit_logs import action_log_details_for_display
 
 
 @admin.register(ActionLog)
 class ActionLogAdmin(admin.ModelAdmin):
     list_display = ("created_at", "user", "action")
     search_fields = ("user__username", "action")
-    readonly_fields = ("created_at",)
+    exclude = ("details",)
+    readonly_fields = ("created_at", "safe_details")
+
+    @admin.display(description="D?tails filtr?s")
+    def safe_details(self, obj):
+        return action_log_details_for_display(obj) if obj else {}
 
 
 @admin.register(AgentConfig)

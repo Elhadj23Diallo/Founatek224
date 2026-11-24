@@ -30,8 +30,7 @@ class QuizSerializer(serializers.ModelSerializer):
             'choix_b',
             'choix_c',
             'choix_d',
-            'bonne_reponse',
-            'explication',
+            'plusieurs_reponses',
         ]
 
 

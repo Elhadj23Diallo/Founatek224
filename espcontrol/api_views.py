@@ -400,7 +400,7 @@ def mobile_access_check(request):
     except Door.DoesNotExist:
         return Response({"allowed": False, "message": "Porte inconnue"}, status=status.HTTP_404_NOT_FOUND)
 
-    if not request.user.is_authenticated or (door.owner_id != request.user.pk and not request.user.is_staff):
+    if not request.user.is_authenticated or door.owner_id != request.user.pk:
         return Response({"allowed": False, "action": "deny", "message": "Accès refusé"}, status=403)
 
     try:
@@ -694,18 +694,7 @@ def mobile_rules(request):
 
 
 # ── Action Logs ───────────────────────────────────────────────────────────────
-def _redact_action_log_details(details):
-    """Redact secrets in historical logs without changing stored records."""
-    sensitive = ("token", "secret", "password", "authorization", "api_key", "apikey", "credential")
-    if isinstance(details, dict):
-        return {
-            key: "[REDACTED]" if any(part in str(key).lower() for part in sensitive)
-            else _redact_action_log_details(value)
-            for key, value in details.items()
-        }
-    if isinstance(details, list):
-        return [_redact_action_log_details(item) for item in details]
-    return details
+from .audit_logs import _redact_action_log_details, action_log_details_for_display
 
 
 @csrf_exempt
@@ -717,7 +706,7 @@ def mobile_action_logs(request):
         {
             "id": log.id,
             "action": log.action,
-            "details": _redact_action_log_details(log.details),
+            "details": action_log_details_for_display(log),
             "created_at": log.created_at.isoformat(),
         }
         for log in logs
@@ -1484,12 +1473,22 @@ def mobile_education_submit_quiz(request, lecon_id):
             return Response({"error": "Leçon introuvable"}, status=404)
         if not can_read_lesson(request.user, lecon_check):
             return Response({"error": "Accès payant requis.", "code": "payment_required"}, status=402)
+        from iot.academy_access import has_full_access, is_raw_book_draft
+        from iot.utils.pedagogy import lecon_est_debloquee
+        if is_raw_book_draft(lecon_check) or (
+            not has_full_access(request.user)
+            and (not lecon_check.parcours.is_published or not lecon_est_debloquee(request.user, lecon_check))
+        ):
+            return Response({"error": "Le?on verrouill?e."}, status=403)
         answers = request.data.get("answers", {})
+        if not isinstance(answers, dict):
+            return Response({"error": "R?ponses invalides."}, status=400)
         quizzes = Quiz.objects.filter(lecon_id=lecon_id)
         total = quizzes.count()
         if total == 0:
             return Response({"error": "Aucun quiz pour cette leçon"}, status=400)
         correct = 0
+        answered = False
         details = []
         for q in quizzes:
             raw_ans = answers.get(str(q.id), "")
@@ -1497,17 +1496,23 @@ def mobile_education_submit_quiz(request, lecon_id):
                 user_ans_set = {str(r).strip().upper() for r in raw_ans}
             else:
                 user_ans_set = {r.strip().upper() for r in str(raw_ans).split(",") if r.strip()}
-            is_correct = bool(user_ans_set) and user_ans_set == q.bonnes_reponses_set()
+            valid_answer = bool(user_ans_set) and user_ans_set <= {
+                option for option, text in (("A", q.choix_a), ("B", q.choix_b), ("C", q.choix_c), ("D", q.choix_d)) if text
+            }
+            answered = answered or valid_answer
+            is_correct = valid_answer and user_ans_set == q.bonnes_reponses_set()
             if is_correct:
                 correct += 1
             details.append({
                 "id": q.id,
                 "question": q.question,
                 "your_answer": ",".join(sorted(user_ans_set)),
-                "correct_answer": q.bonne_reponse,
+                "correct_answer": q.bonne_reponse if valid_answer else None,
                 "is_correct": is_correct,
-                "explication": q.explication,
+                "explication": q.explication if valid_answer else None,
             })
+        if not answered:
+            return Response({"error": "Au moins une r?ponse valide est requise."}, status=400)
         score = round((correct / total) * 100, 1)
         lecon = Lecon.objects.get(id=lecon_id)
         prog, _ = Progression.objects.get_or_create(user=request.user, lecon=lecon)
@@ -1749,13 +1754,14 @@ def mobile_monetisation_upgrade(request):
     """Body: { "plan": "basic" | "pro" | "free" } — paiement avec le solde du wallet.
     Solde insuffisant : 402 {"error", "code": "insufficient_balance",
     "missing", "balance", "price"} pour que l'appli propose une recharge."""
+    from django.db import OperationalError, connection, transaction as db_transaction
+    from django.db.models import F
+
     try:
-        from django.db import transaction as db_transaction
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
         from monetisation.utils import PLAN_PRICES, round_money
         from django.utils import timezone
         from datetime import timedelta
-        import uuid as uuid_lib
         plan = request.data.get("plan", "free")
         if plan not in PLAN_PRICES:
             return Response({"error": "Plan invalide"}, status=400)
@@ -1821,6 +1827,10 @@ def mobile_monetisation_upgrade(request):
             "cancel_at_period_end": sub.cancel_at_period_end,
             "balance": wallet.balance,
         })
+    except OperationalError as e:
+        if connection.vendor == "sqlite" and getattr(e.__cause__, "sqlite_errorcode", 0) & 255 in (5, 6):
+            return Response({"error": "Op?ration en cours, r?essayez avec la m?me cl?."}, status=409)
+        return Response({"error": "Changement d?abonnement indisponible."}, status=500)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 

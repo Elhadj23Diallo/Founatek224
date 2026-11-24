@@ -37,9 +37,32 @@ jobs:
         run: python manage.py check
       - name: Run isolated regression tests
         run: |
-          python manage.py test \
-            espcontrol.tests.test_action_log_redaction \
-            iot.tests_parcours_access \
-            espcontrol.tests.test_academy_mobile_api \
-            monetisation.tests_mobile_parity \
-            --noinput --verbosity 2
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from django.conf import settings
+          from django.core.management import execute_from_command_line
+
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "monappli.settings")
+          with TemporaryDirectory() as tmp:
+              settings.DATABASES = {
+                  "default": {
+                      "ENGINE": "django.db.backends.sqlite3",
+                      "NAME": ":memory:",
+                      "TEST": {"NAME": str(Path(tmp) / "security.sqlite3")},
+                  }
+              }
+              settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+              execute_from_command_line([
+                  "manage.py", "test",
+                  "espcontrol.tests.test_action_log_redaction",
+                  "espcontrol.tests.test_p0_security",
+                  "espcontrol.tests.test_academy_mobile_api",
+                  "espcontrol.tests.test_mobile_api",
+                  "iot.tests_parcours_access",
+                  "monetisation.tests_mobile_parity",
+                  "product_transparency.tests_concurrency",
+                  "--noinput", "--verbosity", "2",
+              ])
+          PY

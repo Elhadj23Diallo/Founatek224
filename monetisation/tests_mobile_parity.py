@@ -26,14 +26,14 @@ class MobileParityTest(TestCase):
         Wallet.objects.filter(user=self.user).update(balance=Decimal("3.00"))
 
     def test_upgrade_with_insufficient_balance_explains_what_is_missing(self):
-        resp = self.api.post("/api/mobile/monetisation/upgrade/", {"plan": "pro"}, format="json")
+        resp = self.api.post("/api/mobile/monetisation/upgrade/", {"plan": "pro"}, format="json", HTTP_IDEMPOTENCY_KEY="upgrade-pro")
         self.assertEqual(resp.status_code, 402)
         body = resp.json()
         self.assertEqual((body["code"], body["missing"], body["price"]), ("insufficient_balance", 12.0, 15))
         self.assertEqual(Subscription.objects.get(user=self.user).plan, "free")
 
     def test_upgrade_with_enough_balance(self):
-        resp = self.api.post("/api/mobile/monetisation/upgrade/", {"plan": "basic"}, format="json")
+        resp = self.api.post("/api/mobile/monetisation/upgrade/", {"plan": "basic"}, format="json", HTTP_IDEMPOTENCY_KEY="upgrade-basic")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual((resp.json()["plan"], resp.json()["balance"]), ("basic", 0.0))
 

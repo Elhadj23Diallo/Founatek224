@@ -2375,7 +2375,7 @@ def check_access(request):
         return JsonResponse({"allowed": False, "message": "Porte inconnue"}, status=404)
 
     # A caller must own the door before any badge identity is queried.
-    if not request.user.is_authenticated or (door.owner_id != request.user.pk and not request.user.is_staff):
+    if not request.user.is_authenticated or door.owner_id != request.user.pk:
         return JsonResponse({"allowed": False, "action": "deny", "message": "Accès refusé"}, status=403)
 
     # Vérifie le badge actif
@@ -2556,7 +2556,7 @@ class SensorIngestAPIView(APIView):
                     user=user,
                     action="ingest",
                     details={
-                        "device_id": getattr(device, "device_id", None),
+                        "device_pk": getattr(device, "pk", None),
                         # Never persist credentials or raw sensor payloads in audit logs.
                         "event": "sensor_data_received",
                     },
