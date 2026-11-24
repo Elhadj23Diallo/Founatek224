@@ -301,6 +301,9 @@ class ProgressionViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if not can_read_lesson(self.request.user, serializer.instance.lecon):
             raise PermissionDenied("Accès Academy requis.")
+        if ("lecon" in serializer.validated_data and
+                serializer.validated_data["lecon"].pk != serializer.instance.lecon_id):
+            raise PermissionDenied("La leçon d'une progression ne peut pas être modifiée.")
         serializer.save()
 
 
