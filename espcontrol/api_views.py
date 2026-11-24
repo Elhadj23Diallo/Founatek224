@@ -1760,6 +1760,15 @@ def mobile_monetisation_upgrade(request):
         if plan not in PLAN_PRICES:
             return Response({"error": "Plan invalide"}, status=400)
         price = PLAN_PRICES[plan]
+        # Paid upgrades require a stable key supplied by the caller on retries.
+        # Existing PaymentRequest.transaction_id stores the operation fingerprint.
+        import hashlib
+        operation_key = request.headers.get("Idempotency-Key", "")
+        if price > 0 and (not operation_key or len(operation_key) > 128):
+            return Response({"error": "Idempotency-Key requis pour un paiement"}, status=400)
+        operation_id = ("upgrade:" + hashlib.sha256(
+            f"{request.user.pk}:{operation_key}".encode("utf-8")
+        ).hexdigest()) if price > 0 else None
         with db_transaction.atomic():
             # Lignes verrouillées : un double appel ne débite pas deux fois.
             Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
@@ -1767,6 +1776,22 @@ def mobile_monetisation_upgrade(request):
             sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
             sub = Subscription.objects.select_for_update().get(pk=sub.pk)
             if price > 0:
+                previous = PaymentRequest.objects.filter(
+                    user=request.user, provider="wallet",
+                    purpose="subscription", transaction_id=operation_id,
+                ).first()
+                if previous:
+                    if previous.amount != price or sub.plan != plan:
+                        return Response({"error": "Clé d'idempotence déjà utilisée pour une autre opération"}, status=409)
+                    return Response({
+                        "plan": sub.plan,
+                        "end_date": sub.end_date.isoformat() if sub.end_date else None,
+                        "cancel_at_period_end": sub.cancel_at_period_end,
+                        "balance": wallet.balance,
+                        "replayed": True,
+                    })
+                if sub.billing == "stripe_auto" and sub.stripe_subscription_id:
+                    return Response({"error": "Abonnement Stripe actif : changement via le portail de facturation requis"}, status=409)
                 if wallet.balance < price:
                     missing = round_money(price - wallet.balance)
                     return Response({
@@ -1782,7 +1807,7 @@ def mobile_monetisation_upgrade(request):
                 )
                 PaymentRequest.objects.create(
                     user=request.user, provider="wallet", amount=price, status="success",
-                    transaction_id=str(uuid_lib.uuid4()), purpose="subscription",
+                    transaction_id=operation_id, purpose="subscription",
                 )
                 # Pas de commission ici : argent déjà commissionné à la recharge du wallet.
             sub.plan = plan
