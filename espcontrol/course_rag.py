@@ -22,7 +22,7 @@ def _keywords(text):
     return [w for w in words if len(w) >= 3 and w not in _STOPWORDS]
 
 
-def search_course_content(query, limit=3, excerpt_len=320):
+def search_course_content(query, limit=3, excerpt_len=320, *, user=None):
     """Renvoie les blocs/lecons de cours publies les plus pertinents pour `query`.
 
     Chaque resultat : {parcours, lecon, excerpt, score}. Liste vide si aucun
@@ -30,6 +30,7 @@ def search_course_content(query, limit=3, excerpt_len=320):
     laisser le prompt tel quel plutot que d'injecter du contenu non pertinent.
     """
     from iot.models import BlocPedagogique, Lecon
+    from iot.academy_access import filter_readable_lessons
 
     words = _keywords(query)
     if not words:
@@ -41,10 +42,15 @@ def search_course_content(query, limit=3, excerpt_len=320):
         q_blocs |= Q(contenu__icontains=w) | Q(code__icontains=w)
         q_lecons |= Q(titre__icontains=w) | Q(resume__icontains=w)
 
+    # Apply the same lesson-level entitlements as Academy before extracting text.
+    # Without a user, only public/free content can be searched.
+    readable = filter_readable_lessons(
+        Lecon.objects.filter(parcours__is_published=True), user
+    ).values('pk')
     candidates = {}
 
     blocs = (
-        BlocPedagogique.objects.filter(q_blocs, lecon__parcours__is_published=True)
+        BlocPedagogique.objects.filter(q_blocs, lecon_id__in=readable)
         .exclude(type__in=["image", "video"])
         .select_related("lecon", "lecon__parcours")[:50]
     )
@@ -64,7 +70,7 @@ def search_course_content(query, limit=3, excerpt_len=320):
             }
 
     lecons = (
-        Lecon.objects.filter(q_lecons, parcours__is_published=True)
+        Lecon.objects.filter(q_lecons, pk__in=readable)
         .select_related("parcours")[:50]
     )
     for l in lecons:
