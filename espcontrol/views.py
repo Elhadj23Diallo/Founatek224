@@ -2374,6 +2374,10 @@ def check_access(request):
     except Door.DoesNotExist:
         return JsonResponse({"allowed": False, "message": "Porte inconnue"}, status=404)
 
+    # A caller must own the door before any badge identity is queried.
+    if not request.user.is_authenticated or (door.owner_id != request.user.pk and not request.user.is_staff):
+        return JsonResponse({"allowed": False, "action": "deny", "message": "Accès refusé"}, status=403)
+
     # Vérifie le badge actif
     try:
         badge = Badge.objects.get(uid=uid, is_active=True)
