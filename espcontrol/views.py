@@ -2553,8 +2553,8 @@ class SensorIngestAPIView(APIView):
                     action="ingest",
                     details={
                         "device_id": getattr(device, "device_id", None),
-                        "payload": getattr(appdata, "payload", None),
-                        "token_key": token_key,
+                        # Never persist credentials or raw sensor payloads in audit logs.
+                        "event": "sensor_data_received",
                     },
                 )
 
