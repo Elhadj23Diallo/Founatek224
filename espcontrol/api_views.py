@@ -2671,11 +2671,15 @@ def mobile_transparence_create_sale(request):
                     qty = int(i["quantity"])
                     price = product.pricing.price
                 except (Product.DoesNotExist, KeyError, TypeError, ValueError, AttributeError):
-                    sale.delete()
+                    transaction.set_rollback(True)
                     return Response({"error": "Produit invalide dans le panier"}, status=400)
 
+                if qty <= 0:
+                    transaction.set_rollback(True)
+                    return Response({"error": "Quantité strictement positive requise"}, status=400)
+
                 if product.stock is not None and qty > product.stock:
-                    sale.delete()
+                    transaction.set_rollback(True)
                     return Response(
                         {"error": f"Stock insuffisant pour {product.name} ({product.stock} disponible)"},
                         status=400
