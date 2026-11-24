@@ -691,6 +691,20 @@ def mobile_rules(request):
 
 
 # ── Action Logs ───────────────────────────────────────────────────────────────
+def _redact_action_log_details(details):
+    """Redact secrets in historical logs without changing stored records."""
+    sensitive = ("token", "secret", "password", "authorization", "api_key", "apikey", "credential")
+    if isinstance(details, dict):
+        return {
+            key: "[REDACTED]" if any(part in str(key).lower() for part in sensitive)
+            else _redact_action_log_details(value)
+            for key, value in details.items()
+        }
+    if isinstance(details, list):
+        return [_redact_action_log_details(item) for item in details]
+    return details
+
+
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -700,7 +714,7 @@ def mobile_action_logs(request):
         {
             "id": log.id,
             "action": log.action,
-            "details": log.details,
+            "details": _redact_action_log_details(log.details),
             "created_at": log.created_at.isoformat(),
         }
         for log in logs
