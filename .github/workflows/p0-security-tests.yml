@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - security/p0-audit-fixes-20261124
   push:
     branches:
       - security/p0-audit-fixes-20261124
