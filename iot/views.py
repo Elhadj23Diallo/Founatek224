@@ -217,7 +217,14 @@ class LeconViewSet(viewsets.ReadOnlyModelViewSet):
                 "Vous devez valider la leçon précédente pour continuer."
             )
 
-        return super().retrieve(request, *args, **kwargs)
+        if getattr(request, "authenticated_via_token", False) or request.auth is not None:
+            from monappli.mobile_compatibility import mobile_policy, mobile_update_required
+
+            policy = mobile_policy(request)
+            if not policy["compatible"] and Quiz.objects.filter(lecon=lecon).exists():
+                return mobile_update_required(policy)
+
+        return Response(self.get_serializer(lecon).data)
 
 
 
