@@ -1,6 +1,11 @@
 name: P0 security regression checks
 
 on:
+  pull_request:
+    branches:
+      - main
+      - security/p0-audit-fixes-20261124
+      - review/django-security-validation
   push:
     branches:
       - security/p0-audit-fixes-20261124
@@ -22,6 +27,8 @@ jobs:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -39,13 +46,25 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import sys
           from pathlib import Path
           from tempfile import TemporaryDirectory
           from django.conf import settings
           from django.core.management import execute_from_command_line
+          from django.core.mail.utils import DNS_NAME
+          from monetisation.wallet_control import control
 
           os.environ.setdefault("DJANGO_SETTINGS_MODULE", "monappli.settings")
+          def block_network(event, args):
+              if event.startswith("socket.") and event != "socket.__new__":
+                  raise RuntimeError("Network access is disabled in the regression tests.")
+
+          DNS_NAME._fqdn = "localhost"
+          sys.addaudithook(block_network)
           with TemporaryDirectory() as tmp:
+              os.environ["FOUNATEK_WALLET_CONTROL_DIR"] = str(Path(tmp) / "wallet-control")
+              control("pause")
+              control("resume")
               settings.DATABASES = {
                   "default": {
                       "ENGINE": "django.db.backends.sqlite3",
@@ -62,6 +81,12 @@ jobs:
                   "espcontrol.tests.test_mobile_api",
                   "iot.tests_parcours_access",
                   "monetisation.tests_mobile_parity",
+                  "monetisation.tests_wallet_control",
+                  "monetisation.tests_payments",
+                  "monetisation.tests_refunds",
+                  "monetisation.tests_saas_billing",
+                  "monetisation.tests_academy_checkout",
+                  "monetisation.tests_parcours_checkout",
                   "product_transparency.tests_concurrency",
                   "--noinput", "--verbosity", "2",
               ])

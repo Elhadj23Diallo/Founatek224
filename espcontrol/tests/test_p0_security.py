@@ -7,7 +7,7 @@ from unittest.mock import patch
 from django.contrib.admin import AdminSite
 from django.contrib.auth import get_user_model
 from django.db import connections
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
@@ -23,9 +23,14 @@ User = get_user_model()
 UPGRADE = "/api/mobile/monetisation/upgrade/"
 
 
-def api_for(token):
+def api_for(token, compatible=True):
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
+    headers = {
+        "HTTP_X_FOUNATEK_PLATFORM": "android",
+        "HTTP_X_FOUNATEK_BUILD": "100",
+        "HTTP_X_FOUNATEK_CONTRACT": "2",
+    } if compatible else {}
+    client.credentials(HTTP_AUTHORIZATION=f"Token {token}", **headers)
     return client
 
 
@@ -103,6 +108,9 @@ class SecurityRegressionTests(TestCase):
         other_token, _ = Token.objects.get_or_create(user=self.other)
         self.assertEqual(APIClient().get(route, {"token": other_token.key}).status_code, 404)
         self.assertEqual(APIClient().get("/api/mobile/action-logs/", {"token": self.token.key}).status_code, 403)
+        cameras = "/api/mobile/surveillance/cameras/"
+        self.assertEqual(APIClient().get(cameras, {"token": self.token.key}).status_code, 403)
+        self.assertEqual(self.api.get(cameras).status_code, 200)
         self.user.is_active = False
         self.user.save(update_fields=["is_active"])
         read_frame.reset_mock()
@@ -163,6 +171,15 @@ class SecurityRegressionTests(TestCase):
         self.assertNotIn("bonne_reponse", quiz)
         self.assertNotIn("explication", quiz)
         self.assertIn("plusieurs_reponses", quiz)
+        legacy = api_for(self.token.key, compatible=False).get(f"/api/lecons/{first.pk}/")
+        self.assertEqual(legacy.status_code, 409)
+        self.assertEqual(legacy.json()["code"], "update_required")
+        browser = APIClient()
+        browser.force_login(self.user)
+        browser_lesson = browser.get(f"/api/lecons/{first.pk}/")
+        self.assertEqual(browser_lesson.status_code, 200)
+        self.assertNotIn("bonne_reponse", browser_lesson.json()["quizzes"][0])
+        self.assertEqual(api_for(self.token.key, compatible=False).get("/api/lecons/").status_code, 200)
         locked = self.api.post(f"/api/mobile/education/lecons/{second.pk}/submit/", {"answers": {}}, format="json")
         self.assertEqual(locked.status_code, 403)
         self.assertFalse(Progression.objects.filter(user=self.user, lecon=second).exists())
@@ -176,6 +193,30 @@ class SecurityRegressionTests(TestCase):
         self.assertEqual(result.status_code, 200, result.content)
         self.assertEqual((result.json()["score"], result.json()["completed"]), (100, True))
         self.assertTrue(Progression.objects.get(user=self.user, lecon=first).completed)
+        no_quiz = api_for(self.token.key, compatible=False).get(f"/api/lecons/{second.pk}/")
+        self.assertEqual(no_quiz.status_code, 200)
+        self.assertEqual(no_quiz.json()["quizzes"], [])
+
+    def test_multiple_choice_quiz_does_not_disclose_answers_from_other_accounts(self):
+        parcours, first, _ = self.lessons()
+        ParcoursAccess.objects.create(user=self.user, parcours=parcours, provider="stripe", active=True)
+        question = Quiz.objects.create(
+            lecon=first, question="Choose two", choix_a="One", choix_b="Two", choix_c="Three",
+            bonne_reponse="A,C", explication="Fixture explanation",
+        )
+        route = f"/api/mobile/education/lecons/{first.pk}/submit/"
+        payload = {"answers": {str(question.pk): ["C", "A"]}}
+        unentitled = User.objects.create_user("unentitled-learner")
+        other_token, _ = Token.objects.get_or_create(user=unentitled)
+        denied = api_for(other_token.key).post(route, payload, format="json")
+        self.assertEqual(denied.status_code, 402)
+        self.assertNotIn("details", denied.json())
+        self.assertFalse(Progression.objects.filter(user=unentitled, lecon=first).exists())
+
+        graded = self.api.post(route, payload, format="json")
+        self.assertEqual(graded.status_code, 200, graded.content)
+        self.assertEqual(graded.json()["score"], 100)
+        self.assertIs(graded.json()["completed"], True)
 
     def test_sale_failure_restores_stock_on_web_and_mobile(self):
         company = Company.objects.create(user=self.user, name="Fixture shop", slug="fixture-shop")
@@ -226,3 +267,100 @@ class WalletConcurrencyTests(TransactionTestCase):
         self.assertEqual(Wallet.objects.get(user=user).balance, Decimal("9"))
         self.assertEqual(Transaction.objects.filter(user=user, type="debit").count(), 1)
         self.assertEqual(PaymentRequest.objects.filter(user=user, purpose="subscription").count(), 1)
+
+
+class MobileCompatibilityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("compat-owner")
+        self.other = User.objects.create_user("compat-other")
+        self.token, _ = Token.objects.get_or_create(user=self.user)
+        self.other_token, _ = Token.objects.get_or_create(user=self.other)
+        self.api = api_for(self.token.key)
+
+    def test_wallet_rejects_unkeyed_legacy_payment_without_debit(self):
+        Wallet.objects.filter(user=self.user).update(balance=Decimal("12"))
+        response = self.api.post(UPGRADE, {"plan": "basic"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Wallet.objects.get(user=self.user).balance, Decimal("12"))
+        self.assertFalse(Transaction.objects.filter(user=self.user, type="debit").exists())
+        self.assertFalse(PaymentRequest.objects.filter(user=self.user, purpose="subscription").exists())
+        self.assertEqual(self.api.post(UPGRADE, {"plan": "free"}, format="json").status_code, 200)
+
+    @override_settings(MOBILE_MINIMUM_BUILDS={"android": 12, "ios": 20})
+    def test_public_policy_uses_platform_build_and_contract(self):
+        for platform, build, contract, expected in (
+            ("android", "12", "2", True), ("ios", "19", "2", False),
+            ("ios", "20", "2", True), ("android", "99", "1", False),
+            ("web", "99", "2", False), ("android", "12.0", "2", False),
+        ):
+            with self.subTest(platform=platform, build=build, contract=contract):
+                response = APIClient().get("/api/mobile/compatibility/",
+                    HTTP_X_FOUNATEK_PLATFORM=platform, HTTP_X_FOUNATEK_BUILD=build,
+                    HTTP_X_FOUNATEK_CONTRACT=contract)
+                self.assertEqual(response.status_code, 200)
+                self.assertIs(response.json()["compatible"], expected)
+                self.assertEqual(response.json()["minimum_builds"], {"android": 12, "ios": 20})
+                self.assertIn("no-store", response.headers["Cache-Control"])
+
+    @override_settings(MOBILE_MINIMUM_BUILDS={"android": 12, "ios": 20})
+    def test_wallet_blocks_legacy_and_too_old_build_even_with_key_before_any_write(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        for headers in ({}, {"HTTP_X_FOUNATEK_PLATFORM": "ios",
+                            "HTTP_X_FOUNATEK_BUILD": "19", "HTTP_X_FOUNATEK_CONTRACT": "2"}):
+            client = api_for(self.token.key, compatible=False)
+            with self.subTest(headers=headers), CaptureQueriesContext(connection) as queries:
+                response = client.post(UPGRADE, {"plan": "basic"}, format="json",
+                                       HTTP_IDEMPOTENCY_KEY="fixture-operation", **headers)
+                self.assertEqual(response.status_code, 409)
+                self.assertEqual(response.json()["code"], "update_required")
+            self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+                                 for query in queries))
+
+    def test_wallet_same_key_is_scoped_to_account_and_replay_debits_once(self):
+        for user in (self.user, self.other):
+            Wallet.objects.filter(user=user).update(balance=Decimal("12"))
+        for client in (self.api, api_for(self.other_token.key)):
+            initial = client.post(UPGRADE, {"plan": "basic"}, format="json", HTTP_IDEMPOTENCY_KEY="fixture-operation")
+            self.assertEqual(initial.status_code, 200, initial.content)
+            self.assertFalse(initial.json().get("replayed", False))
+            replay = client.post(UPGRADE, {"plan": "basic"}, format="json", HTTP_IDEMPOTENCY_KEY="fixture-operation")
+            self.assertEqual(replay.status_code, 200, replay.content)
+            self.assertIs(replay.json()["replayed"], True)
+            duplicate = client.post(UPGRADE, {"plan": "basic"}, format="json", HTTP_IDEMPOTENCY_KEY="different-key")
+            self.assertEqual(duplicate.status_code, 409)
+            self.assertEqual(duplicate.json()["code"], "plan_already_active")
+        for user in (self.user, self.other):
+            self.assertEqual(Wallet.objects.get(user=user).balance, Decimal("9"))
+            self.assertEqual(Transaction.objects.filter(user=user, type="debit").count(), 1)
+            self.assertEqual(PaymentRequest.objects.filter(user=user, purpose="subscription").count(), 1)
+
+    def test_camera_snapshot_is_private_with_shared_camera_ids(self):
+        from django.core.cache import caches
+
+        cache = caches["live_frames"]
+        for user, image in ((self.user, b"owner-frame"), (self.other, b"other-frame")):
+            key = f"live_{user.pk}_shared-camera"
+            cache.set(key, image)
+            self.addCleanup(cache.delete, key)
+
+        route = "/api/mobile/surveillance/snapshot/shared-camera/"
+        for token, expected in ((self.token, b"owner-frame"), (self.other_token, b"other-frame")):
+            with self.subTest(user=token.user_id):
+                response = APIClient().get(route, {"token": token.key})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.content, expected)
+                self.assertIn("no-store", response.headers["Cache-Control"])
+                self.assertIn("private", response.headers["Cache-Control"])
+
+    def test_legacy_ownerless_rfid_door_with_existing_rule_is_denied(self):
+        door = Door.objects.create(name="Legacy door", slug="legacy-door")
+        badge = Badge.objects.create(uid="legacy-fixture", owner=self.user)
+        AccessRule.objects.create(badge=badge, door=door, allowed=True)
+        for route in ("/api/check_access/", "/api/mobile/access-check/"):
+            with self.subTest(route=route):
+                response = self.api.post(route, {"door": door.slug, "uid": badge.uid})
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.json()["action"], "deny")
+                self.assertFalse(AccessLog.objects.filter(door=door).exists())

@@ -1019,6 +1019,7 @@ def mobile_surveillance_snapshot(request, camera_id):
     if image_data is None:
         return HttpResponse(status=404)
     response = HttpResponse(image_data, content_type="image/jpeg")
+    response["Cache-Control"] = "private, no-store"
     response["X-Frame-Id"] = str(_frame_id(request.user.id, camera_id))
     return response
 
