@@ -1,6 +1,9 @@
 name: P0 security regression checks
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - security/p0-audit-fixes-20261124
@@ -22,6 +25,8 @@ jobs:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
