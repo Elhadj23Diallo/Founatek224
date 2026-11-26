@@ -1019,6 +1019,7 @@ def mobile_surveillance_snapshot(request, camera_id):
     if image_data is None:
         return HttpResponse(status=404)
     response = HttpResponse(image_data, content_type="image/jpeg")
+    response["Cache-Control"] = "private, no-store"
     response["X-Frame-Id"] = str(_frame_id(request.user.id, camera_id))
     return response
 
@@ -2374,6 +2375,10 @@ def check_access(request):
     except Door.DoesNotExist:
         return JsonResponse({"allowed": False, "message": "Porte inconnue"}, status=404)
 
+    # A caller must own the door before any badge identity is queried.
+    if not request.user.is_authenticated or door.owner_id != request.user.pk:
+        return JsonResponse({"allowed": False, "action": "deny", "message": "Accès refusé"}, status=403)
+
     # Vérifie le badge actif
     try:
         badge = Badge.objects.get(uid=uid, is_active=True)
@@ -2552,9 +2557,9 @@ class SensorIngestAPIView(APIView):
                     user=user,
                     action="ingest",
                     details={
-                        "device_id": getattr(device, "device_id", None),
-                        "payload": getattr(appdata, "payload", None),
-                        "token_key": token_key,
+                        "device_pk": getattr(device, "pk", None),
+                        # Never persist credentials or raw sensor payloads in audit logs.
+                        "event": "sensor_data_received",
                     },
                 )
 

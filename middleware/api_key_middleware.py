@@ -3,16 +3,23 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 
-EXEMPT_PATHS = ['/api/token-auth/', '/api/mobile/register/']
+EXEMPT_PATHS = ['/api/token-auth/', '/api/mobile/register/', '/api/mobile/compatibility/']
 
 def _authenticate_via_query_token(request):
     """Repli pour les ressources chargées par une balise <img>/<video> (flux caméra),
     qui ne peuvent pas envoyer d'en-tête Authorization : accepte ?token=<clé> dans l'URL."""
+    # Query credentials are permitted only for legacy camera media URLs.
+    camera_prefixes = (
+        '/api/mobile/surveillance/stream/',
+        '/api/mobile/surveillance/snapshot/',
+    )
+    if not request.path.startswith(camera_prefixes):
+        return None
     qs_token = request.GET.get('token')
     if not qs_token:
         return None
     try:
-        tok = Token.objects.select_related('user').get(key=qs_token)
+        tok = Token.objects.select_related('user').get(key=qs_token, user__is_active=True)
         return (tok.user, tok)
     except Token.DoesNotExist:
         return None

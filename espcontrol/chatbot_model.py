@@ -1093,7 +1093,7 @@ class Chatbot:
         # publiees plutot que de laisser le modele generaliser.
         try:
             from .course_rag import search_course_content, format_course_context
-            course_ctx = format_course_context(search_course_content(raw_msg))
+            course_ctx = format_course_context(search_course_content(raw_msg, user=self.user))
             if course_ctx:
                 system_prompt += "\n\n" + course_ctx
         except Exception:

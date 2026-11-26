@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from monetisation.wallet_control import is_mobile_wallet_purchase, wallet_purchase_guard
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -400,6 +401,9 @@ def mobile_access_check(request):
     except Door.DoesNotExist:
         return Response({"allowed": False, "message": "Porte inconnue"}, status=status.HTTP_404_NOT_FOUND)
 
+    if not request.user.is_authenticated or door.owner_id != request.user.pk:
+        return Response({"allowed": False, "action": "deny", "message": "Accès refusé"}, status=403)
+
     try:
         badge = Badge.objects.get(uid=uid, is_active=True)
         owner_name = badge.owner.username if badge.owner else "inconnu"
@@ -691,6 +695,9 @@ def mobile_rules(request):
 
 
 # ── Action Logs ───────────────────────────────────────────────────────────────
+from .audit_logs import _redact_action_log_details, action_log_details_for_display
+
+
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -700,7 +707,7 @@ def mobile_action_logs(request):
         {
             "id": log.id,
             "action": log.action,
-            "details": log.details,
+            "details": action_log_details_for_display(log),
             "created_at": log.created_at.isoformat(),
         }
         for log in logs
@@ -1467,12 +1474,22 @@ def mobile_education_submit_quiz(request, lecon_id):
             return Response({"error": "Leçon introuvable"}, status=404)
         if not can_read_lesson(request.user, lecon_check):
             return Response({"error": "Accès payant requis.", "code": "payment_required"}, status=402)
+        from iot.academy_access import has_full_access, is_raw_book_draft
+        from iot.utils.pedagogy import lecon_est_debloquee
+        if is_raw_book_draft(lecon_check) or (
+            not has_full_access(request.user)
+            and (not lecon_check.parcours.is_published or not lecon_est_debloquee(request.user, lecon_check))
+        ):
+            return Response({"error": "Le?on verrouill?e."}, status=403)
         answers = request.data.get("answers", {})
+        if not isinstance(answers, dict):
+            return Response({"error": "R?ponses invalides."}, status=400)
         quizzes = Quiz.objects.filter(lecon_id=lecon_id)
         total = quizzes.count()
         if total == 0:
             return Response({"error": "Aucun quiz pour cette leçon"}, status=400)
         correct = 0
+        answered = False
         details = []
         for q in quizzes:
             raw_ans = answers.get(str(q.id), "")
@@ -1480,17 +1497,23 @@ def mobile_education_submit_quiz(request, lecon_id):
                 user_ans_set = {str(r).strip().upper() for r in raw_ans}
             else:
                 user_ans_set = {r.strip().upper() for r in str(raw_ans).split(",") if r.strip()}
-            is_correct = bool(user_ans_set) and user_ans_set == q.bonnes_reponses_set()
+            valid_answer = bool(user_ans_set) and user_ans_set <= {
+                option for option, text in (("A", q.choix_a), ("B", q.choix_b), ("C", q.choix_c), ("D", q.choix_d)) if text
+            }
+            answered = answered or valid_answer
+            is_correct = valid_answer and user_ans_set == q.bonnes_reponses_set()
             if is_correct:
                 correct += 1
             details.append({
                 "id": q.id,
                 "question": q.question,
                 "your_answer": ",".join(sorted(user_ans_set)),
-                "correct_answer": q.bonne_reponse,
+                "correct_answer": q.bonne_reponse if valid_answer else None,
                 "is_correct": is_correct,
-                "explication": q.explication,
+                "explication": q.explication if valid_answer else None,
             })
+        if not answered:
+            return Response({"error": "Au moins une r?ponse valide est requise."}, status=400)
         score = round((correct / total) * 100, 1)
         lecon = Lecon.objects.get(id=lecon_id)
         prog, _ = Progression.objects.get_or_create(user=request.user, lecon=lecon)
@@ -1725,24 +1748,47 @@ def mobile_monetisation_dashboard(request):
         return Response({"error": str(e)}, status=500)
 
 
+@api_view(["GET"])
+@permission_classes([])
+def mobile_compatibility(request):
+    from monappli.mobile_compatibility import mobile_policy
+
+    return Response(mobile_policy(request), headers={"Cache-Control": "no-store"})
+
+
 @csrf_exempt
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@wallet_purchase_guard(is_mobile_wallet_purchase)
 def mobile_monetisation_upgrade(request):
     """Body: { "plan": "basic" | "pro" | "free" } — paiement avec le solde du wallet.
     Solde insuffisant : 402 {"error", "code": "insufficient_balance",
     "missing", "balance", "price"} pour que l'appli propose une recharge."""
+    from django.db import OperationalError, connection, transaction as db_transaction
+    from monappli.mobile_compatibility import mobile_policy, mobile_update_required
+
     try:
-        from django.db import transaction as db_transaction
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
         from monetisation.utils import PLAN_PRICES, round_money
         from django.utils import timezone
         from datetime import timedelta
-        import uuid as uuid_lib
         plan = request.data.get("plan", "free")
         if plan not in PLAN_PRICES:
             return Response({"error": "Plan invalide"}, status=400)
         price = PLAN_PRICES[plan]
+        if price > 0:
+            policy = mobile_policy(request)
+            if not policy["compatible"]:
+                return mobile_update_required(policy)
+        # Paid upgrades require a stable key supplied by the caller on retries.
+        # Existing PaymentRequest.transaction_id stores the operation fingerprint.
+        import hashlib
+        operation_key = request.headers.get("Idempotency-Key", "")
+        if price > 0 and (not operation_key or len(operation_key) > 128):
+            return Response({"error": "Idempotency-Key requis pour un paiement"}, status=400)
+        operation_id = ("upgrade:" + hashlib.sha256(
+            f"{request.user.pk}:{operation_key}".encode("utf-8")
+        ).hexdigest()) if price > 0 else None
         with db_transaction.atomic():
             # Lignes verrouillées : un double appel ne débite pas deux fois.
             Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
@@ -1750,6 +1796,27 @@ def mobile_monetisation_upgrade(request):
             sub, _ = Subscription.objects.get_or_create(user=request.user, defaults={"plan": "free"})
             sub = Subscription.objects.select_for_update().get(pk=sub.pk)
             if price > 0:
+                previous = PaymentRequest.objects.filter(
+                    user=request.user, provider="wallet",
+                    purpose="subscription", transaction_id=operation_id,
+                ).first()
+                if previous:
+                    if previous.amount != price or sub.plan != plan:
+                        return Response({"error": "Clé d'idempotence déjà utilisée pour une autre opération"}, status=409)
+                    return Response({
+                        "plan": sub.plan,
+                        "end_date": sub.end_date.isoformat() if sub.end_date else None,
+                        "cancel_at_period_end": sub.cancel_at_period_end,
+                        "balance": wallet.balance,
+                        "replayed": True,
+                    })
+                if sub.billing == "stripe_auto" and sub.stripe_subscription_id:
+                    return Response({"error": "Abonnement Stripe actif : changement via le portail de facturation requis"}, status=409)
+                if sub.plan == plan and (sub.end_date is None or sub.end_date >= timezone.localdate()):
+                    return Response({
+                        "code": "plan_already_active",
+                        "error": "Cet abonnement est déjà actif.",
+                    }, status=409)
                 if wallet.balance < price:
                     missing = round_money(price - wallet.balance)
                     return Response({
@@ -1765,7 +1832,7 @@ def mobile_monetisation_upgrade(request):
                 )
                 PaymentRequest.objects.create(
                     user=request.user, provider="wallet", amount=price, status="success",
-                    transaction_id=str(uuid_lib.uuid4()), purpose="subscription",
+                    transaction_id=operation_id, purpose="subscription",
                 )
                 # Pas de commission ici : argent déjà commissionné à la recharge du wallet.
             sub.plan = plan
@@ -1779,6 +1846,10 @@ def mobile_monetisation_upgrade(request):
             "cancel_at_period_end": sub.cancel_at_period_end,
             "balance": wallet.balance,
         })
+    except OperationalError as e:
+        if connection.vendor == "sqlite" and getattr(e.__cause__, "sqlite_errorcode", 0) & 255 in (5, 6):
+            return Response({"error": "Op?ration en cours, r?essayez avec la m?me cl?."}, status=409)
+        return Response({"error": "Changement d?abonnement indisponible."}, status=500)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
@@ -2657,11 +2728,15 @@ def mobile_transparence_create_sale(request):
                     qty = int(i["quantity"])
                     price = product.pricing.price
                 except (Product.DoesNotExist, KeyError, TypeError, ValueError, AttributeError):
-                    sale.delete()
+                    transaction.set_rollback(True)
                     return Response({"error": "Produit invalide dans le panier"}, status=400)
 
+                if qty <= 0:
+                    transaction.set_rollback(True)
+                    return Response({"error": "Quantité strictement positive requise"}, status=400)
+
                 if product.stock is not None and qty > product.stock:
-                    sale.delete()
+                    transaction.set_rollback(True)
                     return Response(
                         {"error": f"Stock insuffisant pour {product.name} ({product.stock} disponible)"},
                         status=400

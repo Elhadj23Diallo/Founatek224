@@ -1,0 +1,93 @@
+name: P0 security regression checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - security/p0-audit-fixes-20261124
+      - review/django-security-validation
+  push:
+    branches:
+      - security/p0-audit-fixes-20261124
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-for-production-long-random-looking-test-key-2026
+      DJANGO_SECURE_COOKIES: "false"
+      STRIPE_AUTO_RENEW_ENABLED: "false"
+      ACADEMY_BOOK_CHECKOUT_ENABLED: "false"
+      PAYPAL_MODE: sandbox
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip check
+      - name: Compile Python source
+        run: python -m compileall -q espcontrol iot product_transparency monetisation middleware monappli
+      - name: Django system checks
+        run: python manage.py check
+      - name: Run isolated regression tests
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from django.conf import settings
+          from django.core.management import execute_from_command_line
+          from django.core.mail.utils import DNS_NAME
+          from monetisation.wallet_control import control
+
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "monappli.settings")
+          def block_network(event, args):
+              if event.startswith("socket.") and event != "socket.__new__":
+                  raise RuntimeError("Network access is disabled in the regression tests.")
+
+          DNS_NAME._fqdn = "localhost"
+          sys.addaudithook(block_network)
+          with TemporaryDirectory() as tmp:
+              os.environ["FOUNATEK_WALLET_CONTROL_DIR"] = str(Path(tmp) / "wallet-control")
+              control("pause")
+              control("resume")
+              settings.DATABASES = {
+                  "default": {
+                      "ENGINE": "django.db.backends.sqlite3",
+                      "NAME": ":memory:",
+                      "TEST": {"NAME": str(Path(tmp) / "security.sqlite3")},
+                  }
+              }
+              settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+              execute_from_command_line([
+                  "manage.py", "test",
+                  "espcontrol.tests.test_action_log_redaction",
+                  "espcontrol.tests.test_p0_security",
+                  "espcontrol.tests.test_academy_mobile_api",
+                  "espcontrol.tests.test_mobile_api",
+                  "iot.tests_parcours_access",
+                  "monetisation.tests_mobile_parity",
+                  "monetisation.tests_wallet_control",
+                  "monetisation.tests_payments",
+                  "monetisation.tests_refunds",
+                  "monetisation.tests_saas_billing",
+                  "monetisation.tests_academy_checkout",
+                  "monetisation.tests_parcours_checkout",
+                  "product_transparency.tests_concurrency",
+                  "--noinput", "--verbosity", "2",
+              ])
+          PY

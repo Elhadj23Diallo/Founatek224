@@ -217,7 +217,14 @@ class LeconViewSet(viewsets.ReadOnlyModelViewSet):
                 "Vous devez valider la leçon précédente pour continuer."
             )
 
-        return super().retrieve(request, *args, **kwargs)
+        if getattr(request, "authenticated_via_token", False) or request.auth is not None:
+            from monappli.mobile_compatibility import mobile_policy, mobile_update_required
+
+            policy = mobile_policy(request)
+            if not policy["compatible"] and Quiz.objects.filter(lecon=lecon).exists():
+                return mobile_update_required(policy)
+
+        return Response(self.get_serializer(lecon).data)
 
 
 
@@ -301,6 +308,9 @@ class ProgressionViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if not can_read_lesson(self.request.user, serializer.instance.lecon):
             raise PermissionDenied("Accès Academy requis.")
+        if ("lecon" in serializer.validated_data and
+                serializer.validated_data["lecon"].pk != serializer.instance.lecon_id):
+            raise PermissionDenied("La leçon d'une progression ne peut pas être modifiée.")
         serializer.save()
 
 

@@ -2,11 +2,12 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta
 from .models import Wallet, Transaction, Subscription, PaymentRequest, Referral, ReferralTransaction
+from .wallet_control import is_web_wallet_purchase, wallet_purchase_guard
 import logging
 import uuid
 import json
@@ -238,6 +239,7 @@ def _render_subscription(request, sub, wallet, error=None):
 
 @login_required
 @never_cache
+@wallet_purchase_guard(is_web_wallet_purchase)
 def subscription_view(request):
     from .utils import sync_subscription_expiry, send_cancellation_confirmation_email, send_reactivation_confirmation_email
     from django.contrib import messages
@@ -308,6 +310,8 @@ def subscription_view(request):
             with transaction.atomic():
                 wallet = Wallet.objects.select_for_update().get(user=request.user)
                 sub = Subscription.objects.select_for_update().get(user=request.user)
+                if sub.plan == new_plan and (sub.end_date is None or sub.end_date >= timezone.localdate()):
+                    return HttpResponse("Cet abonnement est déjà actif.", status=409)
                 if wallet.balance < amount:
                     missing = round_money(amount - wallet.balance)
                     return _render_subscription(

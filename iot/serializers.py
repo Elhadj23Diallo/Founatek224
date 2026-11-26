@@ -30,8 +30,7 @@ class QuizSerializer(serializers.ModelSerializer):
             'choix_b',
             'choix_c',
             'choix_d',
-            'bonne_reponse',
-            'explication',
+            'plusieurs_reponses',
         ]
 
 
@@ -105,6 +104,8 @@ class ProgressionSerializer(serializers.ModelSerializer):
             'score',
             'updated_at',
         ]
+        # Completion and score must be awarded by a server-validated quiz flow.
+        read_only_fields = ['completed', 'score', 'updated_at']
 
 
 class OrganisationSerializer(serializers.ModelSerializer):
