@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from monetisation.wallet_control import is_mobile_wallet_purchase, wallet_purchase_guard
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -1758,6 +1759,7 @@ def mobile_compatibility(request):
 @csrf_exempt
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@wallet_purchase_guard(is_mobile_wallet_purchase)
 def mobile_monetisation_upgrade(request):
     """Body: { "plan": "basic" | "pro" | "free" } — paiement avec le solde du wallet.
     Solde insuffisant : 402 {"error", "code": "insufficient_balance",

@@ -50,9 +50,13 @@ jobs:
           from tempfile import TemporaryDirectory
           from django.conf import settings
           from django.core.management import execute_from_command_line
+          from monetisation.wallet_control import control
 
           os.environ.setdefault("DJANGO_SETTINGS_MODULE", "monappli.settings")
           with TemporaryDirectory() as tmp:
+              os.environ["FOUNATEK_WALLET_CONTROL_DIR"] = str(Path(tmp) / "wallet-control")
+              control("pause")
+              control("resume")
               settings.DATABASES = {
                   "default": {
                       "ENGINE": "django.db.backends.sqlite3",
@@ -69,6 +73,7 @@ jobs:
                   "espcontrol.tests.test_mobile_api",
                   "iot.tests_parcours_access",
                   "monetisation.tests_mobile_parity",
+                  "monetisation.tests_wallet_control",
                   "product_transparency.tests_concurrency",
                   "--noinput", "--verbosity", "2",
               ])
