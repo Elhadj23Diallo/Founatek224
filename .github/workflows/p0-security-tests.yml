@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - security/p0-audit-fixes-20261124
+      - review/django-security-validation
   push:
     branches:
       - security/p0-audit-fixes-20261124
