@@ -136,6 +136,11 @@ REST_FRAMEWORK = {
     ],
 }
 
+MOBILE_MINIMUM_BUILDS = {
+    "android": int(os.getenv("MOBILE_MINIMUM_ANDROID_BUILD", "1")),
+    "ios": int(os.getenv("MOBILE_MINIMUM_IOS_BUILD", "1")),
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

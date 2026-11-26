@@ -3,7 +3,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 
-EXEMPT_PATHS = ['/api/token-auth/', '/api/mobile/register/']
+EXEMPT_PATHS = ['/api/token-auth/', '/api/mobile/register/', '/api/mobile/compatibility/']
 
 def _authenticate_via_query_token(request):
     """Repli pour les ressources chargées par une balise <img>/<video> (flux caméra),

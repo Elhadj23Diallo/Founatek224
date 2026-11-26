@@ -1747,6 +1747,14 @@ def mobile_monetisation_dashboard(request):
         return Response({"error": str(e)}, status=500)
 
 
+@api_view(["GET"])
+@permission_classes([])
+def mobile_compatibility(request):
+    from monappli.mobile_compatibility import mobile_policy
+
+    return Response(mobile_policy(request), headers={"Cache-Control": "no-store"})
+
+
 @csrf_exempt
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -1755,7 +1763,7 @@ def mobile_monetisation_upgrade(request):
     Solde insuffisant : 402 {"error", "code": "insufficient_balance",
     "missing", "balance", "price"} pour que l'appli propose une recharge."""
     from django.db import OperationalError, connection, transaction as db_transaction
-    from django.db.models import F
+    from monappli.mobile_compatibility import mobile_policy, mobile_update_required
 
     try:
         from monetisation.models import Wallet, Subscription, Transaction, PaymentRequest
@@ -1766,6 +1774,10 @@ def mobile_monetisation_upgrade(request):
         if plan not in PLAN_PRICES:
             return Response({"error": "Plan invalide"}, status=400)
         price = PLAN_PRICES[plan]
+        if price > 0:
+            policy = mobile_policy(request)
+            if not policy["compatible"]:
+                return mobile_update_required(policy)
         # Paid upgrades require a stable key supplied by the caller on retries.
         # Existing PaymentRequest.transaction_id stores the operation fingerprint.
         import hashlib
@@ -1798,6 +1810,11 @@ def mobile_monetisation_upgrade(request):
                     })
                 if sub.billing == "stripe_auto" and sub.stripe_subscription_id:
                     return Response({"error": "Abonnement Stripe actif : changement via le portail de facturation requis"}, status=409)
+                if sub.plan == plan and (sub.end_date is None or sub.end_date >= timezone.localdate()):
+                    return Response({
+                        "code": "plan_already_active",
+                        "error": "Cet abonnement est déjà actif.",
+                    }, status=409)
                 if wallet.balance < price:
                     missing = round_money(price - wallet.balance)
                     return Response({
