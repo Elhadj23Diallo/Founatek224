@@ -91,6 +91,10 @@ window.MathJax = {options: {skipHtmlTags: ['script','noscript','style','textarea
     }
 
     .terminal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
         background: #161b22;
         padding: 8px 15px;
         font-family: 'Orbitron';
@@ -415,7 +419,9 @@ window.MathJax = {options: {skipHtmlTags: ['script','noscript','style','textarea
 
                 <div class="terminal-window">
                     <div class="terminal-header">
-                        {{ bloc.language|default:"CODE" }}
+                        <span>{{ bloc.language|default:"CODE" }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-light"
+                                data-copy-code aria-live="polite" hidden>Copier le code</button>
                     </div>
 
                     <div class="terminal-body">{{ bloc.code }}</div>
@@ -683,4 +689,20 @@ window.MathJax = {options: {skipHtmlTags: ['script','noscript','style','textarea
 
 </div>
 
+<script>
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        document.querySelectorAll('[data-copy-code]').forEach((button) => {
+            const code = button.closest('.terminal-window').querySelector('.terminal-body');
+            button.hidden = false;
+            button.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(code.textContent);
+                    button.textContent = 'Code copié';
+                } catch {
+                    button.textContent = 'Échec de la copie — réessayer';
+                }
+            });
+        });
+    }
+</script>
 {% endblock %}
