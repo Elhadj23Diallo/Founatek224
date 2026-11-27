@@ -5,13 +5,14 @@ Usage :
     python manage.py import_academy_book_v2                  # simulation
     python manage.py import_academy_book_v2 --apply          # tout le livre
     python manage.py import_academy_book_v2 --chapter 00 --apply
+    python manage.py import_academy_book_v2 --lesson 0.1 --apply
 
 Garanties :
 - ne publie RIEN : les nouvelles leçons sont en brouillon, et l'état
   « publié » des leçons existantes n'est pas modifié ;
 - ne touche ni aux progressions des apprenants, ni aux certificats ;
 - une leçon déjà à jour (même empreinte) n'est pas reconstruite ;
-- une vidéo déjà envoyée par le formateur est conservée ;
+- une vidéo déjà envoyée par le formateur est conservée pour les leçons sans vidéos intégrées ;
 - si une leçon change, ses blocs et ses quiz sont remplacés par la source.
 
 Format d'une leçon (chapter_XX.json = liste de leçons) :
@@ -24,19 +25,21 @@ Format d'une leçon (chapter_XX.json = liste de leçons) :
      {"type": "texte", "contenu": "markdown + formules"},
      {"type": "schema", "fichier": "0.1-schema.svg", "legende": "…"},
      {"type": "image",  "fichier": "…", "legende": "…", "credit": "…"},
-     {"type": "code", "language": "cpp", "code": "…"}
+     {"type": "code", "language": "cpp", "code": "…"},
+     {"type": "video", "fichier": "lecon_0_1/video_01.mp4", "legende": "…"}
   ],
   "quiz": [{"question": "…", "choix": ["…", "…", "…", "…"],
             "bonnes": ["B"], "explication": "…"}]
 }
-Le premier bloc texte (objectifs) est suivi du matériel puis de la vidéo.
+Le matériel suit les objectifs. Sans bloc vidéo explicite, l’emplacement vidéo reste à cet endroit.
 Les fichiers (photos, schémas) sont dans iot/academy_source/v2/assets/.
+Les fichiers vidéo référencés par les blocs sont dans iot/course_media/.
 """
 import hashlib
 import json
 from pathlib import Path
 
-from django.core.files.base import ContentFile
+from django.core.files.base import ContentFile, File
 from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -46,28 +49,39 @@ from iot.models import AcademyBookLesson, BlocPedagogique, Lecon, Parcours, Quiz
 
 SOURCE = Path(__file__).resolve().parents[2] / "academy_source" / "v2"
 ASSETS = SOURCE / "assets"
+COURSE_MEDIA = SOURCE.parents[1] / "course_media"
 MEDIA_DIR = "academy/livre1"
 LETTERS = "ABCD"
 
 
 def lesson_hash(entry):
     digest = hashlib.sha256(json.dumps(entry, sort_keys=True, ensure_ascii=False).encode("utf-8"))
-    for name in sorted(_asset_names(entry)):
-        path = ASSETS / name
+    for name, path in sorted(_asset_paths(entry)):
         if path.exists():
             digest.update(name.encode("utf-8"))
             digest.update(path.read_bytes())
     return digest.hexdigest()
 
 
-def _asset_names(entry):
-    names = []
+def _asset_paths(entry):
     if entry.get("photo", {}).get("fichier"):
-        names.append(entry["photo"]["fichier"])
+        name = entry["photo"]["fichier"]
+        yield name, ASSETS / name
     for bloc in entry.get("blocs", []):
-        if bloc.get("fichier"):
-            names.append(bloc["fichier"])
-    return names
+        name = bloc.get("fichier")
+        if bloc.get("type") == "video":
+            yield name or "", _video_source(name)
+        elif name:
+            yield name, ASSETS / name
+
+
+def _video_source(name):
+    if isinstance(name, str) and name:
+        root = COURSE_MEDIA.resolve()
+        path = (root / name).resolve()
+        if path.is_relative_to(root) and path.suffix.lower() == ".mp4":
+            return path
+    return None
 
 
 def validate(entry):
@@ -77,8 +91,8 @@ def validate(entry):
     for key in ("id", "titre", "resume", "blocs", "quiz"):
         if not entry.get(key):
             errors.append(f"{lid} : champ « {key} » manquant")
-    for name in _asset_names(entry):
-        if not (ASSETS / name).exists():
+    for name, path in _asset_paths(entry):
+        if path is None or not path.is_file():
             errors.append(f"{lid} : fichier introuvable {name}")
     for n, q in enumerate(entry.get("quiz", []), start=1):
         choix = q.get("choix", [])
@@ -104,12 +118,24 @@ def _save_asset(lesson_id, name):
     return default_storage.save(target, ContentFile((ASSETS / name).read_bytes()))
 
 
+def _save_video(lesson_id, name):
+    source = _video_source(name)
+    with source.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        target = f"{MEDIA_DIR}/{lesson_id}/videos/{digest[:16]}/{source.name}"
+        if default_storage.exists(target):
+            return target
+        stream.seek(0)
+        return default_storage.save(target, File(stream, name=source.name))
+
+
 class Command(BaseCommand):
     help = "Importer en brouillon les leçons enrichies du Livre 1 (sans rien publier)."
 
     def add_arguments(self, parser):
         parser.add_argument("--apply", action="store_true", help="Écrire en base (sinon simulation).")
         parser.add_argument("--chapter", help="Limiter à une partie, ex. 00, 07.")
+        parser.add_argument("--lesson", help="Limiter à une leçon, ex. 0.1.")
         parser.add_argument("--force", action="store_true", help="Reconstruire même si la source n'a pas changé.")
 
     def handle(self, *args, **options):
@@ -126,8 +152,12 @@ class Command(BaseCommand):
         errors = []
         for path in files:
             for entry in json.loads(path.read_text(encoding="utf-8")):
+                if options.get("lesson") and entry.get("id") != options["lesson"]:
+                    continue
                 errors += validate(entry)
                 entries.append(entry)
+        if not entries and options.get("lesson"):
+            raise CommandError(f"Leçon introuvable : {options['lesson']}")
         if errors:
             raise CommandError("Source invalide :\n" + "\n".join(errors))
 
@@ -177,11 +207,14 @@ class Command(BaseCommand):
                     lecon=lecon, defaults={"chapter_number": chapter, "published": False}
                 )
 
-            # Vidéo déjà envoyée par le formateur : on la garde.
-            kept_video = (
-                lecon.blocs.filter(type="video").exclude(media_file="").exclude(media_file__isnull=True)
-                .values_list("media_file", flat=True).first()
-            )
+            blocs = entry["blocs"]
+            inline_videos = any(bloc["type"] == "video" for bloc in blocs)
+            kept_video = None
+            if not inline_videos:
+                kept_video = (
+                    lecon.blocs.filter(type="video").exclude(media_file="").exclude(media_file__isnull=True)
+                    .values_list("media_file", flat=True).first()
+                )
             lecon.blocs.all().delete()
             lecon.quizzes.all().delete()
 
@@ -198,7 +231,6 @@ class Command(BaseCommand):
                     media_file=_save_asset(lid, photo["fichier"]),
                     contenu=_caption(photo.get("legende"), photo.get("credit")))
 
-            blocs = entry["blocs"]
             for index, bloc in enumerate(blocs):
                 kind = bloc["type"]
                 if kind == "texte":
@@ -209,6 +241,9 @@ class Command(BaseCommand):
                         contenu=_caption(bloc.get("legende"), bloc.get("credit")))
                 elif kind == "code":
                     add(type="code", language=bloc.get("language", "cpp"), code=bloc["code"])
+                elif kind == "video":
+                    add(type="video", media_file=_save_video(lid, bloc["fichier"]),
+                        contenu=bloc.get("legende", ""))
                 else:
                     raise CommandError(f"{lid} : type de bloc inconnu « {kind} »")
 
@@ -216,8 +251,9 @@ class Command(BaseCommand):
                     if entry.get("materiel"):
                         add(type="texte", contenu="## 🧰 Matériel nécessaire\n\n"
                             + "\n".join(f"- {m}" for m in entry["materiel"]))
-                    add(type="video", media_file=kept_video or None,
-                        contenu=entry.get("video", ""))
+                    if not inline_videos:
+                        add(type="video", media_file=kept_video or None,
+                            contenu=entry.get("video", ""))
 
             for q in entry["quiz"]:
                 choix = q["choix"] + [None] * (4 - len(q["choix"]))

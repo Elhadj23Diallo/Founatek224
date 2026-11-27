@@ -14,6 +14,9 @@ from .academy_access import can_read_lesson
 from .book_catalog import BOOK_SLUG
 from .models import AcademyBookLesson, BlocPedagogique, Lecon, Parcours, Quiz
 from .templatetags.lesson_extras import markdown_lite
+from .management.commands import import_academy_book_v2
+
+BOOK_V2_SOURCE = import_academy_book_v2.SOURCE
 
 PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00"
        b"\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82")
@@ -163,6 +166,39 @@ class ImportV2Tests(TestCase):
         self.client.force_login(self.learner)
         resp = self.client.get(f"/lecon/{lecon.id}/")
         self.assertRedirects(resp, "/academy/livre-1/", fetch_redirect_response=False)
+
+    def test_lesson_0_1_renders_wokwi_video_between_arduino_code_and_measurements(self):
+        chapter = json.loads((BOOK_V2_SOURCE / "chapter_00.json").read_text(encoding="utf-8"))
+        source_lesson = next(entry for entry in chapter if entry["id"] == "0.1")
+        with (
+            patch.object(import_academy_book_v2, "SOURCE", BOOK_V2_SOURCE),
+            patch.object(import_academy_book_v2, "ASSETS", BOOK_V2_SOURCE / "assets"),
+        ):
+            self.run_import("--lesson", "0.1", "--apply")
+            self.assertIn("1 inchangées", self.run_import("--lesson", "0.1", "--apply"))
+
+        lecon = Lecon.objects.get()
+        self.assertEqual(lecon.quizzes.count(), len(source_lesson["quiz"]))
+        video = lecon.blocs.get(type="video")
+        source = import_academy_book_v2.COURSE_MEDIA / "lecon_0_1" / "video_01.mp4"
+        self.assertEqual(video.media_file.size, source.stat().st_size)
+        self.client.force_login(self.staff)
+        response = self.client.get(f"/lecon/{lecon.id}/")
+        self.assertContains(response, "<video controls", count=1)
+        self.assertNotContains(response, "Vidéo de la leçon : bientôt disponible")
+        self.assertNotContains(response, "video_02.mp4")
+        html = response.content.decode()
+        markers = (
+            "Les quatre grandeurs à connaître",
+            "La loi d",
+            "Exemple résolu",
+            "Le montage pas à pas",
+            "BROCHE_LED",
+            f'<source src="{video.media_file.url}">',
+            "Mesurer pour vérifier",
+        )
+        positions = [html.index(marker) for marker in markers]
+        self.assertEqual(positions, sorted(positions))
 
 
 class AdminFullAccessTests(TestCase):

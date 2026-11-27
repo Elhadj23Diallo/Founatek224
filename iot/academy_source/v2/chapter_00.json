@@ -61,6 +61,11 @@
     "code": "// Leçon 0.1 — LED protégée par une résistance de 220 Ω sur la broche D9\nconst int BROCHE_LED = 9;\n\nvoid setup() {\n  pinMode(BROCHE_LED, OUTPUT);   // la broche D9 devient une sortie\n}\n\nvoid loop() {\n  digitalWrite(BROCHE_LED, HIGH); // D9 à 5 V : I ≈ (5 - 2) / 220 ≈ 13,6 mA, la LED s'allume\n  delay(1000);                    // attendre 1 seconde\n  digitalWrite(BROCHE_LED, LOW);  // D9 à 0 V : plus de courant, la LED s'éteint\n  delay(1000);\n}"
    },
    {
+    "type": "video",
+    "fichier": "lecon_0_1/video_01.mp4",
+    "legende": "Simulation Wokwi — Arduino Uno, LED rouge et résistance de 220 Ω"
+   },
+   {
     "type": "texte",
     "contenu": "> 📌 **Et avec un ESP32 ?** Ses broches donnent 3,3 V au lieu de 5 V. Pour une LED rouge à 10 mA : \\( R = (3{,}3 - 2) / 0{,}010 = 130\\ \\Omega \\) → on prend **150 Ω**. Utilise par exemple la broche GPIO 2 et remplace `9` par `2` dans le programme.\n\n## 6. Mesurer pour vérifier\n\nRemplace le programme par un simple `digitalWrite(9, HIGH);` dans `setup()` pour que la LED reste allumée, puis :\n\n1. **Tension** : multimètre sur V⎓ (continu), pointes **aux bornes** de la résistance (en parallèle). Tu dois lire environ 3 V.\n2. **Courant** : multimètre sur mA, cordon rouge dans la borne mA. **Ouvre** le circuit (retire le fil entre D9 et la résistance) et place le multimètre **dans le trou** (en série). Tu dois lire environ 13 à 14 mA.\n3. **Compare** avec le calcul : \\( I = U_R / R = 3 / 220 \\approx 13{,}6\\ \\text{mA} \\). Les petites différences viennent de la tolérance de la résistance (± 5 %) et de la tension réelle de la LED.\n\n| Mesure | Valeur attendue | Ta mesure |\n|---|---|---|\n| U aux bornes de R | ≈ 3,0 V | … |\n| U aux bornes de la LED | ≈ 2,0 V | … |\n| I dans le circuit | ≈ 13,6 mA | … |"
    },

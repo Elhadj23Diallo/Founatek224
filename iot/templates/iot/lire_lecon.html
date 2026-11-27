@@ -448,10 +448,15 @@ window.MathJax = {options: {skipHtmlTags: ['script','noscript','style','textarea
 
                 {% if bloc.media_file %}
 
-                    <video controls class="video-player">
-                        <source src="{{ bloc.media_file.url }}">
-                        Votre navigateur ne supporte pas la lecture vidéo.
-                    </video>
+                    <figure style="margin:0">
+                        {% if bloc.contenu %}
+                            <figcaption class="media-caption">{{ bloc.contenu|linebreaksbr }}</figcaption>
+                        {% endif %}
+                        <video controls preload="metadata" class="video-player">
+                            <source src="{{ bloc.media_file.url }}">
+                            Votre navigateur ne supporte pas la lecture vidéo.
+                        </video>
+                    </figure>
 
                 {% else %}
 
