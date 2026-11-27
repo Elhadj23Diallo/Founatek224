@@ -47,6 +47,7 @@ from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from iot import academy_audio
 from iot.book_catalog import BOOK_SLUG
 from iot.models import AcademyBookLesson, BlocPedagogique, Lecon, Parcours, Quiz
 
@@ -134,6 +135,56 @@ def _save_video(lesson_id, name):
         return default_storage.save(target, File(stream, name=source.name))
 
 
+def read_entries(chapter=None, lesson=None):
+    pattern = f"chapter_{chapter.zfill(2)}.json" if chapter else "chapter_*.json"
+    files = sorted(SOURCE.glob(pattern))
+    if not files:
+        raise CommandError(f"Aucune source trouvée dans {SOURCE} ({pattern}).")
+    entries = [
+        entry for path in files
+        for entry in json.loads(path.read_text(encoding="utf-8"))
+        if not lesson or entry.get("id") == lesson
+    ]
+    if not entries and lesson:
+        raise CommandError(f"Leçon introuvable : {lesson}")
+    errors = [error for entry in entries for error in validate(entry)]
+    if errors:
+        raise CommandError("Source invalide :\n" + "\n".join(errors))
+    return entries
+
+
+def video_sources(entry):
+    return [bloc["fichier"] for bloc in entry["blocs"]
+            if bloc["type"] == "video" and bloc.get("fichier")]
+
+
+def optimize_video(source, executable, cache_directory, warn):
+    try:
+        return academy_audio.optimize_for_storage(source, executable, cache_directory)
+    except (academy_audio.AudioNormalizationError, OSError) as error:
+        warn(f"{source.name} : {error} La vidéo actuelle ou l’original est conservé.")
+        return None
+
+
+def update_video_audio(lesson, entry, executable, cache_directory, warn):
+    names = video_sources(entry)
+    if not names:
+        return 0
+    blocks = list(lesson.blocs.filter(type="video").order_by("ordre"))
+    if len(blocks) != len(names):
+        warn(f"{lesson.titre} : les blocs vidéo ne correspondent plus à la source.")
+        return 0
+    count = 0
+    for block, name in zip(blocks, names):
+        current = block.media_file.name or ""
+        if not current.startswith((f"{MEDIA_DIR}/{entry['id']}/videos/", f"{academy_audio.MEDIA_PREFIX}/")):
+            continue
+        rendition = optimize_video(_video_source(name), executable, cache_directory, warn)
+        if rendition and current != rendition:
+            count += BlocPedagogique.objects.filter(pk=block.pk, media_file=current).update(media_file=rendition)
+    return count
+
+
 class Command(BaseCommand):
     help = "Importer en brouillon les leçons enrichies du Livre 1 (sans rien publier)."
 
@@ -142,29 +193,16 @@ class Command(BaseCommand):
         parser.add_argument("--chapter", help="Limiter à une partie, ex. 00, 07.")
         parser.add_argument("--lesson", help="Limiter à une leçon, ex. 0.1.")
         parser.add_argument("--force", action="store_true", help="Reconstruire même si la source n'a pas changé.")
+        parser.add_argument("--audio-cache-dir", type=Path, help="Lire les copies audio préparées sur une autre machine.")
 
     def handle(self, *args, **options):
         parcours = Parcours.objects.filter(slug=BOOK_SLUG).first()
         if parcours is None:
             raise CommandError("Parcours Livre 1 introuvable : exécutez prepare_academy_book.")
 
-        pattern = f"chapter_{options['chapter'].zfill(2)}.json" if options.get("chapter") else "chapter_*.json"
-        files = sorted(SOURCE.glob(pattern))
-        if not files:
-            raise CommandError(f"Aucune source trouvée dans {SOURCE} ({pattern}).")
-
-        entries = []
-        errors = []
-        for path in files:
-            for entry in json.loads(path.read_text(encoding="utf-8")):
-                if options.get("lesson") and entry.get("id") != options["lesson"]:
-                    continue
-                errors += validate(entry)
-                entries.append(entry)
-        if not entries and options.get("lesson"):
-            raise CommandError(f"Leçon introuvable : {options['lesson']}")
-        if errors:
-            raise CommandError("Source invalide :\n" + "\n".join(errors))
+        entries = read_entries(options.get("chapter"), options.get("lesson"))
+        self.ffmpeg = academy_audio.find_ffmpeg() if options["apply"] else None
+        self.audio_cache_dir = options.get("audio_cache_dir")
 
         counts = {"créées": 0, "mises à jour": 0, "inchangées": 0}
         for entry in entries:
@@ -189,6 +227,11 @@ class Command(BaseCommand):
         lecon = Lecon.objects.filter(parcours=parcours, titre__startswith=f"{lid} —").first()
         book_entry = getattr(lecon, "academy_book_entry", None) if lecon else None
         if lecon and book_entry and book_entry.content_hash == digest and not options["force"]:
+            if options["apply"] and update_video_audio(
+                lecon, entry, self.ffmpeg, self.audio_cache_dir, self.stderr.write,
+            ):
+                self.stdout.write(f"Audio mis à jour : {title}")
+                return "mises à jour"
             self.stdout.write(f"À jour : {title}")
             return "inchangées"
 
@@ -197,6 +240,11 @@ class Command(BaseCommand):
                           f"({len(entry['blocs'])} blocs, {len(entry['quiz'])} quiz)")
         if not options["apply"]:
             return status
+
+        videos = {}
+        for name in video_sources(entry):
+            original = _save_video(lid, name)
+            videos[name] = optimize_video(_video_source(name), self.ffmpeg, self.audio_cache_dir, self.stderr.write) or original
 
         with transaction.atomic():
             if lecon is None:
@@ -248,7 +296,7 @@ class Command(BaseCommand):
                     add(type="code", language=bloc.get("language", "cpp"), code=bloc["code"])
                 elif kind == "video":
                     if bloc.get("fichier"):
-                        add(type="video", media_file=_save_video(lid, bloc["fichier"]),
+                        add(type="video", media_file=videos[bloc["fichier"]],
                             contenu=bloc.get("legende", ""))
                 else:
                     raise CommandError(f"{lid} : type de bloc inconnu « {kind} »")

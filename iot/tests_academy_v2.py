@@ -9,7 +9,9 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase, override_settings
+from django.core.files.base import ContentFile
 
+from . import academy_audio
 from .academy_access import can_read_lesson
 from .book_catalog import BOOK_SLUG
 from .models import AcademyBookLesson, BlocPedagogique, Lecon, Parcours, Quiz
@@ -178,6 +180,7 @@ class ImportV2Tests(TestCase):
         with (
             patch.object(import_academy_book_v2, "SOURCE", BOOK_V2_SOURCE),
             patch.object(import_academy_book_v2, "ASSETS", BOOK_V2_SOURCE / "assets"),
+            patch.object(academy_audio, "find_ffmpeg", return_value=None),
         ):
             self.run_import("--lesson", "0.1", "--apply")
             self.assertIn("1 inchangées", self.run_import("--lesson", "0.1", "--apply"))
@@ -232,6 +235,101 @@ class ImportV2Tests(TestCase):
         html = response.content.decode()
         self.assertLess(html.index("Notions de tension et de courant"), html.index("/theorie.mp4"))
         self.assertLess(html.index("/theorie.mp4"), html.index("Application de la formule"))
+
+    def test_audio_import_reuses_cache_and_updates_modified_video_from_original(self):
+        self.write(lesson(blocs=[{"type": "video", "fichier": "lesson.mp4"}]))
+        source = self.tmp / "lesson.mp4"
+        source.write_bytes(b"original one")
+        with (
+            patch.object(import_academy_book_v2, "COURSE_MEDIA", self.tmp),
+            patch.object(academy_audio, "find_ffmpeg", return_value="ffmpeg"),
+            patch.object(academy_audio, "normalize_file",
+                         side_effect=lambda src, dest, _: dest.write_bytes(src.read_bytes() + b" normalized")) as convert,
+        ):
+            self.assertIn("Simulation", self.run_import())
+            self.assertFalse(Lecon.objects.exists())
+            self.assertEqual(list(Path(self.media).iterdir()), [])
+            convert.assert_not_called()
+            self.run_import("--apply")
+            lecon = Lecon.objects.get()
+            first = lecon.blocs.get(type="video").media_file
+            self.assertTrue(first.name.startswith(f"{academy_audio.MEDIA_PREFIX}/"))
+            self.assertIn("1 inchangées", self.run_import("--apply"))
+            self.assertEqual(convert.call_count, 1)
+            source.write_bytes(b"original two")
+            self.run_import("--apply")
+            self.assertEqual(convert.call_count, 2)
+            self.assertNotEqual(lecon.blocs.get(type="video").media_file.name, first.name)
+            self.assertTrue(first.storage.exists(first.name))
+            self.assertEqual(source.read_bytes(), b"original two")
+
+    def test_manual_audio_upgrade_after_fallback_preserves_blocks_quizzes_and_urls(self):
+        self.write(lesson(blocs=[{"type": "video", "fichier": "lesson.mp4"}]))
+        source = self.tmp / "lesson.mp4"
+        source.write_bytes(b"original")
+        with patch.object(import_academy_book_v2, "COURSE_MEDIA", self.tmp):
+            with patch.object(academy_audio, "find_ffmpeg", return_value=None):
+                self.run_import("--apply")
+            lecon = Lecon.objects.get()
+            block = lecon.blocs.get(type="video")
+            original = block.media_file
+            quiz_ids = list(lecon.quizzes.values_list("pk", flat=True))
+            with (
+                patch.object(academy_audio, "find_ffmpeg", return_value="ffmpeg"),
+                patch.object(academy_audio, "normalize_file",
+                             side_effect=lambda src, dest, _: dest.write_bytes(b"optimized")) as convert,
+            ):
+                call_command("normalize_academy_audio", "--lesson", "0.9", stdout=StringIO())
+                convert.assert_not_called()
+                call_command("normalize_academy_audio", "--lesson", "0.9", "--apply", stdout=StringIO())
+            block.refresh_from_db()
+            self.assertTrue(block.media_file.name.startswith(f"{academy_audio.MEDIA_PREFIX}/"))
+            self.assertEqual(list(lecon.quizzes.values_list("pk", flat=True)), quiz_ids)
+            with original.open() as old:
+                self.assertEqual(old.read(), b"original")
+
+    def test_audio_export_simulation_does_not_create_a_cache(self):
+        self.write(lesson(blocs=[{"type": "video", "fichier": "lesson.mp4"}]))
+        (self.tmp / "lesson.mp4").write_bytes(b"original")
+        directory = self.tmp / "portable"
+        with (
+            patch.object(import_academy_book_v2, "COURSE_MEDIA", self.tmp),
+            patch.object(academy_audio, "find_ffmpeg") as find,
+        ):
+            call_command("normalize_academy_audio", "--lesson", "0.9", "--export-cache", str(directory),
+                         stdout=StringIO())
+            find.assert_not_called()
+        self.assertFalse(directory.exists())
+        self.assertFalse(Lecon.objects.exists())
+
+    def test_uploaded_video_processing_is_scoped_and_preserves_original_on_failure(self):
+        self.write(lesson(), lesson(id="0.10", titre="Autre leçon"))
+        self.run_import("--apply")
+        block, other = BlocPedagogique.objects.filter(type="video").order_by("lecon__ordre")
+        block.media_file.save("from-form.mp4", ContentFile(b"uploaded original"))
+        other.media_file.save("other.mp4", ContentFile(b"other original"))
+        original = block.media_file
+        with (
+            patch.object(academy_audio, "find_ffmpeg", return_value="ffmpeg"),
+            patch.object(academy_audio, "normalize_file", side_effect=academy_audio.AudioNormalizationError("fixture")),
+        ):
+            call_command("normalize_academy_audio", "--uploaded-lesson-id", str(block.lecon_id), "--apply",
+                         stdout=StringIO(), stderr=StringIO())
+        block.refresh_from_db()
+        self.assertEqual(block.media_file.name, original.name)
+        with (
+            patch.object(academy_audio, "find_ffmpeg", return_value="ffmpeg"),
+            patch.object(academy_audio, "normalize_file", side_effect=lambda src, dest, _: dest.write_bytes(b"optimized")) as convert,
+        ):
+            for _ in range(2):
+                call_command("normalize_academy_audio", "--uploaded-lesson-id", str(block.lecon_id), "--apply", stdout=StringIO())
+            convert.assert_called_once()
+        block.refresh_from_db()
+        other.refresh_from_db()
+        self.assertTrue(block.media_file.name.startswith(f"{academy_audio.MEDIA_PREFIX}/"))
+        self.assertTrue(other.media_file.name.endswith("/other.mp4"))
+        with original.open() as old:
+            self.assertEqual(old.read(), b"uploaded original")
 
 
 class AdminFullAccessTests(TestCase):
