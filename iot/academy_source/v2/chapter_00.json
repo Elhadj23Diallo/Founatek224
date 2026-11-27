@@ -32,6 +32,7 @@
    {
     "type": "video",
     "emplacement": "tension-courant",
+    "fichier": "lecon_0_1/video_01.mp4",
     "legende": "Vid?o th?orique ? tension (U) et courant (I)"
    },
    {
@@ -67,7 +68,7 @@
    },
    {
     "type": "video",
-    "fichier": "lecon_0_1/video_01.mp4",
+    "fichier": "lecon_0_1/video_02.mp4",
     "legende": "Simulation Wokwi — Arduino Uno, LED rouge et résistance de 220 Ω"
    },
    {

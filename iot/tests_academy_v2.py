@@ -167,14 +167,14 @@ class ImportV2Tests(TestCase):
         resp = self.client.get(f"/lecon/{lecon.id}/")
         self.assertRedirects(resp, "/academy/livre-1/", fetch_redirect_response=False)
 
-    def test_lesson_0_1_renders_wokwi_video_between_arduino_code_and_measurements(self):
+    def test_lesson_0_1_renders_theory_and_wokwi_at_their_positions(self):
         chapter = json.loads((BOOK_V2_SOURCE / "chapter_00.json").read_text(encoding="utf-8"))
         source_lesson = next(entry for entry in chapter if entry["id"] == "0.1")
         blocs = source_lesson["blocs"]
         reserved = next(i for i, bloc in enumerate(blocs) if bloc.get("emplacement") == "tension-courant")
         self.assertIn("Les quatre grandeurs à connaître", blocs[reserved - 1]["contenu"])
         self.assertIn("La loi d'Ohm", blocs[reserved + 1]["contenu"])
-        self.assertNotIn("fichier", blocs[reserved])
+        self.assertEqual(blocs[reserved]["fichier"], "lecon_0_1/video_01.mp4")
         with (
             patch.object(import_academy_book_v2, "SOURCE", BOOK_V2_SOURCE),
             patch.object(import_academy_book_v2, "ASSETS", BOOK_V2_SOURCE / "assets"),
@@ -184,23 +184,24 @@ class ImportV2Tests(TestCase):
 
         lecon = Lecon.objects.get()
         self.assertEqual(lecon.quizzes.count(), len(source_lesson["quiz"]))
-        video = lecon.blocs.get(type="video")
-        source = import_academy_book_v2.COURSE_MEDIA / "lecon_0_1" / "video_01.mp4"
-        self.assertEqual(video.media_file.size, source.stat().st_size)
+        theory, practice = lecon.blocs.filter(type="video").order_by("ordre")
+        for video, filename in ((theory, "video_01.mp4"), (practice, "video_02.mp4")):
+            source = import_academy_book_v2.COURSE_MEDIA / "lecon_0_1" / filename
+            self.assertTrue(video.media_file.name.endswith(f"/{filename}"))
+            self.assertEqual(video.media_file.size, source.stat().st_size)
         self.client.force_login(self.staff)
         response = self.client.get(f"/lecon/{lecon.id}/")
-        self.assertContains(response, "<video controls", count=1)
+        self.assertContains(response, "<video controls", count=2)
         self.assertNotContains(response, "Vidéo de la leçon : bientôt disponible")
-        self.assertNotContains(response, "Vidéo théorique")
-        self.assertNotContains(response, "video_02.mp4")
         html = response.content.decode()
         markers = (
             "Les quatre grandeurs à connaître",
+            f'<source src="{theory.media_file.url}">',
             "La loi d",
             "Exemple résolu",
             "Le montage pas à pas",
             "BROCHE_LED",
-            f'<source src="{video.media_file.url}">',
+            f'<source src="{practice.media_file.url}">',
             "Mesurer pour vérifier",
         )
         positions = [html.index(marker) for marker in markers]
