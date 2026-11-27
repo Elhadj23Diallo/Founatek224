@@ -170,6 +170,11 @@ class ImportV2Tests(TestCase):
     def test_lesson_0_1_renders_wokwi_video_between_arduino_code_and_measurements(self):
         chapter = json.loads((BOOK_V2_SOURCE / "chapter_00.json").read_text(encoding="utf-8"))
         source_lesson = next(entry for entry in chapter if entry["id"] == "0.1")
+        blocs = source_lesson["blocs"]
+        reserved = next(i for i, bloc in enumerate(blocs) if bloc.get("emplacement") == "tension-courant")
+        self.assertIn("Les quatre grandeurs à connaître", blocs[reserved - 1]["contenu"])
+        self.assertIn("La loi d'Ohm", blocs[reserved + 1]["contenu"])
+        self.assertNotIn("fichier", blocs[reserved])
         with (
             patch.object(import_academy_book_v2, "SOURCE", BOOK_V2_SOURCE),
             patch.object(import_academy_book_v2, "ASSETS", BOOK_V2_SOURCE / "assets"),
@@ -186,6 +191,7 @@ class ImportV2Tests(TestCase):
         response = self.client.get(f"/lecon/{lecon.id}/")
         self.assertContains(response, "<video controls", count=1)
         self.assertNotContains(response, "Vidéo de la leçon : bientôt disponible")
+        self.assertNotContains(response, "Vidéo théorique")
         self.assertNotContains(response, "video_02.mp4")
         html = response.content.decode()
         markers = (
@@ -199,6 +205,32 @@ class ImportV2Tests(TestCase):
         )
         positions = [html.index(marker) for marker in markers]
         self.assertEqual(positions, sorted(positions))
+
+    def test_reserved_video_only_appears_after_adding_its_file(self):
+        slot = {"type": "video", "emplacement": "tension-courant", "legende": "Vidéo théorique"}
+        entry = lesson(blocs=[
+            {"type": "texte", "contenu": "## Notions de tension et de courant"},
+            slot,
+            {"type": "texte", "contenu": "## Application de la formule"},
+        ])
+        self.write(entry)
+        self.run_import("--apply")
+        url = f"/lecon/{Lecon.objects.get().pk}/"
+        self.client.force_login(self.staff)
+        response = self.client.get(url)
+        self.assertNotContains(response, "<video")
+        self.assertNotContains(response, "Vidéo de la leçon : bientôt disponible")
+
+        slot["fichier"] = "theorie.mp4"
+        (self.tmp / slot["fichier"]).write_bytes(b"synthetic test clip")
+        self.write(entry)
+        with patch.object(import_academy_book_v2, "COURSE_MEDIA", self.tmp):
+            self.run_import("--apply")
+        response = self.client.get(url)
+        self.assertContains(response, "<video controls", count=1)
+        html = response.content.decode()
+        self.assertLess(html.index("Notions de tension et de courant"), html.index("/theorie.mp4"))
+        self.assertLess(html.index("/theorie.mp4"), html.index("Application de la formule"))
 
 
 class AdminFullAccessTests(TestCase):

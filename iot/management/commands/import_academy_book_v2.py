@@ -26,7 +26,8 @@ Format d'une leçon (chapter_XX.json = liste de leçons) :
      {"type": "schema", "fichier": "0.1-schema.svg", "legende": "…"},
      {"type": "image",  "fichier": "…", "legende": "…", "credit": "…"},
      {"type": "code", "language": "cpp", "code": "…"},
-     {"type": "video", "fichier": "lecon_0_1/video_01.mp4", "legende": "…"}
+     {"type": "video", "fichier": "lecon_0_1/video_01.mp4", "legende": "…"},
+     {"type": "video", "emplacement": "tension-courant", "legende": "…"}
   ],
   "quiz": [{"question": "…", "choix": ["…", "…", "…", "…"],
             "bonnes": ["B"], "explication": "…"}]
@@ -34,6 +35,8 @@ Format d'une leçon (chapter_XX.json = liste de leçons) :
 Le matériel suit les objectifs. Sans bloc vidéo explicite, l’emplacement vidéo reste à cet endroit.
 Les fichiers (photos, schémas) sont dans iot/academy_source/v2/assets/.
 Les fichiers vidéo référencés par les blocs sont dans iot/course_media/.
+Un bloc vidéo avec un emplacement mais sans fichier n'est pas rendu. Ajouter
+le fichier au même bloc suffit à activer le lecteur à la position réservée.
 """
 import hashlib
 import json
@@ -70,6 +73,8 @@ def _asset_paths(entry):
     for bloc in entry.get("blocs", []):
         name = bloc.get("fichier")
         if bloc.get("type") == "video":
+            if not name and bloc.get("emplacement"):
+                continue
             yield name or "", _video_source(name)
         elif name:
             yield name, ASSETS / name
@@ -242,8 +247,9 @@ class Command(BaseCommand):
                 elif kind == "code":
                     add(type="code", language=bloc.get("language", "cpp"), code=bloc["code"])
                 elif kind == "video":
-                    add(type="video", media_file=_save_video(lid, bloc["fichier"]),
-                        contenu=bloc.get("legende", ""))
+                    if bloc.get("fichier"):
+                        add(type="video", media_file=_save_video(lid, bloc["fichier"]),
+                            contenu=bloc.get("legende", ""))
                 else:
                     raise CommandError(f"{lid} : type de bloc inconnu « {kind} »")
 
