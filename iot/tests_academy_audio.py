@@ -40,6 +40,7 @@ class AudioCacheTests(SimpleTestCase):
         cache = self.root / "portable"
         with patch.object(audio, "normalize_file", side_effect=self.fake_transcode) as process:
             portable = audio.export_rendition(self.source, cache, "ffmpeg")
+            self.assertEqual(audio.export_rendition(self.source, cache, None), portable)
             name = audio.optimize_for_storage(self.source, None, cache, storage=self.storage)
         self.assertEqual(process.call_count, 1)
         with self.storage.open(name) as optimized:
@@ -60,6 +61,13 @@ class AudioCacheTests(SimpleTestCase):
                 audio.optimize_for_storage(self.source, "ffmpeg", storage=self.storage)
         self.assertFalse(process.call_args.args[1].parent.exists())
         self.assertFalse((self.root / "media").exists())
+        self.assertEqual(self.source.read_bytes(), b"first original")
+
+    def test_source_cannot_be_used_as_the_output_even_with_ffmpeg(self):
+        with patch.object(audio, "measure") as measure:
+            with self.assertRaisesRegex(audio.AudioNormalizationError, "distincte"):
+                audio.normalize_file(self.source, self.source, "ffmpeg")
+            measure.assert_not_called()
         self.assertEqual(self.source.read_bytes(), b"first original")
 
 

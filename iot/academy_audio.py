@@ -86,6 +86,8 @@ def _number_fields(statistics, fields):
 
 
 def normalize_file(source, destination, executable):
+    if source.resolve() == destination.resolve() or (destination.exists() and source.samefile(destination)):
+        raise AudioNormalizationError("La sortie doit être distincte de la vidéo originale.")
     if not executable:
         raise AudioNormalizationError("FFmpeg est introuvable.")
     statistics = measure(executable, source, require_original=True)
@@ -134,6 +136,8 @@ def export_rendition(source, directory, executable):
     key = cache_key(source)
     if existing := _portable_file(directory, key):
         return existing
+    if not executable:
+        raise AudioNormalizationError("FFmpeg est introuvable. Configure ACADEMY_FFMPEG.")
     directory.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=directory, prefix=".academy-audio-") as temporary:
         video = Path(temporary) / "video.mp4"

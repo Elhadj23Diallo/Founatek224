@@ -45,8 +45,6 @@ class Command(BaseCommand):
             if not options["apply"]:
                 self.stdout.write(f"Simulation {entry['id']} : " + ", ".join(names))
             elif options["export_cache"]:
-                if not executable:
-                    raise CommandError("FFmpeg est introuvable. Configure ACADEMY_FFMPEG.")
                 for name in names:
                     try:
                         output = academy_audio.export_rendition(_video_source(name), options["export_cache"], executable)
