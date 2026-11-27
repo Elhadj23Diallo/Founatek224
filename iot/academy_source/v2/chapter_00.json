@@ -280,12 +280,22 @@
     "legende": "Les quatre formes de signaux à connaître : continu (pile), alternatif sinusoïdal (secteur), redressé (après un pont de diodes) et carré / PWM (sortie analogWrite d'un Arduino)."
    },
    {
+    "type": "video",
+    "fichier": "lecon_0_2/video_1.mp4",
+    "legende": "Courant continu et alternatif : période, fréquence et tension efficace"
+   },
+   {
     "type": "texte",
     "contenu": "## 3. Du secteur au continu : l'adaptateur\n\nÀ l'intérieur d'un adaptateur, quatre étapes transforment le 230 V alternatif en une petite tension continue :\n\n1. **Abaisser** la tension (transformateur ou électronique à découpage).\n2. **Redresser** avec un pont de diodes : la tension devient toujours positive, mais elle ondule (fiche 2.1).\n3. **Lisser** avec un condensateur : les creux se remplissent.\n4. **Réguler** : un régulateur donne une tension bien stable, par exemple 5 V.\n\n### Lire l'étiquette d'un adaptateur\n\n| Mention | Signification |\n|---|---|\n| Input : 100-240 V ~ 50/60 Hz | il se branche sur le secteur alternatif, dans tous les pays |\n| Output : 5 V ⎓ 2 A | il fournit du continu à 5 V, jusqu'à 2 A au maximum |\n| Dessin « centre + » (⊖ – ● – ⊕) | polarité du jack : le centre est au +, l'extérieur au − |\n\nPour choisir un adaptateur :\n\n- la **même tension** que celle attendue par le montage ;\n- un **courant maximal supérieur ou égal** à la consommation du montage (le montage ne prend que ce dont il a besoin) ;\n- une sortie en **continu** (⎓), jamais en alternatif (~) ;\n- la **bonne polarité** du jack.\n\n> 💡 Exemple : ton montage consomme 300 mA sous 5 V. Un adaptateur 5 V ⎓ 2 A convient parfaitement : 2 A ≥ 0,3 A. Un adaptateur 9 V ⎓ 2 A **ne convient pas** si tu branches directement sur la broche 5V de la carte."
    },
    {
     "type": "texte",
     "contenu": "## 4. Le PWM : un continu « haché »\n\nUne broche d'Arduino ne sait donner que 0 V ou 5 V. Pour faire varier la luminosité d'une LED ou la vitesse d'un moteur, elle bascule très vite entre les deux : c'est le **PWM** (*Pulse Width Modulation*, modulation de largeur d'impulsion).\n\nPendant une période \\( T \\), la sortie reste à 5 V pendant \\( t_{on} \\), puis à 0 V le reste du temps. Le **rapport cyclique** \\( \\alpha \\) est la part du temps passée à l'état haut :\n\n$$\\alpha = \\frac{t_{on}}{T}$$\n\nLa tension **moyenne** vaut alors :\n\n$$U_{moy} = \\alpha \\times U_{haut}$$\n\nAvec `analogWrite(broche, r)`, la valeur r va de 0 à 255, donc :\n\n$$\\alpha = \\frac{r}{255} \\qquad\\qquad U_{moy} = \\frac{r}{255} \\times 5\\ \\text{V}$$\n\n| r dans analogWrite | Rapport cyclique | U moyenne (Uno, 5 V) | U moyenne (ESP32, 3,3 V) |\n|---|---|---|---|\n| 0 | 0 % | 0 V | 0 V |\n| 64 | 25 % | ≈ 1,25 V | ≈ 0,83 V |\n| 128 | 50 % | ≈ 2,5 V | ≈ 1,65 V |\n| 192 | 75 % | ≈ 3,76 V | ≈ 2,48 V |\n| 255 | 100 % | 5 V (continu) | 3,3 V (continu) |\n\n> 📌 Sur l'Uno, seules les broches marquées **~** font du PWM : **3, 5, 6, 9, 10 et 11**. La fréquence est d'environ **490 Hz** (980 Hz sur les broches 5 et 6).\n\n> ⚠️ Le PWM n'est **pas** une vraie tension intermédiaire : c'est un carré 0 / 5 V. Une LED clignote si vite que l'œil voit une moyenne, mais un circuit sensible, lui, voit bien les 5 V."
+   },
+   {
+    "type": "video",
+    "fichier": "lecon_0_2/video_2.mp4",
+    "legende": "Du secteur au continu : alimentation, rapport cyclique et PWM"
    },
    {
     "type": "schema",
@@ -299,11 +309,16 @@
    {
     "type": "code",
     "language": "cpp",
-    "code": "// Leçon 0.2 — PWM sur D9, lissé par un filtre RC, mesuré sur A0\nconst int PWM = 9;   // broches PWM (~) de l'Uno : 3 5 6 9 10 11\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  for (int r = 0; r <= 255; r += 64) {   // r = 0, 64, 128, 192\n    analogWrite(PWM, r);                 // rapport cyclique r / 255\n    delay(1000);                         // le filtre RC se stabilise (5 tau = 0,5 s)\n    float u = analogRead(A0) * 5.0 / 1023.0;\n    float attendu = r / 255.0 * 5.0;     // U moyenne théorique\n    Serial.print(\"r = \");    Serial.print(r);\n    Serial.print(\"  mesure : \"); Serial.print(u, 2);\n    Serial.print(\" V  attendu : \"); Serial.print(attendu, 2);\n    Serial.println(\" V\");\n  }\n}"
+    "code": "// Leçon 0.2 — Founatek Academy\n// PWM sur D9, lissé par un filtre RC, mesuré sur A0\n\nconst int PWM = 9;\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n\n  // Valeurs PWM : 0, 64, 128, 192\n  for (int r = 0; r <= 255; r += 64) {\n\n    // Génération du signal PWM\n    analogWrite(PWM, r);\n\n    // Stabilisation du filtre RC\n    delay(1000);\n\n    // Mesure de la tension sur A0\n    float u = analogRead(A0) * 5.0 / 1023.0;\n\n    // Calcul de la tension moyenne théorique\n    float attendu = r / 255.0 * 5.0;\n\n    // Affichage dans le moniteur série\n    Serial.print(\"r = \");\n    Serial.print(r);\n\n    Serial.print(\"  mesure : \");\n    Serial.print(u, 2);\n\n    Serial.print(\" V  attendu : \");\n    Serial.print(attendu, 2);\n\n    Serial.println(\" V\");\n  }\n}"
    },
    {
     "type": "texte",
     "contenu": "### Ce que tu dois observer\n\n| r | Rapport cyclique | U attendue | Ta mesure sur A0 | Ta mesure au multimètre (V⎓) |\n|---|---|---|---|---|\n| 0 | 0 % | 0,00 V | … | … |\n| 64 | 25 % | 1,25 V | … | … |\n| 128 | 50 % | 2,51 V | … | … |\n| 192 | 75 % | 3,76 V | … | … |\n\nPour mesurer au multimètre : calibre **20 V⎓**, pointe rouge sur la patte + du condensateur, pointe noire sur GND.\n\n> 📌 **Et avec un ESP32 ?** Presque toutes les GPIO font du PWM : `analogWrite` avec les versions récentes du core ESP32, sinon `ledcWrite`. Le signal va de 0 à 3,3 V, donc \\( U_{moy} = \\alpha \\times 3{,}3\\ \\text{V} \\). Mesure sur **GPIO 34** (valeurs de 0 à 4095) : `float u = analogRead(34) * 3.3 / 4095.0;`.\n\n## 6. Mesurer au multimètre\n\n- **V⎓** (continu) pour les piles, l'USB, l'Arduino et la sortie du filtre RC.\n- **V~** (alternatif) seulement pour le secteur, et seulement si tu as été formé.\n- Sur un PWM non filtré, un multimètre en V⎓ affiche à peu près la moyenne ; en V~, la lecture est trompeuse.\n- Pour voir la vraie forme du signal, il faut un **oscilloscope** : FOUNATEK OSC (fiche 11.3) permet de s'entraîner en ligne."
+   },
+   {
+    "type": "video",
+    "fichier": "lecon_0_2/video_3.mp4",
+    "legende": "Expérience Arduino : filtre RC et mesure de la tension moyenne"
    },
    {
     "type": "texte",

@@ -269,7 +269,6 @@ class Command(BaseCommand):
                     .values_list("media_file", flat=True).first()
                 )
             lecon.blocs.all().delete()
-            lecon.quizzes.all().delete()
 
             ordre = 0
 
@@ -309,15 +308,23 @@ class Command(BaseCommand):
                         add(type="video", media_file=kept_video or None,
                             contenu=entry.get("video", ""))
 
+            quiz_fields = []
             for q in entry["quiz"]:
                 choix = q["choix"] + [None] * (4 - len(q["choix"]))
-                Quiz.objects.create(
-                    lecon=lecon, question=q["question"],
+                quiz_fields.append(dict(
+                    question=q["question"],
                     choix_a=choix[0], choix_b=choix[1], choix_c=choix[2], choix_d=choix[3],
                     bonne_reponse=",".join(q["bonnes"]),
                     plusieurs_reponses=len(q["bonnes"]) > 1,
                     explication=q.get("explication", ""),
-                )
+                ))
+            if list(lecon.quizzes.order_by("pk").values(
+                "question", "choix_a", "choix_b", "choix_c", "choix_d",
+                "bonne_reponse", "plusieurs_reponses", "explication",
+            )) != quiz_fields:
+                lecon.quizzes.all().delete()
+                for fields in quiz_fields:
+                    Quiz.objects.create(lecon=lecon, **fields)
 
             book_entry.content_hash = digest
             book_entry.save(update_fields=["content_hash"])

@@ -210,6 +210,48 @@ class ImportV2Tests(TestCase):
         positions = [html.index(marker) for marker in markers]
         self.assertEqual(positions, sorted(positions))
 
+    def test_lesson_0_2_renders_three_videos_and_keeps_existing_quizzes(self):
+        chapter = json.loads((BOOK_V2_SOURCE / "chapter_00.json").read_text(encoding="utf-8"))
+        entry = next(item for item in chapter if item["id"] == "0.2")
+        prior_blocks = [
+            {"type": "code", "language": "cpp", "code": "void setup() {}"} if block["type"] == "code" else block
+            for block in entry["blocs"] if block["type"] != "video"
+        ]
+        self.write({**entry, "blocs": prior_blocks})
+        with (
+            patch.object(import_academy_book_v2, "ASSETS", BOOK_V2_SOURCE / "assets"),
+            patch.object(academy_audio, "find_ffmpeg", return_value=None),
+        ):
+            self.run_import("--lesson", "0.2", "--apply")
+            lecon = Lecon.objects.get()
+            quiz_ids = list(lecon.quizzes.order_by("pk").values_list("pk", flat=True))
+            self.write(entry)
+            self.run_import("--lesson", "0.2", "--apply")
+            self.assertIn("1 inchangées", self.run_import("--lesson", "0.2", "--apply"))
+
+        self.assertEqual(list(lecon.quizzes.order_by("pk").values_list("pk", flat=True)), quiz_ids)
+        self.assertFalse(lecon.academy_book_entry.published)
+        first, second, third = lecon.blocs.filter(type="video").order_by("ordre")
+        for index, video in enumerate((first, second, third), start=1):
+            self.assertTrue(video.media_file.name.endswith(f"/video_{index}.mp4"))
+        self.client.force_login(self.staff)
+        response = self.client.get(f"/lecon/{lecon.id}/")
+        self.assertContains(response, "<video controls", count=3)
+        self.assertContains(response, "Copier le code")
+        html = response.content.decode()
+        markers = [
+            "un signal alternatif",
+            first.media_file.url,
+            "Le PWM",
+            second.media_file.url,
+            "const int PWM = 9;",
+            "Mesurer au multimètre",
+            third.media_file.url,
+            "Erreurs fréquentes",
+        ]
+        positions = [html.index(marker) for marker in markers]
+        self.assertEqual(positions, sorted(positions))
+
     def test_reserved_video_only_appears_after_adding_its_file(self):
         slot = {"type": "video", "emplacement": "tension-courant", "legende": "Vidéo théorique"}
         entry = lesson(blocs=[
